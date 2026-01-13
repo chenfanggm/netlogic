@@ -35,6 +35,32 @@ namespace Sim
         {
             _transport.Poll();
 
+            ProcessNewConnections();
+
+            ProcessPackets();
+        }
+
+        private void ProcessPackets()
+        {
+            while (_transport.TryReceive(out NetPacket packet))
+            {
+                // All control and commands are Reliable lane only
+                if (packet.Lane != Lane.Reliable)
+                    continue;
+
+                if (ProcessHello(packet))
+                    continue;
+
+                if (ProcessPing(packet))
+                    continue;
+
+                if (ProcessClientOps(packet))
+                    continue;
+            }
+        }
+
+        private void ProcessNewConnections()
+        {
             while (_transport.TryDequeueConnected(out int connId))
             {
                 if (!_clients.Contains(connId))
@@ -44,44 +70,43 @@ namespace Sim
                 SendWelcome(connId);
                 SendBaseline(connId);
             }
+        }
 
-            while (_transport.TryReceive(out NetPacket packet))
-            {
-                // All control and commands are Reliable lane only
-                if (packet.Lane != Lane.Reliable)
-                    continue;
+        private bool ProcessHello(NetPacket packet)
+        {
+            if (!MsgCodec.TryDecodeHello(packet.Payload, out Hello hello))
+                return false;
 
-                // HELLO
-                if (MsgCodec.TryDecodeHello(packet.Payload, out Hello hello))
-                {
-                    // Validate protocol/version
-                    // (We already validate in decoder)
-                    SendWelcome(packet.ConnectionId);
-                    SendBaseline(packet.ConnectionId);
-                    continue;
-                }
+            // Validate protocol/version
+            // (We already validate in decoder)
+            SendWelcome(packet.ConnectionId);
+            SendBaseline(packet.ConnectionId);
+            return true;
+        }
 
-                // PING -> respond PONG
-                if (MsgCodec.TryDecodePing(packet.Payload, out PingMsg ping))
-                {
-                    PongMsg pong = new PongMsg(
-                        pingId: ping.PingId,
-                        clientTimeMsEcho: ping.ClientTimeMs,
-                        serverTimeMs: _ticker.ServerTimeMs,
-                        serverTick: _ticker.CurrentTick);
+        private bool ProcessPing(NetPacket packet)
+        {
+            if (!MsgCodec.TryDecodePing(packet.Payload, out PingMsg ping))
+                return false;
 
-                    byte[] pongBytes = MsgCodec.EncodePong(pong);
-                    _transport.Send(packet.ConnectionId, Lane.Reliable, new ArraySegment<byte>(pongBytes, 0, pongBytes.Length));
-                    continue;
-                }
+            PongMsg pong = new PongMsg(
+                pingId: ping.PingId,
+                clientTimeMsEcho: ping.ClientTimeMs,
+                serverTimeMs: _ticker.ServerTimeMs,
+                serverTick: _ticker.CurrentTick);
 
-                // CLIENT OPS
-                if (MsgCodec.TryDecodeClientOps(packet.Payload, out ClientOpsMsg cmd))
-                {
-                    ApplyClientOps(packet.ConnectionId, cmd);
-                    continue;
-                }
-            }
+            byte[] pongBytes = MsgCodec.EncodePong(pong);
+            _transport.Send(packet.ConnectionId, Lane.Reliable, new ArraySegment<byte>(pongBytes, 0, pongBytes.Length));
+            return true;
+        }
+
+        private bool ProcessClientOps(NetPacket packet)
+        {
+            if (!MsgCodec.TryDecodeClientOps(packet.Payload, out ClientOpsMsg cmd))
+                return false;
+
+            ApplyClientOps(packet.ConnectionId, cmd);
+            return true;
         }
 
         public void TickOnce()
