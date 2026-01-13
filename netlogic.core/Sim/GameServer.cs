@@ -22,10 +22,12 @@ namespace Sim
         private readonly List<int> _clients = new List<int>(32);
         private readonly ClientCommandBuffer _cmdBuffer = new ClientCommandBuffer();
 
-        private readonly Dictionary<int, ClientReliableState> _clientReliable = new Dictionary<int, ClientReliableState>(32);
-        private readonly ServerReliableOpLog _reliableLog = new ServerReliableOpLog(capacity: 512);
+        private readonly Dictionary<int, ServerReliableStream> _reliableStreams = new Dictionary<int, ServerReliableStream>(32);
 
-        private uint _serverReliableSeq = 1;
+        // Recommended caps (tune later):
+        private const int ReliableMaxOpsBytesPerTick = 8 * 1024;
+        private const int ReliableMaxPendingPackets = 128;
+
         private uint _serverSampleSeq = 1;
 
         private readonly NetDataWriter _opsWriter = new NetDataWriter();
@@ -98,14 +100,15 @@ namespace Sim
                 if (!_clients.Contains(connId))
                     _clients.Add(connId);
 
-                if (!_clientReliable.ContainsKey(connId))
-                    _clientReliable.Add(connId, new ClientReliableState());
+                if (!_reliableStreams.ContainsKey(connId))
+                    _reliableStreams.Add(connId, new ServerReliableStream(ReliableMaxOpsBytesPerTick, ReliableMaxPendingPackets));
 
                 // Immediately send Welcome + Baseline (join-in-progress ready)
                 SendWelcome(connId);
                 SendBaseline(connId);
 
-                ReplayReliableOps(connId);
+                // Replay unacked reliable stream (join/reconnect path)
+                ReplayReliableStream(connId);
             }
         }
 
@@ -142,12 +145,9 @@ namespace Sim
             if (!MsgCodec.TryDecodeClientAck(packet.Payload, out ClientAckMsg ack))
                 return false;
 
-            if (_clientReliable.TryGetValue(packet.ConnId, out ClientReliableState st))
+            if (_reliableStreams.TryGetValue(packet.ConnId, out ServerReliableStream stream))
             {
-                if (ack.LastAckedReliableSeq > st.LastAckedReliableSeq)
-                    st.LastAckedReliableSeq = ack.LastAckedReliableSeq;
-
-                st.LastSeenTick = _ticker.CurrentTick;
+                stream.OnAck(ack.LastAckedReliableSeq);
             }
 
             return true;
@@ -214,15 +214,40 @@ namespace Sim
             }
         }
 
-        private void ReplayReliableOps(int connId)
+        private void ReplayReliableStream(int connId)
         {
-            if (!_clientReliable.TryGetValue(connId, out ClientReliableState st))
+            if (!_reliableStreams.TryGetValue(connId, out ServerReliableStream stream))
                 return;
 
-            foreach (ServerReliableOpLog.Entry e in _reliableLog.EntriesAfterSeq(st.LastAckedReliableSeq))
+            foreach (byte[] packetBytes in stream.GetUnackedPackets())
             {
-                byte[] packetBytes = e.PacketBytes;
                 _transport.Send(connId, Lane.Reliable, new ArraySegment<byte>(packetBytes, 0, packetBytes.Length));
+            }
+        }
+
+        /// <summary>
+        /// Helper for gameplay systems to emit per-client reliable ops.
+        /// Call this from your authoritative tick systems (not Poll).
+        /// </summary>
+        public void EmitReliableOpsForClient(int connId, ushort opCount, byte[] opsPayload)
+        {
+            if (!_reliableStreams.TryGetValue(connId, out ServerReliableStream stream))
+                return;
+
+            stream.AddOpsForTick(_ticker.CurrentTick, opCount, opsPayload);
+        }
+
+        /// <summary>
+        /// Helper for gameplay systems to emit broadcast reliable ops.
+        /// Call this from your authoritative tick systems (not Poll).
+        /// </summary>
+        public void EmitReliableOpsForAll(ushort opCount, byte[] opsPayload)
+        {
+            int k = 0;
+            while (k < _clients.Count)
+            {
+                EmitReliableOpsForClient(_clients[k], opCount, opsPayload);
+                k++;
             }
         }
 
@@ -255,37 +280,35 @@ namespace Sim
 
         private void SendReliableOpsToAll()
         {
-            _opsWriter.Reset();
-            ushort opCount = 0;
+            // In industry systems, reliable ops are usually produced by gameplay systems into a per-client stream.
+            // This method is the "flush point" each server tick.
+            // For now, we demonstrate the pattern with a placeholder that could be filled by your gameplay systems.
 
-            // TODO: write reliable ops here (container ops/events)
-            // Example: OpsWriter.WriteCardMove(...)
+            int serverTick = _ticker.CurrentTick;
 
-            if (opCount == 0)
-                return;
-
-            uint hash = StateHash.ComputeWorldHash(_world);
-
-            byte[] opsBytes = _opsWriter.CopyData();
-
-            ServerOpsMsg msg = new ServerOpsMsg(
-                serverTick: _ticker.CurrentTick,
-                serverSeq: _serverReliableSeq++,
-                stateHash: hash,
-                opCount: opCount,
-                opsPayload: opsBytes);
-
-            byte[] packet = MsgCodec.EncodeServerOps(Lane.Reliable, msg);
-
-            // Log for resend/replay window
-            _reliableLog.Add(msg.ServerSeq, _ticker.CurrentTick, packet);
-
-            ArraySegment<byte> payload = new ArraySegment<byte>(packet, 0, packet.Length);
+            // Example: suppose your gameplay systems generated per-client reliable ops this tick.
+            // You will call stream.AddOpsForTick(...) from those systems (NOT in Poll).
+            //
+            // In this template, we are not generating any reliable ops, so flush will do nothing.
 
             int k = 0;
             while (k < _clients.Count)
             {
-                _transport.Send(_clients[k], Lane.Reliable, payload);
+                int connId = _clients[k];
+
+                if (_reliableStreams.TryGetValue(connId, out ServerReliableStream stream))
+                {
+                    // If you have per-client ops, they should already be added into the stream for this tick.
+                    // Then flush them into a packet:
+                    uint hash = StateHash.ComputeWorldHash(_world);
+
+                    byte[] packetBytes = stream.FlushToPacketIfAny(serverTick, hash);
+                    if (packetBytes != null)
+                    {
+                        _transport.Send(connId, Lane.Reliable, new ArraySegment<byte>(packetBytes, 0, packetBytes.Length));
+                    }
+                }
+
                 k++;
             }
         }
