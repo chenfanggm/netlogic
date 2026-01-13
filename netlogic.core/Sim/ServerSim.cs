@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Game;
 using Net;
 
@@ -7,21 +9,27 @@ namespace Sim
     {
         private readonly TickClock _clock;
         private readonly ITransportEndpoint _net;
-        private readonly CommandBuffer _cmdBuffer = new();
-        private readonly World _world = new();
+        private readonly CommandBuffer _cmdBuffer;
+        private readonly World _world;
 
         private int _tick;
-        private int _nextPlayerId = 1;
+        private int _nextPlayerId;
 
-        // Minimal reliability: ack last received seq per player
-        private readonly Dictionary<int, uint> _lastClientSeq = new();
+        private readonly Dictionary<int, SeqDedupe> _dedupeByPlayer;
 
         public ServerSim(TickClock clock, ITransportEndpoint net)
         {
             _clock = clock;
             _net = net;
 
-            // Example: spawn one entity at start
+            _cmdBuffer = new CommandBuffer();
+            _world = new World();
+
+            _tick = 0;
+            _nextPlayerId = 1;
+
+            _dedupeByPlayer = new Dictionary<int, SeqDedupe>(16);
+
             _world.Spawn(0, 0);
         }
 
@@ -32,48 +40,51 @@ namespace Sim
                 _clock.WaitForNextTick();
                 PumpNetwork();
                 Step();
-                PublishSnapshot(); // Step 1: full snapshots
+                PublishSnapshot();
             }
         }
 
         private void PumpNetwork()
         {
-            while (_net.TryReceive(out IMessage msg))
+            IMessage msg;
+            while (_net.TryReceive(out msg))
             {
                 switch (msg)
                 {
                     case HelloMsg hello:
                         {
                             int pid = _nextPlayerId++;
-                            _lastClientSeq[pid] = 0;
+                            _dedupeByPlayer[pid] = new SeqDedupe(windowKeep: 2048);
+
                             _net.Send(new WelcomeMsg(pid, _tick, _clock.TickRateHz));
-                            Console.WriteLine($"[Server] Welcome {hello.PlayerName} -> PlayerId={pid}");
+                            Console.WriteLine("[Server] Welcome " + hello.PlayerName + " -> PlayerId=" + pid);
                             break;
                         }
+
                     case CommandBatchMsg batch:
                         {
-                            // basic ordering (not full reliability yet)
-                            if (_lastClientSeq.TryGetValue(batch.PlayerId, out uint last))
+                            SeqDedupe? dedupe;
+                            if (!_dedupeByPlayer.TryGetValue(batch.PlayerId, out dedupe) || dedupe == null)
                             {
-                                if (batch.ClientSeq <= last)
-                                    break; // old/duplicate
-                                _lastClientSeq[batch.PlayerId] = batch.ClientSeq;
-                            }
-                            else
-                            {
-                                _lastClientSeq[batch.PlayerId] = batch.ClientSeq;
+                                dedupe = new SeqDedupe(windowKeep: 2048);
+                                _dedupeByPlayer[batch.PlayerId] = dedupe;
                             }
 
-                            // Ack immediately
+                            // Always ACK receipt (even if duplicate) so client can stop resending.
                             _net.Send(new AckMsg(batch.ClientSeq));
 
-                            foreach (Command cmd in batch.Commands)
+                            bool firstTime = dedupe.TryMarkFirstTime(batch.ClientSeq);
+                            if (!firstTime)
+                                break; // duplicate
+
+                            List<Command> commands = batch.Commands;
+                            for (int iCmd = 0; iCmd < commands.Count; iCmd++)
                             {
-                                // Server authoritative: accept only future/present ticks
+                                Command cmd = commands[iCmd];
                                 if (cmd.TargetTick >= _tick)
                                     _cmdBuffer.Add(cmd);
-                                // else late: drop (log later in step 3+)
                             }
+
                             break;
                         }
                 }
@@ -82,14 +93,13 @@ namespace Sim
 
         private void Step()
         {
-            // 1) Apply commands scheduled for this tick
             List<Command> cmds = _cmdBuffer.Drain(_tick);
             for (int i = 0; i < cmds.Count; i++)
+            {
                 Apply(cmds[i]);
+            }
 
-            // 2) Advance world
             _world.StepFixed();
-
             _tick++;
         }
 
@@ -99,22 +109,27 @@ namespace Sim
             {
                 case CommandType.Move:
                     {
-                        // A=entityId, B=packed dx/dy: high16=dx low16=dy (signed)
-                        if (_world.TryGet(cmd.A, out Entity e))
-                            e.MoveBy((short)((cmd.B >> 16) & 0xFFFF), (short)(cmd.B & 0xFFFF));
+                        Game.Entity e;
+                        if (_world.TryGet(cmd.A, out e))
+                        {
+                            int dx = (short)((cmd.B >> 16) & 0xFFFF);
+                            int dy = (short)(cmd.B & 0xFFFF);
+                            e.MoveBy(dx, dy);
+                        }
                         break;
                     }
+
                 case CommandType.Spawn:
                     {
-                        // A=x, B=y
                         _world.Spawn(cmd.A, cmd.B);
                         break;
                     }
+
                 case CommandType.Damage:
                     {
-                        // A=entityId, B=damage
-                        if (_world.TryGet(cmd.A, out Entity e))
-                            e.Damage(cmd.B);
+                        Game.Entity e2;
+                        if (_world.TryGet(cmd.A, out e2))
+                            e2.Damage(cmd.B);
                         break;
                     }
             }
@@ -122,8 +137,60 @@ namespace Sim
 
         private void PublishSnapshot()
         {
-            SnapshotMsg snap = new(_tick, _world.ToSnapshot());
+            SnapshotMsg snap = new SnapshotMsg(_tick, _world.ToSnapshot());
             _net.Send(snap);
+        }
+
+        private sealed class SeqDedupe
+        {
+            private readonly int _windowKeep;
+            private readonly HashSet<uint> _seen;
+            private uint _maxSeen;
+
+            public SeqDedupe(int windowKeep)
+            {
+                _windowKeep = windowKeep;
+                _seen = new HashSet<uint>();
+                _maxSeen = 0;
+            }
+
+            public bool TryMarkFirstTime(uint seq)
+            {
+                if (_seen.Contains(seq))
+                    return false;
+
+                _seen.Add(seq);
+
+                if (seq > _maxSeen)
+                {
+                    _maxSeen = seq;
+                    PruneOld();
+                }
+
+                return true;
+            }
+
+            private void PruneOld()
+            {
+                // Keep only the last _windowKeep sequence numbers (simple pruning)
+                // Remove anything < (_maxSeen - _windowKeep)
+                uint minKeep = 0;
+                if (_maxSeen > (uint)_windowKeep)
+                    minKeep = _maxSeen - (uint)_windowKeep;
+
+                List<uint> toRemove = new List<uint>(64);
+
+                foreach (uint s in _seen)
+                {
+                    if (s < minKeep)
+                        toRemove.Add(s);
+                }
+
+                for (int i = 0; i < toRemove.Count; i++)
+                {
+                    _seen.Remove(toRemove[i]);
+                }
+            }
         }
     }
 }
