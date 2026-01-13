@@ -2,34 +2,31 @@ using LiteNetLib.Utils;
 
 namespace Net
 {
-    /// <summary>
-    /// Shared op types for client/server ops payloads.
-    /// Keep payload encoding stable and deterministic.
-    /// </summary>
     public enum OpType : byte
     {
-        // Client -> Server (Reliable lane)
+        // Client -> Server (Reliable)
         MoveBy = 1,
 
-        // Server -> Client (Sample lane)
+        // Server -> Client (Sample)
         PositionAt = 50
     }
 
     public static class OpsWriter
     {
-        // Client -> Server (Reliable): MoveBy(entityId, dx, dy)
+        // Op format: [byte opType][ushort opLen][payload...]
         public static void WriteMoveBy(NetDataWriter w, int entityId, int dx, int dy)
         {
             w.Put((byte)OpType.MoveBy);
+            w.Put((ushort)12);
             w.Put(entityId);
             w.Put(dx);
             w.Put(dy);
         }
 
-        // Server -> Client (Sample): PositionAt(entityId, x, y)
         public static void WritePositionAt(NetDataWriter w, int entityId, int x, int y)
         {
             w.Put((byte)OpType.PositionAt);
+            w.Put((ushort)12);
             w.Put(entityId);
             w.Put(x);
             w.Put(y);
@@ -41,6 +38,21 @@ namespace Net
         public static OpType ReadOpType(NetDataReader r)
         {
             return (OpType)r.GetByte();
+        }
+
+        public static ushort ReadOpLen(NetDataReader r)
+        {
+            return r.GetUShort();
+        }
+
+        public static void SkipBytes(NetDataReader r, int len)
+        {
+            int i = 0;
+            while (i < len)
+            {
+                r.GetByte();
+                i++;
+            }
         }
     }
 }

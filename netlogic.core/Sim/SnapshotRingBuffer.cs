@@ -11,83 +11,91 @@ namespace Sim
     {
         private readonly int _capacity;
         private readonly Dictionary<int, SnapshotMsg> _byTick;
-        private readonly Queue<int> _tickOrder;
+        private readonly Queue<int> _order;
 
         public SnapshotRingBuffer(int capacity)
         {
-            if (capacity < 4)
-                throw new ArgumentOutOfRangeException(nameof(capacity), "capacity must be >= 4");
-
             _capacity = capacity;
             _byTick = new Dictionary<int, SnapshotMsg>(capacity);
-            _tickOrder = new Queue<int>(capacity);
-        }
-
-        public int Count
-        {
-            get { return _byTick.Count; }
+            _order = new Queue<int>(capacity);
         }
 
         public void Add(SnapshotMsg snapshot)
         {
             int tick = snapshot.Tick;
-
             if (_byTick.ContainsKey(tick))
-            {
-                // Replace if already exists (rare, but ok)
-                _byTick[tick] = snapshot;
                 return;
-            }
 
-            if (_byTick.Count >= _capacity)
+            _byTick[tick] = snapshot;
+            _order.Enqueue(tick);
+
+            while (_order.Count > _capacity)
             {
-                int oldestTick = _tickOrder.Dequeue();
-                _byTick.Remove(oldestTick);
+                int oldTick = _order.Dequeue();
+                _byTick.Remove(oldTick);
+            }
+        }
+
+        public void Clear()
+        {
+            _byTick.Clear();
+            _order.Clear();
+        }
+
+        public bool TryGetInterpolationPair(double renderTick, out SnapshotMsg a, out SnapshotMsg b, out double alpha)
+        {
+            a = null!;
+            b = null!;
+            alpha = 0;
+
+            if (_order.Count < 2)
+                return false;
+
+            // Find nearest ticks around renderTick
+            // Simple linear search (OK for small buffers). Upgrade to sorted list if needed.
+            int bestA = int.MinValue;
+            int bestB = int.MaxValue;
+
+            foreach (int t in _order)
+            {
+                if (t <= renderTick && t > bestA)
+                    bestA = t;
+                if (t >= renderTick && t < bestB)
+                    bestB = t;
             }
 
-            _byTick.Add(tick, snapshot);
-            _tickOrder.Enqueue(tick);
+            if (bestA == int.MinValue || bestB == int.MaxValue)
+                return false;
+
+            if (!_byTick.TryGetValue(bestA, out SnapshotMsg? snapA) || snapA == null)
+                return false;
+            if (!_byTick.TryGetValue(bestB, out SnapshotMsg? snapB) || snapB == null)
+                return false;
+            a = snapA;
+            b = snapB;
+
+            if (bestA == bestB)
+            {
+                alpha = 0;
+                return true;
+            }
+
+            alpha = (renderTick - bestA) / (bestB - bestA);
+            if (alpha < 0) alpha = 0;
+            if (alpha > 1) alpha = 1;
+
+            return true;
+        }
+
+        // Compatibility methods for old ClientSim code
+        public bool TryGetPairForTickDouble(double renderTick, out SnapshotMsg a, out SnapshotMsg b, out double t)
+        {
+            return TryGetInterpolationPair(renderTick, out a, out b, out t);
         }
 
         public bool TryGet(int tick, out SnapshotMsg snapshot)
         {
             return _byTick.TryGetValue(tick, out snapshot!);
-        }
-
-        public bool TryGetPairForTickDouble(double renderTick, out SnapshotMsg a, out SnapshotMsg b, out double t)
-        {
-            a = null!;
-            b = null!;
-            t = 0.0;
-
-            if (_byTick.Count < 2)
-                return false;
-
-            int tickA = (int)Math.Floor(renderTick);
-            int tickB = tickA + 1;
-
-
-            if (!_byTick.TryGetValue(tickA, out SnapshotMsg? snapA) || snapA == null)
-                return false;
-            if (!_byTick.TryGetValue(tickB, out SnapshotMsg? snapB) || snapB == null)
-                return false;
-
-            double frac = renderTick - tickA;
-            if (frac < 0.0) frac = 0.0;
-            if (frac > 1.0) frac = 1.0;
-
-            a = snapA;
-            b = snapB;
-            t = frac;
-            return true;
-        }
-
-        /// <summary>
-        /// Alias for TryGetPairForTickDouble for consistency with GameClient usage.
-        /// </summary>
-        public bool TryGetInterpolationPair(double renderTick, out SnapshotMsg a, out SnapshotMsg b, out double alpha)
-        {
-            return TryGetPairForTickDouble(renderTick, out a, out b, out alpha);
         }
     }
 }

@@ -9,9 +9,9 @@ namespace App
     {
         public static void Main()
         {
-            // Toggle this to switch transports without changing game logic:
-            // true  => InProcess transport (fast dev iteration)
-            // false => LiteNetLib UDP transport (real-world behavior)
+            // Switch transports without changing game logic:
+            // true  => InProcess (fast dev)
+            // false => LiteNetLib UDP (real)
             bool useInProcess = true;
 
             INetFactory factory;
@@ -46,34 +46,38 @@ namespace App
             client.Connect("127.0.0.1", port);
 
             int i = 0;
-            int totalTicks = 200;
+            int totalTicks = 400;
 
             while (i < totalTicks)
             {
-                // Poll both ends
+                // Poll network
                 server.Poll();
-                client.Poll();
+                client.Poll(clientTick: i);
 
-                // Send a move input every 10 ticks
-                if (i % 10 == 0)
+                // Send input every 5 ticks
+                if ((i % 5) == 0)
                 {
                     client.SendMoveBy(clientTick: i, entityId: 1, dx: 1, dy: 0);
                 }
 
-                // Advance server sim by 1 tick
+                // Advance server tick
                 server.TickOnce();
 
                 // Poll again to receive updates
                 server.Poll();
-                client.Poll();
+                client.Poll(clientTick: i);
 
-                if (i % 10 == 0)
+                if ((i % 10) == 0)
                 {
                     EntityState[] render = client.GetRenderEntities();
                     if (render.Length > 0)
                     {
                         EntityState e0 = render[0];
-                        Console.WriteLine("Tick=" + i + " RenderEntity1=(" + e0.X + "," + e0.Y + ")");
+                        Console.WriteLine(
+                            "Tick=" + i
+                            + " RenderDelay=" + client.RenderDelayTicks
+                            + " InputDelay=" + client.InputDelayTicks
+                            + " Entity1=(" + e0.X + "," + e0.Y + ")");
                     }
                 }
 

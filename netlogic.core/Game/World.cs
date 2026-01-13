@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Net;
 
 namespace Game
@@ -9,9 +10,18 @@ namespace Game
     public sealed class World
     {
         private int _nextEntityId = 1;
-        private readonly Dictionary<int, Entity> _entities = new();
+        private readonly Dictionary<int, Entity> _entities = new Dictionary<int, Entity>(128);
 
-        public IEnumerable<Entity> Entities => _entities.Values;
+        public IEnumerable<Entity> Entities
+        {
+            get
+            {
+                // Stable iteration order for hashing + deterministic behavior
+                IEnumerable<int> keys = _entities.Keys.OrderBy(x => x);
+                foreach (int k in keys)
+                    yield return _entities[k];
+            }
+        }
 
         public Entity CreateEntityAt(int x, int y)
         {
@@ -21,7 +31,6 @@ namespace Game
             return e;
         }
 
-        // Overload for demo/testing: create entity with fixed id
         public Entity CreateEntityAt(int entityId, int x, int y)
         {
             if (_entities.ContainsKey(entityId))
@@ -42,25 +51,17 @@ namespace Game
 
         public EntityState[] ToSnapshot()
         {
-            EntityState[] states = new EntityState[_entities.Count];
-            int i = 0;
-            foreach (KeyValuePair<int, Entity> kv in _entities)
+            // stable order
+            List<EntityState> list = new List<EntityState>(_entities.Count);
+
+            IEnumerable<int> keys = _entities.Keys.OrderBy(x => x);
+            foreach (int id in keys)
             {
-                Entity e = kv.Value;
-                states[i] = new EntityState(e.Id, e.X, e.Y, e.Hp);
-                i++;
+                Entity e = _entities[id];
+                list.Add(new EntityState(e.Id, e.X, e.Y, e.Hp));
             }
 
-            return states;
-        }
-
-        public void ApplyMove(int entityId, int dx, int dy)
-        {
-            if (!_entities.TryGetValue(entityId, out Entity? entity) || entity == null)
-                return;
-
-            entity.X += dx;
-            entity.Y += dy;
+            return list.ToArray();
         }
 
         public bool TryMoveEntityBy(int entityId, int dx, int dy)
@@ -68,9 +69,10 @@ namespace Game
             if (!_entities.TryGetValue(entityId, out Entity? entity) || entity == null)
                 return false;
 
-            // TODO: server-side collision rules here (grid/tile checks)
+            // TODO: authoritative collision here (grid/tile checks)
             entity.X += dx;
             entity.Y += dy;
+
             return true;
         }
 
