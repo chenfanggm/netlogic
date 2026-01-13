@@ -3,6 +3,9 @@ using System.Diagnostics;
 
 namespace Sim
 {
+    /// <summary>
+    /// Client-side time synchronization that estimates server tick using local clock and received snapshots.
+    /// </summary>
     public sealed class ClientTimeSync(int tickRateHz)
     {
         private readonly Stopwatch _stopwatch = Stopwatch.StartNew();

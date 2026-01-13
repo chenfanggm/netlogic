@@ -5,21 +5,15 @@ using Net;
 
 namespace Sim
 {
-    public sealed class PendingBatches
+    /// <summary>
+    /// Tracks unacknowledged command batches and manages resend logic for reliable delivery.
+    /// </summary>
+    public sealed class PendingCommandBatches
     {
-        private readonly Stopwatch _sw;
-        private readonly Dictionary<uint, PendingItem> _pending;
+        public int Count => _pending.Count;
 
-        public PendingBatches()
-        {
-            _sw = Stopwatch.StartNew();
-            _pending = new Dictionary<uint, PendingItem>(256);
-        }
-
-        public int Count
-        {
-            get { return _pending.Count; }
-        }
+        private readonly Stopwatch _sw = Stopwatch.StartNew();
+        private readonly Dictionary<uint, PendingItem> _pending = new Dictionary<uint, PendingItem>(256);
 
         public void Add(CommandBatchMsg msg)
         {
@@ -36,8 +30,7 @@ namespace Sim
 
         public void MarkSent(uint seq)
         {
-            PendingItem item;
-            if (_pending.TryGetValue(seq, out item))
+            if (_pending.TryGetValue(seq, out PendingItem item))
             {
                 long nowMs = _sw.ElapsedMilliseconds;
                 PendingItem updated = new PendingItem(item.Message, nowMs, item.SendCount + 1);
@@ -69,18 +62,14 @@ namespace Sim
             return resends;
         }
 
-        private readonly struct PendingItem
+        /// <summary>
+        /// Internal storage for a pending command batch with send tracking.
+        /// </summary>
+        private readonly struct PendingItem(CommandBatchMsg message, long lastSentAtMs, int sendCount)
         {
-            public readonly CommandBatchMsg Message;
-            public readonly long LastSentAtMs;
-            public readonly int SendCount;
-
-            public PendingItem(CommandBatchMsg message, long lastSentAtMs, int sendCount)
-            {
-                Message = message;
-                LastSentAtMs = lastSentAtMs;
-                SendCount = sendCount;
-            }
+            public readonly CommandBatchMsg Message = message;
+            public readonly long LastSentAtMs = lastSentAtMs;
+            public readonly int SendCount = sendCount;
         }
     }
 }

@@ -4,6 +4,9 @@ using Net;
 
 namespace Sim
 {
+    /// <summary>
+    /// Client-side simulation that handles network communication, command sending, snapshot buffering, and rendering interpolation.
+    /// </summary>
     public sealed class ClientSim
     {
         private readonly ITransportEndpoint _net;
@@ -18,7 +21,7 @@ namespace Sim
         private readonly SnapshotRingBuffer _snapshots;
         private readonly RenderInterpolator _interpolator;
 
-        private readonly PendingBatches _pending;
+        private readonly PendingCommandBatches _pending;
 
         public int InputDelayTicks { get; set; } = 3;
         public int RenderDelayTicks { get; set; } = 3;
@@ -37,7 +40,7 @@ namespace Sim
             _snapshots = new SnapshotRingBuffer(capacity: 128);
             _interpolator = new RenderInterpolator();
 
-            _pending = new PendingBatches();
+            _pending = new PendingCommandBatches();
         }
 
         public void Connect(string name)
@@ -53,8 +56,7 @@ namespace Sim
 
         private void PumpNetwork()
         {
-            IMessage msg;
-            while (_net.TryReceive(out msg))
+            while (_net.TryReceive(out IMessage msg))
             {
                 switch (msg)
                 {
@@ -136,8 +138,7 @@ namespace Sim
 
             int packed = (dx << 16) | (ushort)dy;
 
-            List<Command> cmds = new List<Command>(1);
-            cmds.Add(new Command(PlayerId, targetTick, CommandType.Move, entityId, packed));
+            List<Command> cmds = [new Command(PlayerId, targetTick, CommandType.Move, entityId, packed)];
 
             uint seq = ++_clientSeq;
             CommandBatchMsg msg = new CommandBatchMsg(seq, PlayerId, cmds);

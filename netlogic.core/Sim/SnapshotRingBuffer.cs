@@ -4,6 +4,9 @@ using Net;
 
 namespace Sim
 {
+    /// <summary>
+    /// Ring buffer that stores snapshots by tick and provides interpolation pairs for smooth rendering.
+    /// </summary>
     public sealed class SnapshotRingBuffer
     {
         private readonly int _capacity;

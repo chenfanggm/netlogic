@@ -3,6 +3,9 @@ using Net;
 
 namespace Game
 {
+    /// <summary>
+    /// Game world that manages entities and provides deterministic simulation state.
+    /// </summary>
     public sealed class World
     {
         private int _nextEntityId = 1;
@@ -35,6 +38,9 @@ namespace Game
         }
     }
 
+    /// <summary>
+    /// Game entity with position, health, and movement capabilities.
+    /// </summary>
     public sealed class Entity
     {
         public int Id { get; }

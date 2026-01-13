@@ -4,6 +4,9 @@ using Net;
 
 namespace Sim
 {
+    /// <summary>
+    /// Interpolates entity positions between two snapshots for smooth client-side rendering.
+    /// </summary>
     public sealed class RenderInterpolator
     {
         private readonly Dictionary<int, EntityState> _indexB;

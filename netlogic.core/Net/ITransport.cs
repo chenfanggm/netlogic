@@ -1,5 +1,8 @@
 namespace Net
 {
+    /// <summary>
+    /// Non-blocking network endpoint for sending and receiving messages.
+    /// </summary>
     public interface ITransportEndpoint
     {
         // Non-blocking: returns false if no message available
@@ -9,7 +12,9 @@ namespace Net
         void Send(IMessage msg);
     }
 
-    // A pair of endpoints: client end and server end
+    /// <summary>
+    /// A pair of endpoints connecting client and server for bidirectional communication.
+    /// </summary>
     public interface ITransportLink
     {
         ITransportEndpoint ClientEnd { get; }

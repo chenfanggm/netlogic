@@ -5,6 +5,9 @@ using Net;
 
 namespace Sim
 {
+    /// <summary>
+    /// Authoritative server simulation that processes commands, maintains world state, and publishes snapshots.
+    /// </summary>
     public sealed class ServerSim
     {
         private readonly TickClock _clock;
@@ -141,6 +144,9 @@ namespace Sim
             _net.Send(snap);
         }
 
+        /// <summary>
+        /// Sequence number deduplication tracker that prevents processing duplicate command batches.
+        /// </summary>
         private sealed class SeqDedupe
         {
             private readonly int _windowKeep;

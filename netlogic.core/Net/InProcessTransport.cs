@@ -2,6 +2,9 @@ using System.Collections.Concurrent;
 
 namespace Net
 {
+    /// <summary>
+    /// In-process transport implementation using concurrent queues for client-server communication.
+    /// </summary>
     public sealed class InProcessTransportLink : ITransportLink
     {
         public ITransportEndpoint ClientEnd { get; }
@@ -16,6 +19,9 @@ namespace Net
             ServerEnd = new Endpoint(sendQueue: s2c, recvQueue: c2s);
         }
 
+        /// <summary>
+        /// Internal endpoint implementation using concurrent queues.
+        /// </summary>
         private sealed class Endpoint : ITransportEndpoint
         {
             private readonly ConcurrentQueue<IMessage> _send;

@@ -3,6 +3,9 @@ using System.Collections.Concurrent;
 
 namespace Net
 {
+    /// <summary>
+    /// In-process transport with configurable packet loss simulation for testing reliability.
+    /// </summary>
     public sealed class LossyInProcessTransportLink : ITransportLink
     {
         public ITransportEndpoint ClientEnd { get; }
@@ -22,6 +25,9 @@ namespace Net
             ServerEnd = new LossyEndpoint(sendQueue: s2c, recvQueue: c2s, rng: rng, lossRate: lossServerToClient);
         }
 
+        /// <summary>
+        /// Endpoint that randomly drops messages based on configured loss rate.
+        /// </summary>
         private sealed class LossyEndpoint : ITransportEndpoint
         {
             private readonly ConcurrentQueue<IMessage> _send;

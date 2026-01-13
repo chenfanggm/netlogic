@@ -2,6 +2,9 @@ using System.Diagnostics;
 
 namespace Sim
 {
+    /// <summary>
+    /// Fixed-rate tick clock that blocks until the next tick deadline.
+    /// </summary>
     public sealed class TickClock
     {
         public int TickRateHz { get; }

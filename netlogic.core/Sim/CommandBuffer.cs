@@ -3,6 +3,9 @@ using Net;
 
 namespace Sim
 {
+    /// <summary>
+    /// Buffer that stores commands scheduled for future ticks and drains them when ready.
+    /// </summary>
     public sealed class CommandBuffer
     {
         // tick -> commands

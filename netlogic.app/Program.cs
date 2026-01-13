@@ -4,6 +4,9 @@ using Sim;
 
 namespace App
 {
+    /// <summary>
+    /// Main application entry point that demonstrates the networked simulation system.
+    /// </summary>
     public static class Program
     {
         public static void Main()
@@ -17,12 +20,14 @@ namespace App
             TickClock serverClock = new TickClock(tickRateHz: 20);
             ServerSim server = new ServerSim(serverClock, link.ServerEnd);
 
-            ClientSim client = new ClientSim(link.ClientEnd);
-            client.InputDelayTicks = 3;
-            client.RenderDelayTicks = 3;
+            ClientSim client = new ClientSim(link.ClientEnd)
+            {
+                InputDelayTicks = 3,
+                RenderDelayTicks = 3,
 
-            client.ResendIntervalMs = 120;
-            client.MaxResendsPerPump = 8;
+                ResendIntervalMs = 120,
+                MaxResendsPerPump = 8
+            };
 
             client.Connect("Alice");
 
