@@ -1,0 +1,1 @@
+This is a industry level multiplayer action game engine with Server-Authoritative Fixed Tick, Command-Based Input, and Snapshot/Delta Updates system.

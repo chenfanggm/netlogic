@@ -1,0 +1,42 @@
+# Top-most EditorConfig file
+root = true
+
+# All C# files
+[*.cs]
+
+# Use UTF-8
+charset = utf-8
+
+# Indentation
+indent_style = space
+indent_size = 4
+
+# Line length
+max_line_length = 200
+csharpier.printWidth = 200
+csharpier.singleLineAttributes = true
+
+# Line endings
+end_of_line = crlf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Naming and code style
+dotnet_sort_system_directives_first = true
+csharp_new_line_before_open_brace = all
+csharp_new_line_before_members = false
+csharp_new_line_between_attributes = false
+
+# Disable namespace-folder mismatch warning
+dotnet_diagnostic.IDE0130.severity = none
+# Disable readonly private member warning
+dotnet_diagnostic.IDE0044.severity = none
+# Disable Use 'new(...)'
+dotnet_diagnostic.IDE0090.severity = none
+
+# Optional: other common Unity-friendly analyzer adjustments
+dotnet_diagnostic.IDE0051.severity = none   # unused private members
+dotnet_diagnostic.IDE0059.severity = none   # unused locals
+dotnet_diagnostic.IDE0060.severity = none   # unused parameters
+
+
