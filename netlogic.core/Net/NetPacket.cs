@@ -7,13 +7,13 @@ namespace Net
     /// </summary>
     public readonly struct NetPacket
     {
-        public readonly int ConnectionId;
+        public readonly int ConnId;
         public readonly Lane Lane;
         public readonly ArraySegment<byte> Payload;
 
         public NetPacket(int connectionId, Lane lane, ArraySegment<byte> payload)
         {
-            ConnectionId = connectionId;
+            ConnId = connectionId;
             Lane = lane;
             Payload = payload;
         }

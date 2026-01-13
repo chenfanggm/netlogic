@@ -20,6 +20,7 @@ namespace Sim
         private readonly World _world = world ?? throw new ArgumentNullException(nameof(world));
         private readonly TickTicker _ticker = new TickTicker(tickRateHz);
         private readonly List<int> _clients = new List<int>(32);
+        private readonly ClientCommandBuffer _cmdBuffer = new ClientCommandBuffer();
 
         private uint _serverReliableSeq = 1;
         private uint _serverSampleSeq = 1;
@@ -38,6 +39,28 @@ namespace Sim
             ProcessNewConnections();
 
             ProcessPackets();
+        }
+
+        public void TickOnce()
+        {
+            _ticker.Advance(1);
+
+            ExecuteCommandsForCurrentTick();
+            _cmdBuffer.DropBeforeTick(_ticker.CurrentTick - 10);
+
+            // TODO: run authoritative systems here (AI, combat, grid collisions, etc.)
+
+            // Baseline snapshots at cadence for recovery & idempotency
+            if ((_ticker.CurrentTick % Protocol.BaselineIntervalTicks) == 0)
+            {
+                SendBaselineToAll();
+            }
+
+            // Reliable server ops (container ops/events) - currently empty hook
+            SendReliableOpsToAll();
+
+            // Sample server ops (positions) - latest wins
+            SendSampleOpsToAll();
         }
 
         private void ProcessPackets()
@@ -79,8 +102,8 @@ namespace Sim
 
             // Validate protocol/version
             // (We already validate in decoder)
-            SendWelcome(packet.ConnectionId);
-            SendBaseline(packet.ConnectionId);
+            SendWelcome(packet.ConnId);
+            SendBaseline(packet.ConnId);
             return true;
         }
 
@@ -96,7 +119,7 @@ namespace Sim
                 serverTick: _ticker.CurrentTick);
 
             byte[] pongBytes = MsgCodec.EncodePong(pong);
-            _transport.Send(packet.ConnectionId, Lane.Reliable, new ArraySegment<byte>(pongBytes, 0, pongBytes.Length));
+            _transport.Send(packet.ConnId, Lane.Reliable, new ArraySegment<byte>(pongBytes, 0, pongBytes.Length));
             return true;
         }
 
@@ -105,27 +128,22 @@ namespace Sim
             if (!MsgCodec.TryDecodeClientOps(packet.Payload, out ClientOpsMsg cmd))
                 return false;
 
-            ApplyClientOps(packet.ConnectionId, cmd);
+            // Only enqueue during Poll; execute during TickOnce
+            _cmdBuffer.Enqueue(packet.ConnId, cmd);
             return true;
         }
 
-        public void TickOnce()
+        private void ExecuteCommandsForCurrentTick()
         {
-            _ticker.Advance(1);
+            int tick = _ticker.CurrentTick;
 
-            // TODO: run authoritative systems here (AI, combat, grid collisions, etc.)
-
-            // Baseline snapshots at cadence for recovery & idempotency
-            if ((_ticker.CurrentTick % Protocol.BaselineIntervalTicks) == 0)
+            foreach (int connId in _cmdBuffer.ConnectionIdsForTick(tick))
             {
-                SendBaselineToAll();
+                while (_cmdBuffer.TryDequeueForTick(tick, connId, out ClientOpsMsg msg))
+                {
+                    ApplyClientOps(connId, msg);
+                }
             }
-
-            // Reliable server ops (container ops/events) - currently empty hook
-            SendReliableOpsToAll();
-
-            // Sample server ops (positions) - latest wins
-            SendSampleOpsToAll();
         }
 
         private void ApplyClientOps(int connectionId, ClientOpsMsg msg)
