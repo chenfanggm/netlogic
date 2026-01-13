@@ -63,8 +63,8 @@ namespace Net
 
         public void Send(int connectionId, Lane lane, ArraySegment<byte> payload)
         {
-            NetPeer peer;
-            if (!_peersByConnId.TryGetValue(connectionId, out peer))
+            NetPeer? peer;
+            if (!_peersByConnId.TryGetValue(connectionId, out peer) || peer == null)
                 return;
 
             DeliveryMethod method = lane == Lane.Reliable ? DeliveryMethod.ReliableOrdered : DeliveryMethod.Unreliable;

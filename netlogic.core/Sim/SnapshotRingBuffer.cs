@@ -81,5 +81,13 @@ namespace Sim
             t = frac;
             return true;
         }
+
+        /// <summary>
+        /// Alias for TryGetPairForTickDouble for consistency with GameClient usage.
+        /// </summary>
+        public bool TryGetInterpolationPair(double renderTick, out SnapshotMsg a, out SnapshotMsg b, out double alpha)
+        {
+            return TryGetPairForTickDouble(renderTick, out a, out b, out alpha);
+        }
     }
 }

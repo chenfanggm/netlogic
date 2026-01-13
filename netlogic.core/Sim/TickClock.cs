@@ -9,6 +9,7 @@ namespace Sim
     {
         public int TickRateHz { get; }
         public double TickDurationMs { get; }
+        public int Tick { get; private set; }
 
         private readonly Stopwatch _sw = Stopwatch.StartNew();
         private double _nextTickAtMs;
@@ -18,6 +19,7 @@ namespace Sim
             TickRateHz = tickRateHz;
             TickDurationMs = 1000.0 / tickRateHz;
             _nextTickAtMs = TickDurationMs;
+            Tick = 0;
         }
 
         // Blocks until next tick deadline. For practice, blocking is fine.
@@ -39,6 +41,15 @@ namespace Sim
             }
 
             _nextTickAtMs += TickDurationMs;
+            Tick++;
+        }
+
+        /// <summary>
+        /// Advance tick counter without blocking (for caller-controlled timing).
+        /// </summary>
+        public void Advance(int count)
+        {
+            Tick += count;
         }
     }
 }
