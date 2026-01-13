@@ -42,40 +42,35 @@ namespace Sim
 
         public void PumpNetwork()
         {
-            IMessage msg;
-            while (_net.TryReceive(out msg))
+            while (_net.TryReceive(out IMessage msg))
             {
-                WelcomeMsg welcomeMsg;
-                AckMsg ackMsg;
-                SnapshotMsg snapshotMsg;
-
-                if (msg is WelcomeMsg)
+                switch (msg)
                 {
-                    welcomeMsg = (WelcomeMsg)msg;
-                    PlayerId = welcomeMsg.PlayerId;
-                    TickRateHz = welcomeMsg.TickRateHz;
+                    case WelcomeMsg welcome:
+                        {
+                            PlayerId = welcome.PlayerId;
+                            TickRateHz = welcome.TickRateHz;
 
-                    _timeSync.SetTickRate(TickRateHz);
-                    _timeSync.OnSnapshotReceived(welcomeMsg.ServerTick);
+                            _timeSync.SetTickRate(TickRateHz);
+                            _timeSync.OnSnapshotReceived(welcome.ServerTick);
 
-                    Console.WriteLine("[Client] Welcome: PlayerId=" + PlayerId + " ServerTick=" + welcomeMsg.ServerTick + " Rate=" + TickRateHz + "Hz");
-                    continue;
-                }
+                            Console.WriteLine("[Client] Welcome: PlayerId=" + PlayerId + " ServerTick=" + welcome.ServerTick + " Rate=" + TickRateHz + "Hz");
+                            break;
+                        }
 
-                if (msg is AckMsg)
-                {
-                    ackMsg = (AckMsg)msg;
-                    if (ackMsg.AckClientSeq > _lastAckedSeq)
-                        _lastAckedSeq = ackMsg.AckClientSeq;
-                    continue;
-                }
+                    case AckMsg ack:
+                        {
+                            if (ack.AckClientSeq > _lastAckedSeq)
+                                _lastAckedSeq = ack.AckClientSeq;
+                            break;
+                        }
 
-                if (msg is SnapshotMsg)
-                {
-                    snapshotMsg = (SnapshotMsg)msg;
-                    _snapshots.Add(snapshotMsg);
-                    _timeSync.OnSnapshotReceived(snapshotMsg.Tick);
-                    continue;
+                    case SnapshotMsg snapshot:
+                        {
+                            _snapshots.Add(snapshot);
+                            _timeSync.OnSnapshotReceived(snapshot.Tick);
+                            break;
+                        }
                 }
             }
         }
@@ -90,18 +85,18 @@ namespace Sim
             double estServerTick = _timeSync.GetEstimatedServerTickDouble();
             double renderTick = estServerTick - RenderDelayTicks;
 
-
+            EntityState[] renderStates;
             if (!_snapshots.TryGetPairForTickDouble(renderTick, out SnapshotMsg a, out SnapshotMsg b, out double t))
             {
                 // Fallback: return most recent snapshot if any
                 int est = (int)Math.Floor(estServerTick);
                 if (_snapshots.TryGet(est, out SnapshotMsg latest))
-                    return latest.Entities;
+                    renderStates = latest.Entities;
 
                 return []; // empty array
             }
 
-            EntityState[] renderStates = _interpolator.Interpolate(a, b, t);
+            renderStates = _interpolator.Interpolate(a, b, t);
             return renderStates;
         }
 
@@ -121,5 +116,6 @@ namespace Sim
             CommandBatchMsg msg = new CommandBatchMsg(++_clientSeq, PlayerId, cmds);
             _net.Send(msg);
         }
+
     }
 }
