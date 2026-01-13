@@ -2,9 +2,9 @@
 using Net;
 using Sim;
 
-namespace Engine
+namespace Program
 {
-    public static class ManualTickEngine
+    public static class ManualTickProgram
     {
         public static void Run(int totalTicks)
         {

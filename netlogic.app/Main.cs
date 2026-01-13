@@ -1,4 +1,4 @@
-using Engine;
+using Program;
 
 namespace App
 {
@@ -11,11 +11,11 @@ namespace App
         {
             if (ManualTick)
             {
-                ManualTickEngine.Run(totalTicks: 400);
+                ManualTickProgram.Run(totalTicks: 400);
             }
             else
             {
-                AutoTickEngine.Run(maxRunningDuration: TimeSpan.FromSeconds(6));
+                AutoTickProgram.Run(maxRunningDuration: TimeSpan.FromSeconds(6));
             }
         }
     }

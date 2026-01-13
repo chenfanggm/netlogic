@@ -5,9 +5,9 @@ using Game;
 using Net;
 using Sim;
 
-namespace Engine
+namespace Program
 {
-    public static class AutoTickEngine
+    public static class AutoTickProgram
     {
         private static CancellationTokenSource? _currentCts;
         private static readonly object _lock = new object();
