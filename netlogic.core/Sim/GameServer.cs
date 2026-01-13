@@ -1,18 +1,9 @@
 using System;
-using System.Collections.Generic;
 using Game;
 using Net;
 
 namespace Sim
 {
-    /// <summary>
-    /// Network layer server:
-    /// - Owns transport
-    /// - Decodes NetPacket
-    /// - Converts ClientOpsMsg -> ClientCommand list
-    /// - Feeds ServerEngine
-    /// - Sends ServerEngine outbound packets
-    /// </summary>
     public sealed class GameServer
     {
         private readonly IServerTransport _transport;
@@ -28,7 +19,7 @@ namespace Sim
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
             _engine = new ServerEngine(tickRateHz, world);
 
-            _converter = new ClientOpsMsgToClientCommandConverter(capacity: 32);
+            _converter = new ClientOpsMsgToClientCommandConverter(initialCapacity: 32);
         }
 
         public void Start(int port)
@@ -42,15 +33,12 @@ namespace Sim
 
             ProcessNewConnections();
             ProcessPackets();
-
             FlushOutbound();
         }
 
         public void TickOnce()
         {
-            // Engine tick is pure (no sockets)
             _engine.TickOnce();
-
             FlushOutbound();
         }
 
@@ -69,33 +57,39 @@ namespace Sim
                 if (packet.Lane != Lane.Reliable)
                     continue;
 
-                if (MsgCodec.TryDecodeHello(packet.Payload, out Hello hello))
+                Hello hello;
+                if (MsgCodec.TryDecodeHello(packet.Payload, out hello))
                 {
-                    _engine.OnClientHello(packet.ConnId, hello);
+                    _engine.OnClientHello(packet.ConnId);
                     continue;
                 }
 
-                if (MsgCodec.TryDecodePing(packet.Payload, out PingMsg ping))
+                PingMsg ping;
+                if (MsgCodec.TryDecodePing(packet.Payload, out ping))
                 {
                     _engine.OnClientPing(packet.ConnId, ping);
                     continue;
                 }
 
-                if (MsgCodec.TryDecodeClientAck(packet.Payload, out ClientAckMsg ack))
+                ClientAckMsg ack;
+                if (MsgCodec.TryDecodeClientAck(packet.Payload, out ack))
                 {
                     _engine.OnClientAck(packet.ConnId, ack);
                     continue;
                 }
 
-                if (MsgCodec.TryDecodeClientOps(packet.Payload, out ClientOpsMsg ops))
+                ClientOpsMsg ops;
+                if (MsgCodec.TryDecodeClientOps(packet.Payload, out ops))
                 {
-                    List<ClientCommand> cmds = _converter.Convert(ops);
+                    int commandCount;
+                    ClientCommand[] commands = _converter.Convert(ops, out commandCount);
 
                     _engine.EnqueueClientCommands(
                         connId: packet.ConnId,
                         requestedClientTick: ops.ClientTick,
                         clientCmdSeq: ops.ClientCmdSeq,
-                        commands: cmds);
+                        commands: commands,
+                        commandCount: commandCount);
 
                     continue;
                 }
@@ -104,29 +98,13 @@ namespace Sim
 
         private void FlushOutbound()
         {
-            while (_engine.TryDequeueOutbound(out ServerEngine.OutboundPacket p))
+            ServerEngine.OutboundPacket p;
+
+            while (_engine.TryDequeueOutbound(out p))
             {
                 byte[] bytes = p.Bytes;
                 _transport.Send(p.ConnId, p.Lane, new ArraySegment<byte>(bytes, 0, bytes.Length));
             }
-        }
-
-        /// <summary>
-        /// Helper for gameplay systems to emit per-client reliable ops.
-        /// Call this from your authoritative tick systems (not Poll).
-        /// </summary>
-        public void EmitReliableOpsForClient(int connId, ushort opCount, byte[] opsPayload)
-        {
-            _engine.EmitReliableOpsForClient(connId, opCount, opsPayload);
-        }
-
-        /// <summary>
-        /// Helper for gameplay systems to emit broadcast reliable ops.
-        /// Call this from your authoritative tick systems (not Poll).
-        /// </summary>
-        public void EmitReliableOpsForAll(ushort opCount, byte[] opsPayload)
-        {
-            _engine.EmitReliableOpsForAll(opCount, opsPayload);
         }
     }
 }

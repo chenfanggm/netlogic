@@ -1,36 +1,36 @@
 using System;
-using System.Collections.Generic;
 using LiteNetLib.Utils;
 using Net;
 
 namespace Sim
 {
-    /// <summary>
-    /// Converts wire payload (ClientOpsMsg) into engine commands (ClientCommand list).
-    /// Keeps parsing logic in one place.
-    /// </summary>
     public sealed class ClientOpsMsgToClientCommandConverter
     {
-        private readonly List<ClientCommand> _buffer;
+        private ClientCommand[] _scratch;
 
-        public ClientOpsMsgToClientCommandConverter(int capacity)
+        public ClientOpsMsgToClientCommandConverter(int initialCapacity)
         {
-            _buffer = new List<ClientCommand>(capacity);
+            if (initialCapacity < 1)
+                initialCapacity = 1;
+
+            _scratch = new ClientCommand[initialCapacity];
         }
 
-        public List<ClientCommand> Convert(ClientOpsMsg msg)
+        public ClientCommand[] Convert(ClientOpsMsg msg, out int commandCount)
         {
-            _buffer.Clear();
+            commandCount = 0;
 
             if (msg == null)
-                return _buffer;
+                return Array.Empty<ClientCommand>();
 
             if (msg.OpCount == 0)
-                return _buffer;
+                return Array.Empty<ClientCommand>();
 
             byte[] payload = msg.OpsPayload;
             if (payload == null || payload.Length == 0)
-                return _buffer;
+                return Array.Empty<ClientCommand>();
+
+            EnsureCapacity(msg.OpCount);
 
             NetDataReader reader = new NetDataReader(payload, 0, payload.Length);
 
@@ -46,7 +46,8 @@ namespace Sim
                     int dx = reader.GetInt();
                     int dy = reader.GetInt();
 
-                    _buffer.Add(ClientCommand.MoveBy(entityId, dx, dy));
+                    _scratch[commandCount] = ClientCommand.MoveBy(entityId, dx, dy);
+                    commandCount++;
                 }
                 else
                 {
@@ -56,7 +57,31 @@ namespace Sim
                 i++;
             }
 
-            return _buffer;
+            if (commandCount == 0)
+                return Array.Empty<ClientCommand>();
+
+            ClientCommand[] result = new ClientCommand[commandCount];
+
+            int k = 0;
+            while (k < commandCount)
+            {
+                result[k] = _scratch[k];
+                k++;
+            }
+
+            return result;
+        }
+
+        private void EnsureCapacity(int needed)
+        {
+            if (_scratch.Length >= needed)
+                return;
+
+            int newSize = _scratch.Length;
+            while (newSize < needed)
+                newSize = newSize * 2;
+
+            _scratch = new ClientCommand[newSize];
         }
     }
 }

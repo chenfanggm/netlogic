@@ -11,11 +11,10 @@ namespace Sim
         private readonly World _world;
         private readonly TickTicker _ticker;
 
-        private readonly ClientCommandBuffer _cmdBuffer;
-
-        private readonly Dictionary<int, ServerReliableStream> _reliableStreams;
+        private readonly ClientCommandBuffer2 _cmdBuffer;
 
         private readonly List<int> _clients;
+        private readonly Dictionary<int, ServerReliableStream> _reliableStreams;
 
         private const int ReliableMaxOpsBytesPerTick = 8 * 1024;
         private const int ReliableMaxPendingPackets = 128;
@@ -34,9 +33,10 @@ namespace Sim
             _world = world ?? throw new ArgumentNullException(nameof(world));
             _ticker = new TickTicker(tickRateHz);
 
-            _cmdBuffer = new ClientCommandBuffer();
-            _reliableStreams = new Dictionary<int, ServerReliableStream>(32);
+            _cmdBuffer = new ClientCommandBuffer2();
+
             _clients = new List<int>(32);
+            _reliableStreams = new Dictionary<int, ServerReliableStream>(32);
 
             _serverSampleSeq = 1;
             _opsWriter = new NetDataWriter();
@@ -58,25 +58,20 @@ namespace Sim
 
             EnqueueWelcome(connId);
             EnqueueBaseline(connId);
-
             ReplayReliableStream(connId);
         }
 
-        public void OnClientHello(int connId, Hello hello)
+        public void OnClientHello(int connId)
         {
-            // For now: treat as (re)handshake
             EnqueueWelcome(connId);
             EnqueueBaseline(connId);
-
             ReplayReliableStream(connId);
         }
 
         public void OnClientAck(int connId, ClientAckMsg ack)
         {
             if (_reliableStreams.TryGetValue(connId, out ServerReliableStream stream))
-            {
                 stream.OnAck(ack.LastAckedReliableSeq);
-            }
         }
 
         public void OnClientPing(int connId, PingMsg ping)
@@ -91,17 +86,24 @@ namespace Sim
             _outbound.Enqueue(new OutboundPacket(connId, Lane.Reliable, bytes));
         }
 
-        public void EnqueueClientCommands(int connId, int requestedClientTick, uint clientCmdSeq, List<ClientCommand> commands)
+        public void EnqueueClientCommands(
+            int connId,
+            int requestedClientTick,
+            uint clientCmdSeq,
+            ClientCommand[] commands,
+            int commandCount)
         {
-            if (commands == null || commands.Count == 0)
+            if (commands == null || commandCount <= 0)
                 return;
+
+            ClientCommand[] trimmed = Trim(commands, commandCount);
 
             int scheduledTick;
             bool accepted = _cmdBuffer.EnqueueWithValidation(
                 connectionId: connId,
                 requestedClientTick: requestedClientTick,
                 clientCmdSeq: clientCmdSeq,
-                commands: commands,
+                commands: trimmed,
                 currentServerTick: _ticker.CurrentTick,
                 scheduledTick: out scheduledTick);
 
@@ -122,7 +124,7 @@ namespace Sim
         }
 
         // -------------------------
-        // Simulation tick
+        // Tick
         // -------------------------
 
         public void TickOnce()
@@ -133,7 +135,7 @@ namespace Sim
 
             _cmdBuffer.DropBeforeTick(_ticker.CurrentTick - 16);
 
-            // TODO: run authoritative systems here (AI, combat, grid collisions, etc.)
+            // TODO: authoritative systems here (AI/combat/collisions/etc)
 
             if ((_ticker.CurrentTick % Protocol.BaselineIntervalTicks) == 0)
                 EnqueueBaselineToAll();
@@ -144,7 +146,7 @@ namespace Sim
         }
 
         // -------------------------
-        // Apply commands (authoritative)
+        // Apply commands
         // -------------------------
 
         private void ExecuteCommandsForCurrentTick()
@@ -153,14 +155,14 @@ namespace Sim
 
             foreach (int connId in _cmdBuffer.ConnectionIdsForTick(tick))
             {
-                while (_cmdBuffer.TryDequeueForTick(tick, connId, out ClientCommandBuffer.ScheduledCommandBatch batch))
+                while (_cmdBuffer.TryDequeueForTick(tick, connId, out ClientCommandBuffer2.ScheduledBatch batch))
                 {
-                    ApplyClientCommands(connId, batch.Commands);
+                    ApplyClientCommands(batch.Commands);
                 }
             }
         }
 
-        private void ApplyClientCommands(int connId, ClientCommand[] commands)
+        private void ApplyClientCommands(ClientCommand[] commands)
         {
             if (commands == null || commands.Length == 0)
                 return;
@@ -171,16 +173,14 @@ namespace Sim
                 ClientCommand c = commands[i];
 
                 if (c.Type == ClientCommandType.MoveBy)
-                {
                     _world.TryMoveEntityBy(c.EntityId, c.Dx, c.Dy);
-                }
 
                 i++;
             }
         }
 
         // -------------------------
-        // Outbound builders
+        // Outbound message builders
         // -------------------------
 
         private void EnqueueWelcome(int connId)
@@ -254,9 +254,7 @@ namespace Sim
 
                     byte[] packetBytes = stream.FlushToPacketIfAny(serverTick, hash);
                     if (packetBytes != null)
-                    {
                         _outbound.Enqueue(new OutboundPacket(connId, Lane.Reliable, packetBytes));
-                    }
                 }
 
                 k++;
@@ -297,6 +295,26 @@ namespace Sim
                 _outbound.Enqueue(new OutboundPacket(connId, Lane.Sample, packetBytes));
                 k++;
             }
+        }
+
+        private static ClientCommand[] Trim(ClientCommand[] src, int count)
+        {
+            if (count <= 0)
+                return Array.Empty<ClientCommand>();
+
+            if (src.Length == count)
+                return src;
+
+            ClientCommand[] dst = new ClientCommand[count];
+
+            int i = 0;
+            while (i < count)
+            {
+                dst[i] = src[i];
+                i++;
+            }
+
+            return dst;
         }
 
         public readonly struct OutboundPacket
