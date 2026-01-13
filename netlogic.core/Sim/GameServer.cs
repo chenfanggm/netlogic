@@ -22,6 +22,9 @@ namespace Sim
         private readonly List<int> _clients = new List<int>(32);
         private readonly ClientCommandBuffer _cmdBuffer = new ClientCommandBuffer();
 
+        private readonly Dictionary<int, ClientReliableState> _clientReliable = new Dictionary<int, ClientReliableState>(32);
+        private readonly ServerReliableOpLog _reliableLog = new ServerReliableOpLog(capacity: 512);
+
         private uint _serverReliableSeq = 1;
         private uint _serverSampleSeq = 1;
 
@@ -46,7 +49,10 @@ namespace Sim
             _ticker.Advance(1);
 
             ExecuteCommandsForCurrentTick();
-            _cmdBuffer.DropBeforeTick(_ticker.CurrentTick - 10);
+
+            // Keep only a small history window to avoid unbounded growth.
+            // We retain a few ticks for late packets + jitter.
+            _cmdBuffer.DropBeforeTick(_ticker.CurrentTick - 16);
 
             // TODO: run authoritative systems here (AI, combat, grid collisions, etc.)
 
@@ -77,6 +83,9 @@ namespace Sim
                 if (ProcessPing(packet))
                     continue;
 
+                if (ProcessClientAck(packet))
+                    continue;
+
                 if (ProcessClientOps(packet))
                     continue;
             }
@@ -89,9 +98,14 @@ namespace Sim
                 if (!_clients.Contains(connId))
                     _clients.Add(connId);
 
+                if (!_clientReliable.ContainsKey(connId))
+                    _clientReliable.Add(connId, new ClientReliableState());
+
                 // Immediately send Welcome + Baseline (join-in-progress ready)
                 SendWelcome(connId);
                 SendBaseline(connId);
+
+                ReplayReliableOps(connId);
             }
         }
 
@@ -123,13 +137,39 @@ namespace Sim
             return true;
         }
 
+        private bool ProcessClientAck(NetPacket packet)
+        {
+            if (!MsgCodec.TryDecodeClientAck(packet.Payload, out ClientAckMsg ack))
+                return false;
+
+            if (_clientReliable.TryGetValue(packet.ConnId, out ClientReliableState st))
+            {
+                if (ack.LastAckedReliableSeq > st.LastAckedReliableSeq)
+                    st.LastAckedReliableSeq = ack.LastAckedReliableSeq;
+
+                st.LastSeenTick = _ticker.CurrentTick;
+            }
+
+            return true;
+        }
+
         private bool ProcessClientOps(NetPacket packet)
         {
             if (!MsgCodec.TryDecodeClientOps(packet.Payload, out ClientOpsMsg cmd))
                 return false;
 
-            // Only enqueue during Poll; execute during TickOnce
-            _cmdBuffer.Enqueue(packet.ConnId, cmd);
+            int scheduledTick;
+            bool accepted = _cmdBuffer.EnqueueWithValidation(
+                connectionId: packet.ConnId,
+                msg: cmd,
+                currentServerTick: _ticker.CurrentTick,
+                scheduledTick: out scheduledTick);
+
+            // Optional: if rejected, you could count strikes / log / rate limit.
+            // For now, just drop silently (casual-game friendly).
+            if (!accepted)
+                return true;
+
             return true;
         }
 
@@ -171,6 +211,18 @@ namespace Sim
                 }
 
                 i++;
+            }
+        }
+
+        private void ReplayReliableOps(int connId)
+        {
+            if (!_clientReliable.TryGetValue(connId, out ClientReliableState st))
+                return;
+
+            foreach (ServerReliableOpLog.Entry e in _reliableLog.EntriesAfterSeq(st.LastAckedReliableSeq))
+            {
+                byte[] packetBytes = e.PacketBytes;
+                _transport.Send(connId, Lane.Reliable, new ArraySegment<byte>(packetBytes, 0, packetBytes.Length));
             }
         }
 
@@ -224,6 +276,9 @@ namespace Sim
                 opsPayload: opsBytes);
 
             byte[] packet = MsgCodec.EncodeServerOps(Lane.Reliable, msg);
+
+            // Log for resend/replay window
+            _reliableLog.Add(msg.ServerSeq, _ticker.CurrentTick, packet);
 
             ArraySegment<byte> payload = new ArraySegment<byte>(packet, 0, packet.Length);
 

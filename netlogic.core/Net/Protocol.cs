@@ -29,6 +29,8 @@ namespace Net
         Baseline = 12,       // reliable full snapshot
 
         Ping = 20,           // reliable
-        Pong = 21            // reliable
+        Pong = 21,           // reliable
+
+        ClientAck = 30       // reliable
     }
 }

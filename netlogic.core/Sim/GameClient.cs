@@ -220,6 +220,11 @@ namespace Sim
             // Parse reliable ops here (container ops/events)
             // Currently empty hook.
             // If you add ops: decode with NetDataReader and op-length skipping exactly like sample parsing.
+
+            // Send ack back to server (reliable lane)
+            ClientAckMsg ack = new ClientAckMsg(_lastAppliedReliableSeq);
+            byte[] packet = MsgCodec.EncodeClientAck(ack);
+            _transport.Send(Lane.Reliable, new ArraySegment<byte>(packet, 0, packet.Length));
         }
 
         private void ApplySampleOps(ServerOpsMsg msg)

@@ -183,6 +183,23 @@ namespace Net
         }
     }
 
+    [MemoryPackable]
+    public sealed partial class ClientAckMsg
+    {
+        public uint LastAckedReliableSeq;
+
+        public ClientAckMsg()
+        {
+            LastAckedReliableSeq = 0;
+        }
+
+        [MemoryPackConstructor]
+        public ClientAckMsg(uint lastAckedReliableSeq)
+        {
+            LastAckedReliableSeq = lastAckedReliableSeq;
+        }
+    }
+
     // -------------------------
     // Codec (header → route → payload)
     // -------------------------
@@ -272,6 +289,17 @@ namespace Net
         {
             msg = null!;
             return TryDecodePayload(packetBytes, MsgKind.Pong, out msg);
+        }
+
+        public static byte[] EncodeClientAck(ClientAckMsg msg)
+        {
+            return EncodePayload(MsgKind.ClientAck, PacketFlags.None, msg);
+        }
+
+        public static bool TryDecodeClientAck(ArraySegment<byte> packetBytes, out ClientAckMsg msg)
+        {
+            msg = null!;
+            return TryDecodePayload(packetBytes, MsgKind.ClientAck, out msg);
         }
 
         // -------------------------
