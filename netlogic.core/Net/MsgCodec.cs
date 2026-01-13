@@ -1,94 +1,154 @@
 using System;
-using LiteNetLib.Utils;
+using MemoryPack;
 
 namespace Net
 {
-    public sealed class Hello
+    // Flags reserved for future:
+    // bit0: compressed
+    // bit1: encrypted
+    // bit2: fragmented
+    public static class PacketFlags
     {
-        public readonly ushort Version;
-        public readonly uint BuildHash;
-        public readonly int ClientTickRateHz;
+        public const byte None = 0;
+        public const byte Compressed = 1 << 0;
+        public const byte Encrypted = 1 << 1;
+        public const byte Fragmented = 1 << 2;
+    }
 
-        public Hello(ushort version, uint buildHash, int clientTickRateHz)
+    // -------------------------
+    // MemoryPack payload types
+    // -------------------------
+
+    [MemoryPackable]
+    public sealed partial class Hello
+    {
+        public int ClientTickRateHz;
+
+        public Hello()
         {
-            Version = version;
-            BuildHash = buildHash;
+            ClientTickRateHz = 0;
+        }
+
+        [MemoryPackConstructor]
+        public Hello(int clientTickRateHz)
+        {
             ClientTickRateHz = clientTickRateHz;
         }
     }
 
-    public sealed class Welcome
+    [MemoryPackable]
+    public sealed partial class Welcome
     {
-        public readonly ushort Version;
-        public readonly uint BuildHash;
-        public readonly int ServerTickRateHz;
-        public readonly int ServerTick;
+        public int ServerTickRateHz;
+        public int ServerTick;
 
-        public Welcome(ushort version, uint buildHash, int serverTickRateHz, int serverTick)
+        public Welcome()
         {
-            Version = version;
-            BuildHash = buildHash;
+            ServerTickRateHz = 0;
+            ServerTick = 0;
+        }
+
+        [MemoryPackConstructor]
+        public Welcome(int serverTickRateHz, int serverTick)
+        {
             ServerTickRateHz = serverTickRateHz;
             ServerTick = serverTick;
         }
     }
 
-    public sealed class ClientOpsMsg
+    [MemoryPackable]
+    public sealed partial class ClientOpsMsg
     {
-        public readonly int ClientTick;
-        public readonly uint ClientCmdSeq;
-        public readonly ushort OpCount;
-        public readonly ArraySegment<byte> OpsPayload;
+        public int ClientTick;
+        public uint ClientCmdSeq;
+        public ushort OpCount;
+        public byte[] OpsPayload;
 
-        public ClientOpsMsg(int clientTick, uint clientCmdSeq, ushort opCount, ArraySegment<byte> opsPayload)
+        public ClientOpsMsg()
+        {
+            ClientTick = 0;
+            ClientCmdSeq = 0;
+            OpCount = 0;
+            OpsPayload = Array.Empty<byte>();
+        }
+
+        [MemoryPackConstructor]
+        public ClientOpsMsg(int clientTick, uint clientCmdSeq, ushort opCount, byte[] opsPayload)
         {
             ClientTick = clientTick;
             ClientCmdSeq = clientCmdSeq;
             OpCount = opCount;
-            OpsPayload = opsPayload;
+            OpsPayload = opsPayload ?? Array.Empty<byte>();
         }
     }
 
-    public sealed class ServerOpsMsg
+    [MemoryPackable]
+    public sealed partial class ServerOpsMsg
     {
-        public readonly int ServerTick;
-        public readonly Lane Lane;
-        public readonly uint ServerSeq;
-        public readonly uint StateHash;
-        public readonly ushort OpCount;
-        public readonly ArraySegment<byte> OpsPayload;
+        public int ServerTick;
+        public uint ServerSeq;
+        public uint StateHash;
+        public ushort OpCount;
+        public byte[] OpsPayload;
 
-        public ServerOpsMsg(int serverTick, Lane lane, uint serverSeq, uint stateHash, ushort opCount, ArraySegment<byte> opsPayload)
+        public ServerOpsMsg()
+        {
+            ServerTick = 0;
+            ServerSeq = 0;
+            StateHash = 0;
+            OpCount = 0;
+            OpsPayload = Array.Empty<byte>();
+        }
+
+        [MemoryPackConstructor]
+        public ServerOpsMsg(int serverTick, uint serverSeq, uint stateHash, ushort opCount, byte[] opsPayload)
         {
             ServerTick = serverTick;
-            Lane = lane;
             ServerSeq = serverSeq;
             StateHash = stateHash;
             OpCount = opCount;
-            OpsPayload = opsPayload;
+            OpsPayload = opsPayload ?? Array.Empty<byte>();
         }
     }
 
-    public sealed class BaselineMsg
+    [MemoryPackable]
+    public sealed partial class BaselineMsg
     {
-        public readonly int ServerTick;
-        public readonly uint StateHash;
-        public readonly EntityState[] Entities;
+        public int ServerTick;
+        public uint StateHash;
+        public EntityState[] Entities;
 
+        public BaselineMsg()
+        {
+            ServerTick = 0;
+            StateHash = 0;
+            Entities = Array.Empty<EntityState>();
+        }
+
+        [MemoryPackConstructor]
         public BaselineMsg(int serverTick, uint stateHash, EntityState[] entities)
         {
             ServerTick = serverTick;
             StateHash = stateHash;
-            Entities = entities;
+            Entities = entities ?? Array.Empty<EntityState>();
         }
     }
 
-    public sealed class PingMsg
+    [MemoryPackable]
+    public sealed partial class PingMsg
     {
-        public readonly uint PingId;
-        public readonly long ClientTimeMs;
-        public readonly int ClientTick;
+        public uint PingId;
+        public long ClientTimeMs;
+        public int ClientTick;
 
+        public PingMsg()
+        {
+            PingId = 0;
+            ClientTimeMs = 0;
+            ClientTick = 0;
+        }
+
+        [MemoryPackConstructor]
         public PingMsg(uint pingId, long clientTimeMs, int clientTick)
         {
             PingId = pingId;
@@ -97,13 +157,23 @@ namespace Net
         }
     }
 
-    public sealed class PongMsg
+    [MemoryPackable]
+    public sealed partial class PongMsg
     {
-        public readonly uint PingId;
-        public readonly long ClientTimeMsEcho;
-        public readonly long ServerTimeMs;
-        public readonly int ServerTick;
+        public uint PingId;
+        public long ClientTimeMsEcho;
+        public long ServerTimeMs;
+        public int ServerTick;
 
+        public PongMsg()
+        {
+            PingId = 0;
+            ClientTimeMsEcho = 0;
+            ServerTimeMs = 0;
+            ServerTick = 0;
+        }
+
+        [MemoryPackConstructor]
         public PongMsg(uint pingId, long clientTimeMsEcho, long serverTimeMs, int serverTick)
         {
             PingId = pingId;
@@ -113,321 +183,170 @@ namespace Net
         }
     }
 
+    // -------------------------
+    // Codec (header → route → payload)
+    // -------------------------
+
     public static class MsgCodec
     {
-        // Header for all messages:
-        // [byte kind][ushort version][uint buildHash] + message-specific fields
+        // Safety cap (tune for your game)
+        public const int MaxPayloadBytes = 60 * 1024;
+
         public static byte[] EncodeHello(int clientTickRateHz)
         {
-            NetDataWriter w = new NetDataWriter();
-            w.Put((byte)MsgKind.Hello);
-            w.Put(Protocol.Version);
-            w.Put(Protocol.BuildHash);
-            w.Put(clientTickRateHz);
-            return w.CopyData();
+            Hello payload = new Hello(clientTickRateHz);
+            return EncodePayload(MsgKind.Hello, PacketFlags.None, payload);
         }
 
-        public static bool TryDecodeHello(ArraySegment<byte> bytes, out Hello msg)
+        public static bool TryDecodeHello(ArraySegment<byte> packetBytes, out Hello msg)
         {
             msg = null!;
-            NetDataReader r = new NetDataReader(bytes.Array, bytes.Offset, bytes.Count);
-
-            if (r.AvailableBytes < 1 + 2 + 4 + 4)
-                return false;
-
-            MsgKind k = (MsgKind)r.GetByte();
-            if (k != MsgKind.Hello)
-                return false;
-
-            ushort ver = r.GetUShort();
-            uint hash = r.GetUInt();
-            int hz = r.GetInt();
-
-            msg = new Hello(ver, hash, hz);
-            return true;
+            return TryDecodePayload(packetBytes, MsgKind.Hello, out msg);
         }
 
         public static byte[] EncodeWelcome(int serverTickRateHz, int serverTick)
         {
-            NetDataWriter w = new NetDataWriter();
-            w.Put((byte)MsgKind.Welcome);
-            w.Put(Protocol.Version);
-            w.Put(Protocol.BuildHash);
-            w.Put(serverTickRateHz);
-            w.Put(serverTick);
-            return w.CopyData();
+            Welcome payload = new Welcome(serverTickRateHz, serverTick);
+            return EncodePayload(MsgKind.Welcome, PacketFlags.None, payload);
         }
 
-        public static bool TryDecodeWelcome(ArraySegment<byte> bytes, out Welcome msg)
+        public static bool TryDecodeWelcome(ArraySegment<byte> packetBytes, out Welcome msg)
         {
             msg = null!;
-            NetDataReader r = new NetDataReader(bytes.Array, bytes.Offset, bytes.Count);
-
-            if (r.AvailableBytes < 1 + 2 + 4 + 4 + 4)
-                return false;
-
-            MsgKind k = (MsgKind)r.GetByte();
-            if (k != MsgKind.Welcome)
-                return false;
-
-            ushort ver = r.GetUShort();
-            uint hash = r.GetUInt();
-            int hz = r.GetInt();
-            int tick = r.GetInt();
-
-            msg = new Welcome(ver, hash, hz, tick);
-            return true;
+            return TryDecodePayload(packetBytes, MsgKind.Welcome, out msg);
         }
 
         public static byte[] EncodeClientOps(ClientOpsMsg msg)
         {
-            NetDataWriter w = new NetDataWriter();
-            w.Put((byte)MsgKind.ClientOps);
-            w.Put(Protocol.Version);
-            w.Put(Protocol.BuildHash);
-
-            w.Put(msg.ClientTick);
-            w.Put(msg.ClientCmdSeq);
-            w.Put(msg.OpCount);
-
-            w.Put(msg.OpsPayload.Array, msg.OpsPayload.Offset, msg.OpsPayload.Count);
-            return w.CopyData();
+            return EncodePayload(MsgKind.ClientOps, PacketFlags.None, msg);
         }
 
-        public static bool TryDecodeClientOps(ArraySegment<byte> bytes, out ClientOpsMsg msg)
+        public static bool TryDecodeClientOps(ArraySegment<byte> packetBytes, out ClientOpsMsg msg)
         {
             msg = null!;
-            NetDataReader r = new NetDataReader(bytes.Array, bytes.Offset, bytes.Count);
-
-            if (r.AvailableBytes < 1 + 2 + 4 + 4 + 4 + 2)
-                return false;
-
-            MsgKind k = (MsgKind)r.GetByte();
-            if (k != MsgKind.ClientOps)
-                return false;
-
-            ushort ver = r.GetUShort();
-            uint hash = r.GetUInt();
-            if (ver != Protocol.Version)
-                return false;
-            if (hash != Protocol.BuildHash)
-                return false;
-
-            int clientTick = r.GetInt();
-            uint cmdSeq = r.GetUInt();
-            ushort opCount = r.GetUShort();
-
-            int payloadLen = r.AvailableBytes;
-            int payloadOffset = (bytes.Offset + bytes.Count) - payloadLen;
-
-            ArraySegment<byte> payload = new ArraySegment<byte>(bytes.Array!, payloadOffset, payloadLen);
-
-            msg = new ClientOpsMsg(clientTick, cmdSeq, opCount, payload);
-            return true;
+            return TryDecodePayload(packetBytes, MsgKind.ClientOps, out msg);
         }
 
-        public static byte[] EncodeServerOps(ServerOpsMsg msg)
+        public static byte[] EncodeServerOps(Lane lane, ServerOpsMsg msg)
         {
-            NetDataWriter w = new NetDataWriter();
-            w.Put((byte)MsgKind.ServerOps);
-            w.Put(Protocol.Version);
-            w.Put(Protocol.BuildHash);
-
-            w.Put(msg.ServerTick);
-            w.Put((byte)msg.Lane);
-            w.Put(msg.ServerSeq);
-            w.Put(msg.StateHash);
-            w.Put(msg.OpCount);
-
-            w.Put(msg.OpsPayload.Array, msg.OpsPayload.Offset, msg.OpsPayload.Count);
-            return w.CopyData();
+            // Lane is not part of the payload; you already have lane on transport.
+            // We keep it out of payload so routing stays fast.
+            // Just call transport.Send(lane, packetBytes).
+            return EncodePayload(MsgKind.ServerOps, PacketFlags.None, msg);
         }
 
-        public static bool TryDecodeServerOps(ArraySegment<byte> bytes, out ServerOpsMsg msg)
+        public static bool TryDecodeServerOps(ArraySegment<byte> packetBytes, out ServerOpsMsg msg)
         {
             msg = null!;
-            NetDataReader r = new NetDataReader(bytes.Array, bytes.Offset, bytes.Count);
-
-            if (r.AvailableBytes < 1 + 2 + 4 + 4 + 1 + 4 + 4 + 2)
-                return false;
-
-            MsgKind k = (MsgKind)r.GetByte();
-            if (k != MsgKind.ServerOps)
-                return false;
-
-            ushort ver = r.GetUShort();
-            uint hash = r.GetUInt();
-            if (ver != Protocol.Version)
-                return false;
-            if (hash != Protocol.BuildHash)
-                return false;
-
-            int serverTick = r.GetInt();
-            Lane lane = (Lane)r.GetByte();
-            uint serverSeq = r.GetUInt();
-            uint stateHash = r.GetUInt();
-            ushort opCount = r.GetUShort();
-
-            int payloadLen = r.AvailableBytes;
-            int payloadOffset = (bytes.Offset + bytes.Count) - payloadLen;
-
-            ArraySegment<byte> payload = new ArraySegment<byte>(bytes.Array!, payloadOffset, payloadLen);
-
-            msg = new ServerOpsMsg(serverTick, lane, serverSeq, stateHash, opCount, payload);
-            return true;
+            return TryDecodePayload(packetBytes, MsgKind.ServerOps, out msg);
         }
 
         public static byte[] EncodeBaseline(BaselineMsg msg)
         {
-            NetDataWriter w = new NetDataWriter();
-            w.Put((byte)MsgKind.Baseline);
-            w.Put(Protocol.Version);
-            w.Put(Protocol.BuildHash);
-
-            w.Put(msg.ServerTick);
-            w.Put(msg.StateHash);
-
-            int count = msg.Entities.Length;
-            w.Put(count);
-
-            int i = 0;
-            while (i < count)
-            {
-                EntityState e = msg.Entities[i];
-                w.Put(e.Id);
-                w.Put(e.X);
-                w.Put(e.Y);
-                w.Put(e.Hp);
-                i++;
-            }
-
-            return w.CopyData();
+            return EncodePayload(MsgKind.Baseline, PacketFlags.None, msg);
         }
 
-        public static bool TryDecodeBaseline(ArraySegment<byte> bytes, out BaselineMsg msg)
+        public static bool TryDecodeBaseline(ArraySegment<byte> packetBytes, out BaselineMsg msg)
         {
             msg = null!;
-            NetDataReader r = new NetDataReader(bytes.Array, bytes.Offset, bytes.Count);
-
-            if (r.AvailableBytes < 1 + 2 + 4 + 4 + 4 + 4)
-                return false;
-
-            MsgKind k = (MsgKind)r.GetByte();
-            if (k != MsgKind.Baseline)
-                return false;
-
-            ushort ver = r.GetUShort();
-            uint hash = r.GetUInt();
-            if (ver != Protocol.Version)
-                return false;
-            if (hash != Protocol.BuildHash)
-                return false;
-
-            int serverTick = r.GetInt();
-            uint stateHash = r.GetUInt();
-
-            int count = r.GetInt();
-            if (count < 0)
-                return false;
-
-            EntityState[] entities = new EntityState[count];
-
-            int i = 0;
-            while (i < count)
-            {
-                int id = r.GetInt();
-                int x = r.GetInt();
-                int y = r.GetInt();
-                int hp = r.GetInt();
-                entities[i] = new EntityState(id, x, y, hp);
-                i++;
-            }
-
-            msg = new BaselineMsg(serverTick, stateHash, entities);
-            return true;
+            return TryDecodePayload(packetBytes, MsgKind.Baseline, out msg);
         }
 
         public static byte[] EncodePing(PingMsg msg)
         {
-            NetDataWriter w = new NetDataWriter();
-            w.Put((byte)MsgKind.Ping);
-            w.Put(Protocol.Version);
-            w.Put(Protocol.BuildHash);
-
-            w.Put(msg.PingId);
-            w.Put(msg.ClientTimeMs);
-            w.Put(msg.ClientTick);
-
-            return w.CopyData();
+            return EncodePayload(MsgKind.Ping, PacketFlags.None, msg);
         }
 
-        public static bool TryDecodePing(ArraySegment<byte> bytes, out PingMsg msg)
+        public static bool TryDecodePing(ArraySegment<byte> packetBytes, out PingMsg msg)
         {
             msg = null!;
-            NetDataReader r = new NetDataReader(bytes.Array, bytes.Offset, bytes.Count);
-
-            if (r.AvailableBytes < 1 + 2 + 4 + 4 + 8 + 4)
-                return false;
-
-            MsgKind k = (MsgKind)r.GetByte();
-            if (k != MsgKind.Ping)
-                return false;
-
-            ushort ver = r.GetUShort();
-            uint hash = r.GetUInt();
-            if (ver != Protocol.Version)
-                return false;
-            if (hash != Protocol.BuildHash)
-                return false;
-
-            uint pingId = r.GetUInt();
-            long clientMs = r.GetLong();
-            int clientTick = r.GetInt();
-
-            msg = new PingMsg(pingId, clientMs, clientTick);
-            return true;
+            return TryDecodePayload(packetBytes, MsgKind.Ping, out msg);
         }
 
         public static byte[] EncodePong(PongMsg msg)
         {
-            NetDataWriter w = new NetDataWriter();
-            w.Put((byte)MsgKind.Pong);
-            w.Put(Protocol.Version);
-            w.Put(Protocol.BuildHash);
-
-            w.Put(msg.PingId);
-            w.Put(msg.ClientTimeMsEcho);
-            w.Put(msg.ServerTimeMs);
-            w.Put(msg.ServerTick);
-
-            return w.CopyData();
+            return EncodePayload(MsgKind.Pong, PacketFlags.None, msg);
         }
 
-        public static bool TryDecodePong(ArraySegment<byte> bytes, out PongMsg msg)
+        public static bool TryDecodePong(ArraySegment<byte> packetBytes, out PongMsg msg)
         {
             msg = null!;
-            NetDataReader r = new NetDataReader(bytes.Array, bytes.Offset, bytes.Count);
+            return TryDecodePayload(packetBytes, MsgKind.Pong, out msg);
+        }
 
-            if (r.AvailableBytes < 1 + 2 + 4 + 4 + 8 + 8 + 4)
+        // -------------------------
+        // Core encode/decode helpers
+        // -------------------------
+
+        private static byte[] EncodePayload<T>(MsgKind kind, byte flags, T payload)
+        {
+            // Serialize with MemoryPack
+            byte[] body = MemoryPackSerializer.Serialize(payload);
+
+            if (body.Length > MaxPayloadBytes)
+                throw new InvalidOperationException("Payload too large: " + body.Length);
+
+            if (body.Length > ushort.MaxValue)
+                throw new InvalidOperationException("Payload too large for ushort length: " + body.Length);
+
+            ushort payloadLen = (ushort)body.Length;
+
+            PacketHeader header = new PacketHeader(
+                version: Protocol.Version,
+                buildHash: Protocol.BuildHash,
+                kind: kind,
+                flags: flags,
+                payloadLength: payloadLen);
+
+            byte[] packet = new byte[PacketHeader.Size + payloadLen];
+
+            // header
+            header.Write(packet.AsSpan(0, PacketHeader.Size));
+
+            // body
+            Buffer.BlockCopy(body, 0, packet, PacketHeader.Size, payloadLen);
+
+            return packet;
+        }
+
+        private static bool TryDecodePayload<T>(ArraySegment<byte> packetBytes, MsgKind expectedKind, out T payload)
+        {
+            payload = default(T)!;
+
+            if (packetBytes.Array == null)
                 return false;
 
-            MsgKind k = (MsgKind)r.GetByte();
-            if (k != MsgKind.Pong)
+            ReadOnlySpan<byte> span = new ReadOnlySpan<byte>(packetBytes.Array, packetBytes.Offset, packetBytes.Count);
+
+            PacketHeader header;
+            bool ok = PacketHeader.TryRead(span, out header);
+            if (!ok)
                 return false;
 
-            ushort ver = r.GetUShort();
-            uint hash = r.GetUInt();
-            if (ver != Protocol.Version)
-                return false;
-            if (hash != Protocol.BuildHash)
+            if (header.Kind != expectedKind)
                 return false;
 
-            uint pingId = r.GetUInt();
-            long echo = r.GetLong();
-            long serverMs = r.GetLong();
-            int serverTick = r.GetInt();
+            if (header.Version != Protocol.Version)
+                return false;
 
-            msg = new PongMsg(pingId, echo, serverMs, serverTick);
+            if (header.BuildHash != Protocol.BuildHash)
+                return false;
+
+            int totalNeeded = PacketHeader.Size + header.PayloadLength;
+            if (span.Length < totalNeeded)
+                return false;
+
+            if (header.PayloadLength > MaxPayloadBytes)
+                return false;
+
+            ReadOnlySpan<byte> body = span.Slice(PacketHeader.Size, header.PayloadLength);
+
+            // Deserialize MemoryPack payload
+            T? result = MemoryPackSerializer.Deserialize<T>(body);
+            if (result == null)
+                return false;
+
+            payload = result;
             return true;
         }
     }

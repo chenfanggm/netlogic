@@ -125,11 +125,8 @@ namespace Sim
                     ServerOpsMsg rel;
                     if (MsgCodec.TryDecodeServerOps(packet.Payload, out rel))
                     {
-                        if (rel.Lane == Lane.Reliable)
-                        {
-                            ApplyReliableOps(rel);
-                            continue;
-                        }
+                        ApplyReliableOps(rel);
+                        continue;
                     }
                 }
 
@@ -139,11 +136,8 @@ namespace Sim
                     ServerOpsMsg samp;
                     if (MsgCodec.TryDecodeServerOps(packet.Payload, out samp))
                     {
-                        if (samp.Lane == Lane.Sample)
-                        {
-                            ApplySampleOps(samp);
-                            continue;
-                        }
+                        ApplySampleOps(samp);
+                        continue;
                     }
                 }
             }
@@ -163,14 +157,16 @@ namespace Sim
             OpsWriter.WriteMoveBy(_opsWriter, entityId, dx, dy);
             opCount++;
 
+            byte[] opsBytes = _opsWriter.CopyData();
+
             ClientOpsMsg msg = new ClientOpsMsg(
                 clientTick: delayedTick,
                 clientCmdSeq: _clientCmdSeq++,
                 opCount: opCount,
-                opsPayload: new ArraySegment<byte>(_opsWriter.Data, 0, _opsWriter.Length));
+                opsPayload: opsBytes);
 
-            byte[] bytes = MsgCodec.EncodeClientOps(msg);
-            _transport.Send(Lane.Reliable, new ArraySegment<byte>(bytes, 0, bytes.Length));
+            byte[] packet = MsgCodec.EncodeClientOps(msg);
+            _transport.Send(Lane.Reliable, new ArraySegment<byte>(packet, 0, packet.Length));
         }
 
         public EntityState[] GetRenderEntities()
@@ -240,7 +236,7 @@ namespace Sim
 
             _lastSampleServerTick = msg.ServerTick;
 
-            NetDataReader r = new NetDataReader(msg.OpsPayload.Array, msg.OpsPayload.Offset, msg.OpsPayload.Count);
+            NetDataReader r = new NetDataReader(msg.OpsPayload, 0, msg.OpsPayload.Length);
 
             EntityState[] entities = new EntityState[msg.OpCount];
 

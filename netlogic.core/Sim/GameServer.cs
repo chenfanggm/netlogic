@@ -131,7 +131,7 @@ namespace Sim
 
         private void ApplyClientOps(int connectionId, ClientOpsMsg msg)
         {
-            NetDataReader r = new NetDataReader(msg.OpsPayload.Array, msg.OpsPayload.Offset, msg.OpsPayload.Count);
+            NetDataReader r = new NetDataReader(msg.OpsPayload, 0, msg.OpsPayload.Length);
 
             int i = 0;
             while (i < msg.OpCount)
@@ -197,17 +197,18 @@ namespace Sim
 
             uint hash = StateHash.ComputeWorldHash(_world);
 
+            byte[] opsBytes = _opsWriter.CopyData();
+
             ServerOpsMsg msg = new ServerOpsMsg(
                 serverTick: _clock.Tick,
-                lane: Lane.Reliable,
                 serverSeq: _serverReliableSeq++,
                 stateHash: hash,
                 opCount: opCount,
-                opsPayload: new ArraySegment<byte>(_opsWriter.Data, 0, _opsWriter.Length));
+                opsPayload: opsBytes);
 
-            byte[] bytes = MsgCodec.EncodeServerOps(msg);
+            byte[] packet = MsgCodec.EncodeServerOps(Lane.Reliable, msg);
 
-            ArraySegment<byte> payload = new ArraySegment<byte>(bytes, 0, bytes.Length);
+            ArraySegment<byte> payload = new ArraySegment<byte>(packet, 0, packet.Length);
 
             int k = 0;
             while (k < _clients.Count)
@@ -233,17 +234,18 @@ namespace Sim
 
             uint hash = StateHash.ComputeWorldHash(_world);
 
+            byte[] opsBytes = _opsWriter.CopyData();
+
             ServerOpsMsg msg = new ServerOpsMsg(
                 serverTick: _clock.Tick,
-                lane: Lane.Sample,
                 serverSeq: _serverSampleSeq++,
                 stateHash: hash,
                 opCount: opCount,
-                opsPayload: new ArraySegment<byte>(_opsWriter.Data, 0, _opsWriter.Length));
+                opsPayload: opsBytes);
 
-            byte[] bytes = MsgCodec.EncodeServerOps(msg);
+            byte[] packet = MsgCodec.EncodeServerOps(Lane.Sample, msg);
 
-            ArraySegment<byte> payload = new ArraySegment<byte>(bytes, 0, bytes.Length);
+            ArraySegment<byte> payload = new ArraySegment<byte>(packet, 0, packet.Length);
 
             int k = 0;
             while (k < _clients.Count)

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MemoryPack;
 
 namespace Net
 {
@@ -82,7 +83,8 @@ namespace Net
     /// <summary>
     /// Snapshot of an entity's state at a specific tick.
     /// </summary>
-    public readonly record struct EntityState(int Id, int X, int Y, int Hp);
+    [MemoryPackable]
+    public readonly partial record struct EntityState(int Id, int X, int Y, int Hp);
 
     /// <summary>
     /// Full snapshot of all entities at a specific server tick.
