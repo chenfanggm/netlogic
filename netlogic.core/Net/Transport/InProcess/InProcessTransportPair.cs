@@ -26,21 +26,14 @@ namespace Net
     /// <summary>
     /// In-process server transport implementation using concurrent queues.
     /// </summary>
-    public sealed class InProcessServerTransport : IServerTransport
+    public sealed class InProcessServerTransport(
+        ConcurrentQueue<int> connected,
+        ConcurrentQueue<NetPacket> c2s,
+        ConcurrentQueue<NetPacket> s2c) : IServerTransport
     {
-        private readonly ConcurrentQueue<int> _connected;
-        private readonly ConcurrentQueue<NetPacket> _c2s;
-        private readonly ConcurrentQueue<NetPacket> _s2c;
-
-        public InProcessServerTransport(
-            ConcurrentQueue<int> connected,
-            ConcurrentQueue<NetPacket> c2s,
-            ConcurrentQueue<NetPacket> s2c)
-        {
-            _connected = connected;
-            _c2s = c2s;
-            _s2c = s2c;
-        }
+        private readonly ConcurrentQueue<int> _connected = connected;
+        private readonly ConcurrentQueue<NetPacket> _c2s = c2s;
+        private readonly ConcurrentQueue<NetPacket> _s2c = s2c;
 
         public void Start(int port)
         {
@@ -76,26 +69,17 @@ namespace Net
     /// <summary>
     /// In-process client transport implementation using concurrent queues.
     /// </summary>
-    public sealed class InProcessClientTransport : IClientTransport
+    public sealed class InProcessClientTransport(
+        ConcurrentQueue<int> connected,
+        ConcurrentQueue<NetPacket> c2s,
+        ConcurrentQueue<NetPacket> s2c) : IClientTransport
     {
-        private readonly ConcurrentQueue<int> _connected;
-        private readonly ConcurrentQueue<NetPacket> _c2s;
-        private readonly ConcurrentQueue<NetPacket> _s2c;
+        private readonly ConcurrentQueue<int> _connected = connected;
+        private readonly ConcurrentQueue<NetPacket> _c2s = c2s;
+        private readonly ConcurrentQueue<NetPacket> _s2c = s2c;
 
-        private int _connectionId;
-        private bool _isConnected;
-
-        public InProcessClientTransport(
-            ConcurrentQueue<int> connected,
-            ConcurrentQueue<NetPacket> c2s,
-            ConcurrentQueue<NetPacket> s2c)
-        {
-            _connected = connected;
-            _c2s = c2s;
-            _s2c = s2c;
-            _connectionId = 1;
-            _isConnected = false;
-        }
+        private int _connectionId = 1;
+        private bool _isConnected = false;
 
         public void Start()
         {

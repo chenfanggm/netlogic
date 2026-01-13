@@ -28,24 +28,16 @@ namespace Net
         /// <summary>
         /// Endpoint that randomly drops messages based on configured loss rate.
         /// </summary>
-        private sealed class LossyEndpoint : ITransportEndpoint
+        private sealed class LossyEndpoint(
+            ConcurrentQueue<IMessage> sendQueue,
+            ConcurrentQueue<IMessage> recvQueue,
+            Random rng,
+            double lossRate) : ITransportEndpoint
         {
-            private readonly ConcurrentQueue<IMessage> _send;
-            private readonly ConcurrentQueue<IMessage> _recv;
-            private readonly Random _rng;
-            private readonly double _lossRate;
-
-            public LossyEndpoint(
-                ConcurrentQueue<IMessage> sendQueue,
-                ConcurrentQueue<IMessage> recvQueue,
-                Random rng,
-                double lossRate)
-            {
-                _send = sendQueue;
-                _recv = recvQueue;
-                _rng = rng;
-                _lossRate = lossRate;
-            }
+            private readonly ConcurrentQueue<IMessage> _send = sendQueue;
+            private readonly ConcurrentQueue<IMessage> _recv = recvQueue;
+            private readonly Random _rng = rng;
+            private readonly double _lossRate = lossRate;
 
             public void Send(IMessage msg)
             {

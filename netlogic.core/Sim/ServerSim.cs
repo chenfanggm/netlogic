@@ -10,7 +10,7 @@ namespace Sim
     /// </summary>
     public sealed class ServerSim
     {
-        private readonly TickClock _clock;
+        private readonly TickTicker _clock;
         private readonly ITransportEndpoint _net;
         private readonly CommandBuffer _cmdBuffer;
         private readonly World _world;
@@ -23,7 +23,7 @@ namespace Sim
 
         public int FullSnapshotIntervalTicks { get; set; } = 20; // every 1 second at 20Hz
 
-        public ServerSim(TickClock clock, ITransportEndpoint net)
+        public ServerSim(TickTicker clock, ITransportEndpoint net)
         {
             _clock = clock;
             _net = net;

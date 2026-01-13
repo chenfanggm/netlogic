@@ -5,22 +5,24 @@ namespace Sim
     /// <summary>
     /// Fixed-rate tick clock that blocks until the next tick deadline.
     /// </summary>
-    public sealed class TickClock
+    public sealed class TickTicker
     {
         public int TickRateHz { get; }
         public double TickDurationMs { get; }
-        public int Tick { get; private set; }
+        public int CurrentTick { get; private set; }
 
         private readonly Stopwatch _sw = Stopwatch.StartNew();
         private double _nextTickAtMs;
 
-        public TickClock(int tickRateHz)
+        public TickTicker(int tickRateHz)
         {
             TickRateHz = tickRateHz;
             TickDurationMs = 1000.0 / tickRateHz;
             _nextTickAtMs = TickDurationMs;
-            Tick = 0;
+            CurrentTick = 0;
         }
+
+        public long ServerTimeMs => _sw.ElapsedMilliseconds;
 
         // Blocks until next tick deadline. For practice, blocking is fine.
         public void WaitForNextTick()
@@ -41,7 +43,7 @@ namespace Sim
             }
 
             _nextTickAtMs += TickDurationMs;
-            Tick++;
+            CurrentTick++;
         }
 
         /// <summary>
@@ -49,7 +51,7 @@ namespace Sim
         /// </summary>
         public void Advance(int count)
         {
-            Tick += count;
+            CurrentTick += count;
         }
     }
 }

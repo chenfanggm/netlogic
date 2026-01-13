@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using Game;
 using Net;
 using LiteNetLib.Utils;
@@ -14,38 +11,20 @@ namespace Sim
     /// - Decodes ClientOpsMsg from Reliable lane only
     /// - Encodes/sends ServerOpsMsg on both lanes (Reliable + Sample)
     /// </summary>
-    public sealed class GameServer
+    public sealed class GameServer(IServerTransport transport, int tickRateHz, World world)
     {
-        private readonly IServerTransport _transport;
-        private readonly TickClock _clock;
-        private readonly World _world;
+        public int CurrentServerTick => _ticker.CurrentTick;
+        public int TickRateHz => _ticker.TickRateHz;
 
-        private readonly List<int> _clients;
+        private readonly IServerTransport _transport = transport ?? throw new ArgumentNullException(nameof(transport));
+        private readonly World _world = world ?? throw new ArgumentNullException(nameof(world));
+        private readonly TickTicker _ticker = new TickTicker(tickRateHz);
+        private readonly List<int> _clients = new List<int>(32);
 
-        private uint _serverReliableSeq;
-        private uint _serverSampleSeq;
+        private uint _serverReliableSeq = 1;
+        private uint _serverSampleSeq = 1;
 
-        private readonly Stopwatch _serverTime;
-
-        private readonly NetDataWriter _opsWriter;
-
-        public int Tick => _clock.Tick;
-
-        public GameServer(IServerTransport transport, int tickRateHz, World world)
-        {
-            _transport = transport ?? throw new ArgumentNullException(nameof(transport));
-            _clock = new TickClock(tickRateHz);
-            _world = world ?? throw new ArgumentNullException(nameof(world));
-
-            _clients = new List<int>(32);
-
-            _serverReliableSeq = 1;
-            _serverSampleSeq = 1;
-
-            _serverTime = Stopwatch.StartNew();
-
-            _opsWriter = new NetDataWriter();
-        }
+        private readonly NetDataWriter _opsWriter = new NetDataWriter();
 
         public void Start(int port)
         {
@@ -56,8 +35,7 @@ namespace Sim
         {
             _transport.Poll();
 
-            int connId;
-            while (_transport.TryDequeueConnected(out connId))
+            while (_transport.TryDequeueConnected(out int connId))
             {
                 if (!_clients.Contains(connId))
                     _clients.Add(connId);
@@ -67,16 +45,14 @@ namespace Sim
                 SendBaseline(connId);
             }
 
-            NetPacket packet;
-            while (_transport.TryReceive(out packet))
+            while (_transport.TryReceive(out NetPacket packet))
             {
                 // All control and commands are Reliable lane only
                 if (packet.Lane != Lane.Reliable)
                     continue;
 
                 // HELLO
-                Hello hello;
-                if (MsgCodec.TryDecodeHello(packet.Payload, out hello))
+                if (MsgCodec.TryDecodeHello(packet.Payload, out Hello hello))
                 {
                     // Validate protocol/version
                     // (We already validate in decoder)
@@ -86,14 +62,13 @@ namespace Sim
                 }
 
                 // PING -> respond PONG
-                PingMsg ping;
-                if (MsgCodec.TryDecodePing(packet.Payload, out ping))
+                if (MsgCodec.TryDecodePing(packet.Payload, out PingMsg ping))
                 {
                     PongMsg pong = new PongMsg(
                         pingId: ping.PingId,
                         clientTimeMsEcho: ping.ClientTimeMs,
-                        serverTimeMs: _serverTime.ElapsedMilliseconds,
-                        serverTick: _clock.Tick);
+                        serverTimeMs: _ticker.ServerTimeMs,
+                        serverTick: _ticker.CurrentTick);
 
                     byte[] pongBytes = MsgCodec.EncodePong(pong);
                     _transport.Send(packet.ConnectionId, Lane.Reliable, new ArraySegment<byte>(pongBytes, 0, pongBytes.Length));
@@ -101,8 +76,7 @@ namespace Sim
                 }
 
                 // CLIENT OPS
-                ClientOpsMsg cmd;
-                if (MsgCodec.TryDecodeClientOps(packet.Payload, out cmd))
+                if (MsgCodec.TryDecodeClientOps(packet.Payload, out ClientOpsMsg cmd))
                 {
                     ApplyClientOps(packet.ConnectionId, cmd);
                     continue;
@@ -112,12 +86,12 @@ namespace Sim
 
         public void TickOnce()
         {
-            _clock.Advance(1);
+            _ticker.Advance(1);
 
             // TODO: run authoritative systems here (AI, combat, grid collisions, etc.)
 
             // Baseline snapshots at cadence for recovery & idempotency
-            if ((_clock.Tick % Protocol.BaselineIntervalTicks) == 0)
+            if ((_ticker.CurrentTick % Protocol.BaselineIntervalTicks) == 0)
             {
                 SendBaselineToAll();
             }
@@ -159,7 +133,7 @@ namespace Sim
 
         private void SendWelcome(int connId)
         {
-            byte[] bytes = MsgCodec.EncodeWelcome(_clock.TickRateHz, _clock.Tick);
+            byte[] bytes = MsgCodec.EncodeWelcome(_ticker.TickRateHz, _ticker.CurrentTick);
             _transport.Send(connId, Lane.Reliable, new ArraySegment<byte>(bytes, 0, bytes.Length));
         }
 
@@ -168,7 +142,7 @@ namespace Sim
             EntityState[] entities = _world.ToSnapshot();
             uint hash = StateHash.ComputeEntitiesHash(entities);
 
-            BaselineMsg msg = new BaselineMsg(_clock.Tick, hash, entities);
+            BaselineMsg msg = new BaselineMsg(_ticker.CurrentTick, hash, entities);
             byte[] bytes = MsgCodec.EncodeBaseline(msg);
 
             _transport.Send(connId, Lane.Reliable, new ArraySegment<byte>(bytes, 0, bytes.Length));
@@ -200,7 +174,7 @@ namespace Sim
             byte[] opsBytes = _opsWriter.CopyData();
 
             ServerOpsMsg msg = new ServerOpsMsg(
-                serverTick: _clock.Tick,
+                serverTick: _ticker.CurrentTick,
                 serverSeq: _serverReliableSeq++,
                 stateHash: hash,
                 opCount: opCount,
@@ -237,7 +211,7 @@ namespace Sim
             byte[] opsBytes = _opsWriter.CopyData();
 
             ServerOpsMsg msg = new ServerOpsMsg(
-                serverTick: _clock.Tick,
+                serverTick: _ticker.CurrentTick,
                 serverSeq: _serverSampleSeq++,
                 stateHash: hash,
                 opCount: opCount,

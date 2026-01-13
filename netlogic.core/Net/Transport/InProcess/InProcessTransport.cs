@@ -22,16 +22,10 @@ namespace Net
         /// <summary>
         /// Internal endpoint implementation using concurrent queues.
         /// </summary>
-        private sealed class Endpoint : ITransportEndpoint
+        private sealed class Endpoint(ConcurrentQueue<IMessage> sendQueue, ConcurrentQueue<IMessage> recvQueue) : ITransportEndpoint
         {
-            private readonly ConcurrentQueue<IMessage> _send;
-            private readonly ConcurrentQueue<IMessage> _recv;
-
-            public Endpoint(ConcurrentQueue<IMessage> sendQueue, ConcurrentQueue<IMessage> recvQueue)
-            {
-                _send = sendQueue;
-                _recv = recvQueue;
-            }
+            private readonly ConcurrentQueue<IMessage> _send = sendQueue;
+            private readonly ConcurrentQueue<IMessage> _recv = recvQueue;
 
             public void Send(IMessage msg) => _send.Enqueue(msg);
 
