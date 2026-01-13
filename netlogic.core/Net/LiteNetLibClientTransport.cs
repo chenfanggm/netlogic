@@ -1,52 +1,55 @@
 using System;
 using System.Collections.Concurrent;
+using LiteNetLib;
+using LiteNetLib.Utils;
 
 namespace Net
 {
     /// <summary>
     /// LiteNetLib-based client transport implementation for real UDP networking.
-    /// Note: Requires LiteNetLib NuGet package to be installed.
     /// </summary>
     public sealed class LiteNetLibClientTransport : IClientTransport
     {
-        // This is a skeleton implementation. To use it, you need to:
-        // 1. Install LiteNetLib NuGet package
-        // 2. Uncomment the LiteNetLib-specific code below
-        // 3. Add using statements: using LiteNetLib; using LiteNetLib.Utils;
+        private readonly EventBasedNetListener _listener;
+        private readonly NetManager _client;
 
         private readonly ConcurrentQueue<NetPacket> _received;
 
-        private bool _isConnected;
+        private readonly NetDataWriter _sendWriter;
+
+        private NetPeer? _serverPeer;
 
         public LiteNetLibClientTransport()
         {
-            _received = new ConcurrentQueue<NetPacket>();
-            _isConnected = false;
+            _listener = new EventBasedNetListener();
+            _client = new NetManager(_listener);
 
-            // TODO: Initialize LiteNetLib EventBasedNetListener and NetManager
-            // _listener = new EventBasedNetListener();
-            // _client = new NetManager(_listener);
-            // Set up event handlers
+            _received = new ConcurrentQueue<NetPacket>();
+            _sendWriter = new NetDataWriter();
+
+            _listener.PeerConnectedEvent += OnPeerConnected;
+            _listener.PeerDisconnectedEvent += OnPeerDisconnected;
+            _listener.NetworkReceiveEvent += OnNetworkReceive;
         }
 
         public void Start()
         {
-            // TODO: _client.Start();
+            _client.Start();
         }
 
         public void Connect(string host, int port)
         {
-            // TODO: _client.Connect(host, port, "game_key");
+            _serverPeer = _client.Connect(host, port, "game_key");
         }
 
         public void Poll()
         {
-            // TODO: _client.PollEvents();
+            _client.PollEvents();
         }
 
         public bool IsConnected
         {
-            get { return _isConnected; }
+            get { return _serverPeer != null && _serverPeer.ConnectionState == ConnectionState.Connected; }
         }
 
         public bool TryReceive(out NetPacket packet)
@@ -56,22 +59,49 @@ namespace Net
 
         public void Send(Lane lane, ArraySegment<byte> payload)
         {
-            // TODO: Get server peer
-            // DeliveryMethod method = lane == Lane.Reliable ? DeliveryMethod.ReliableOrdered : DeliveryMethod.Unreliable;
-            // NetDataWriter writer = new NetDataWriter();
-            // writer.Put((byte)lane);
-            // writer.Put(payload.Array, payload.Offset, payload.Count);
-            // serverPeer.Send(writer, method);
+            if (_serverPeer == null)
+                return;
+
+            DeliveryMethod method = lane == Lane.Reliable ? DeliveryMethod.ReliableOrdered : DeliveryMethod.Unreliable;
+
+            _sendWriter.Reset();
+            _sendWriter.Put((byte)lane);
+            _sendWriter.Put(payload.Array, payload.Offset, payload.Count);
+
+            _serverPeer.Send(_sendWriter, method);
+        }
+
+        private void OnPeerConnected(NetPeer peer)
+        {
+            _serverPeer = peer;
+        }
+
+        private void OnPeerDisconnected(NetPeer peer, DisconnectInfo info)
+        {
+            if (_serverPeer == peer)
+                _serverPeer = null;
+        }
+
+        private void OnNetworkReceive(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod)
+        {
+            if (reader.AvailableBytes < 1)
+            {
+                reader.Recycle();
+                return;
+            }
+
+            Lane lane = (Lane)reader.GetByte();
+            byte[] payload = reader.GetRemainingBytes();
+
+            NetPacket packet = new NetPacket(1, lane, new ArraySegment<byte>(payload, 0, payload.Length));
+            _received.Enqueue(packet);
+
+            reader.Recycle();
         }
 
         public void Dispose()
         {
-            // TODO: _client.Stop();
+            _client.Stop();
         }
-
-        // TODO: Implement event handlers:
-        // - OnPeerConnected: set _isConnected = true
-        // - OnPeerDisconnected: set _isConnected = false
-        // - OnNetworkReceive: parse lane byte, extract payload, enqueue NetPacket
     }
 }
