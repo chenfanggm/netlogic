@@ -19,6 +19,9 @@ namespace Sim
         private int _nextPlayerId;
 
         private readonly Dictionary<int, SeqDedupe> _dedupeByPlayer;
+        private readonly Dictionary<int, ServerDeltaTracker> _deltaByPlayer;
+
+        public int FullSnapshotIntervalTicks { get; set; } = 20; // every 1 second at 20Hz
 
         public ServerSim(TickClock clock, ITransportEndpoint net)
         {
@@ -32,6 +35,7 @@ namespace Sim
             _nextPlayerId = 1;
 
             _dedupeByPlayer = new Dictionary<int, SeqDedupe>(16);
+            _deltaByPlayer = new Dictionary<int, ServerDeltaTracker>(16);
 
             _world.Spawn(0, 0);
         }
@@ -43,7 +47,7 @@ namespace Sim
                 _clock.WaitForNextTick();
                 PumpNetwork();
                 Step();
-                PublishSnapshot();
+                PublishUpdate();
             }
         }
 
@@ -59,6 +63,9 @@ namespace Sim
                             int pid = _nextPlayerId++;
                             _dedupeByPlayer[pid] = new SeqDedupe(windowKeep: 2048);
 
+                            ServerDeltaTracker tracker = new ServerDeltaTracker();
+                            _deltaByPlayer[pid] = tracker;
+
                             _net.Send(new WelcomeMsg(pid, _tick, _clock.TickRateHz));
                             Console.WriteLine("[Server] Welcome " + hello.PlayerName + " -> PlayerId=" + pid);
                             break;
@@ -66,8 +73,7 @@ namespace Sim
 
                     case CommandBatchMsg batch:
                         {
-                            SeqDedupe? dedupe;
-                            if (!_dedupeByPlayer.TryGetValue(batch.PlayerId, out dedupe) || dedupe == null)
+                            if (!_dedupeByPlayer.TryGetValue(batch.PlayerId, out SeqDedupe? dedupe) || dedupe == null)
                             {
                                 dedupe = new SeqDedupe(windowKeep: 2048);
                                 _dedupeByPlayer[batch.PlayerId] = dedupe;
@@ -138,10 +144,31 @@ namespace Sim
             }
         }
 
-        private void PublishSnapshot()
+        private void PublishUpdate()
         {
-            SnapshotMsg snap = new SnapshotMsg(_tick, _world.ToSnapshot());
-            _net.Send(snap);
+            // For Step 4, we assume one transport endpoint but many logical players.
+            // We send an update per known player tracker.
+            EntityState[] current = _world.ToSnapshot();
+
+            foreach (KeyValuePair<int, ServerDeltaTracker> kv in _deltaByPlayer)
+            {
+                int playerId = kv.Key;
+                ServerDeltaTracker tracker = kv.Value;
+
+                bool sendFull = (FullSnapshotIntervalTicks > 0) && ((_tick % FullSnapshotIntervalTicks) == 0);
+
+                if (sendFull)
+                {
+                    tracker.ResetWithFullSnapshot(current);
+                    SnapshotMsg snap = new SnapshotMsg(_tick, current);
+                    _net.Send(snap);
+                }
+                else
+                {
+                    DeltaMsg delta = tracker.BuildDelta(_tick, current);
+                    _net.Send(delta);
+                }
+            }
         }
 
         /// <summary>

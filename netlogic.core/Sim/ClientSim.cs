@@ -22,6 +22,7 @@ namespace Sim
         private readonly RenderInterpolator _interpolator;
 
         private readonly PendingCommandBatches _pending;
+        private readonly ClientAuthoritativeState _auth;
 
         public int InputDelayTicks { get; set; } = 3;
         public int RenderDelayTicks { get; set; } = 3;
@@ -41,6 +42,7 @@ namespace Sim
             _interpolator = new RenderInterpolator();
 
             _pending = new PendingCommandBatches();
+            _auth = new ClientAuthoritativeState();
         }
 
         public void Connect(string name)
@@ -80,8 +82,23 @@ namespace Sim
 
                     case SnapshotMsg snapshotMsg:
                         {
-                            _snapshots.Add(snapshotMsg);
+                            _auth.ApplyFullSnapshot(snapshotMsg);
+
+                            SnapshotMsg rebuilt = new SnapshotMsg(snapshotMsg.Tick, _auth.ToEntityArrayUnordered());
+                            _snapshots.Add(rebuilt);
+
                             _timeSync.OnSnapshotReceived(snapshotMsg.Tick);
+                            break;
+                        }
+
+                    case DeltaMsg deltaMsg:
+                        {
+                            _auth.ApplyDelta(deltaMsg);
+
+                            SnapshotMsg rebuilt = new SnapshotMsg(deltaMsg.Tick, _auth.ToEntityArrayUnordered());
+                            _snapshots.Add(rebuilt);
+
+                            _timeSync.OnSnapshotReceived(deltaMsg.Tick);
                             break;
                         }
                 }
