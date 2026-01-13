@@ -148,13 +148,13 @@ namespace Sim
             if (!IsConnected)
                 return;
 
-            // Apply input delay ticks (client-side scheduling)
             int delayedTick = clientTick + _delay.InputDelayTicks;
 
             _opsWriter.Reset();
             ushort opCount = 0;
 
-            OpsWriter.WriteMoveBy(_opsWriter, entityId, dx, dy);
+            ClientCommand cmd = ClientCommand.MoveBy(entityId, dx, dy);
+            ClientCommandCodec.EncodeToOps(_opsWriter, cmd);
             opCount++;
 
             byte[] opsBytes = _opsWriter.CopyData();
