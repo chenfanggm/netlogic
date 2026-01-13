@@ -1,54 +1,33 @@
-﻿using System;
-using Game;
+﻿using Game;
 using Net;
 using Sim;
 
-namespace App
+namespace Engine
 {
-    public static class Program
+    public static class ManualTickEngine
     {
-        public static void Main()
+        public static void Run(int totalTicks)
         {
             // Switch transports without changing game logic:
             // true  => InProcess (fast dev)
             // false => LiteNetLib UDP (real)
-            bool useInProcess = true;
-
-            INetFactory factory;
-            IServerTransport serverTransport;
-            IClientTransport clientTransport;
-
-            if (useInProcess)
-            {
-                InProcessTransportPair pair = new InProcessTransportPair();
-                factory = new InProcessNetFactory(pair);
-            }
-            else
-            {
-                factory = new LiteNetLibNetFactory();
-            }
-
-            serverTransport = factory.CreateServerTransport();
-            clientTransport = factory.CreateClientTransport();
-
-            TickClock serverClock = new TickClock(tickRateHz: 20);
+            INetFactory factory = NetFactory.Choose(useInProcess: true);
+            IServerTransport serverTransport = factory.CreateServerTransport();
+            IClientTransport clientTransport = factory.CreateClientTransport();
 
             World world = new World();
             world.CreateEntityAt(entityId: 1, x: 0, y: 0);
 
-            GameServer server = new GameServer(serverTransport, serverClock, world);
-
             int port = 9050;
+            int tickRateHz = 20;
+            GameServer server = new GameServer(serverTransport, tickRateHz, world);
             server.Start(port);
 
-            GameClient client = new GameClient(clientTransport, tickRateHz: 20);
+            GameClient client = new GameClient(clientTransport, tickRateHz);
             client.Start();
-            client.Connect("127.0.0.1", port);
+            client.Connect(host: "127.0.0.1", port);
 
-            int i = 0;
-            int totalTicks = 400;
-
-            while (i < totalTicks)
+            for (int i = 0; i < totalTicks; i++)
             {
                 // Poll network
                 server.Poll();
@@ -80,8 +59,6 @@ namespace App
                             + " Entity1=(" + e0.X + "," + e0.Y + ")");
                     }
                 }
-
-                i++;
             }
 
             serverTransport.Dispose();

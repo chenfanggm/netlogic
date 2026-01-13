@@ -21,12 +21,7 @@ namespace Net
 
     public sealed class InProcessNetFactory : INetFactory
     {
-        private readonly InProcessTransportPair _pair;
-
-        public InProcessNetFactory(InProcessTransportPair pair)
-        {
-            _pair = pair;
-        }
+        private readonly InProcessTransportPair _pair = new InProcessTransportPair();
 
         public IServerTransport CreateServerTransport()
         {
@@ -36,6 +31,21 @@ namespace Net
         public IClientTransport CreateClientTransport()
         {
             return _pair.Client;
+        }
+    }
+
+    public static class NetFactory
+    {
+        public static INetFactory Choose(bool useInProcess)
+        {
+            if (useInProcess)
+            {
+                return new InProcessNetFactory();
+            }
+            else
+            {
+                return new LiteNetLibNetFactory();
+            }
         }
     }
 }

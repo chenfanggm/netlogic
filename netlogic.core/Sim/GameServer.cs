@@ -31,10 +31,10 @@ namespace Sim
 
         public int Tick => _clock.Tick;
 
-        public GameServer(IServerTransport transport, TickClock clock, World world)
+        public GameServer(IServerTransport transport, int tickRateHz, World world)
         {
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
-            _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+            _clock = new TickClock(tickRateHz);
             _world = world ?? throw new ArgumentNullException(nameof(world));
 
             _clients = new List<int>(32);
