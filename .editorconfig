@@ -27,6 +27,11 @@ csharp_new_line_before_open_brace = all
 csharp_new_line_before_members = false
 csharp_new_line_between_attributes = false
 
+# Never use 'var'
+csharp_style_var_for_built_in_types = false:error
+csharp_style_var_when_type_is_apparent = false:error
+csharp_style_var_elsewhere = false:error
+
 # Disable namespace-folder mismatch warning
 dotnet_diagnostic.IDE0130.severity = none
 # Disable readonly private member warning
