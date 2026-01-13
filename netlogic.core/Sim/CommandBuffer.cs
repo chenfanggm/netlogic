@@ -10,7 +10,7 @@ namespace Sim
 
         public void Add(Command cmd)
         {
-            if (!_byTick.TryGetValue(cmd.TargetTick, out List<Command> list))
+            if (!_byTick.TryGetValue(cmd.TargetTick, out List<Command>? list) || list == null)
             {
                 list = new List<Command>(8);
                 _byTick[cmd.TargetTick] = list;
@@ -20,7 +20,7 @@ namespace Sim
 
         public List<Command> Drain(int tick)
         {
-            if (_byTick.TryGetValue(tick, out List<Command> list))
+            if (_byTick.TryGetValue(tick, out List<Command>? list) && list != null)
             {
                 _byTick.Remove(tick);
                 return list;

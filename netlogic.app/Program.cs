@@ -8,35 +8,48 @@ namespace App
     {
         public static void Main()
         {
-            InProcessTransportLink link = new();
+            InProcessTransportLink link = new InProcessTransportLink();
 
-            TickClock serverClock = new(tickRateHz: 20);
-            ServerSim server = new(serverClock, link.ServerEnd);
+            TickClock serverClock = new TickClock(tickRateHz: 20);
+            ServerSim server = new ServerSim(serverClock, link.ServerEnd);
 
-            ClientSim client = new(link.ClientEnd);
+            ClientSim client = new ClientSim(link.ClientEnd)
+            {
+                InputDelayTicks = 3,
+                RenderDelayTicks = 3
+            };
+
             client.Connect("Alice");
 
-            // Run a small simulation: each server tick, client pumps + occasionally sends a command
-            for (int i = 0; i < 120; i++) // ~6 seconds at 20Hz
+            int totalTicks = 160; // ~8 seconds at 20Hz
+
+            int i = 0;
+            while (i < totalTicks)
             {
-                // client reads server messages
                 client.PumpNetwork();
 
-                // every 10 ticks, move entity 1
+                // Send a move command every 10 server ticks (approx)
                 if (i % 10 == 0)
+                {
                     client.SendMoveCommand(entityId: 1, dx: 1, dy: 0);
+                }
 
-                // server runs exactly 1 tick
+                // Run one authoritative server tick
                 server.RunTicks(1);
 
-                // client receives snapshot after server tick
+                // Pump incoming snapshot
                 client.PumpNetwork();
 
-                if (client.LastSnapshot is { } snap && i % 10 == 0)
+                // Render (interpolated)
+                EntityState[] renderEntities = client.GetRenderEntities();
+                if (renderEntities.Length > 0 && i % 5 == 0)
                 {
-                    EntityState e0 = snap.Entities.Length > 0 ? snap.Entities[0] : default;
-                    Console.WriteLine($"Tick={snap.Tick} Entity1=({e0.X},{e0.Y}) Hp={e0.Hp}");
+                    EntityState e1 = renderEntities[0];
+                    int estTick = client.GetEstimatedServerTickFloor();
+                    Console.WriteLine("EstServerTick=" + estTick + " RenderEntity1=(" + e1.X + "," + e1.Y + ") Hp=" + e1.Hp);
                 }
+
+                i++;
             }
         }
     }

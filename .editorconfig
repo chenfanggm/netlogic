@@ -44,4 +44,3 @@ dotnet_diagnostic.IDE0051.severity = none   # unused private members
 dotnet_diagnostic.IDE0059.severity = none   # unused locals
 dotnet_diagnostic.IDE0060.severity = none   # unused parameters
 
-

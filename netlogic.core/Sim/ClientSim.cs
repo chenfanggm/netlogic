@@ -9,21 +9,30 @@ namespace Sim
         private readonly ITransportEndpoint _net;
 
         public int PlayerId { get; private set; }
-        public int ServerTick { get; private set; }
         public int TickRateHz { get; private set; }
 
         private uint _clientSeq;
         private uint _lastAckedSeq;
 
-        // In real client: keep ring buffer of snapshots for interpolation
-        public SnapshotMsg? LastSnapshot { get; private set; }
+        // Tick timing
+        private ClientTimeSync _timeSync;
 
-        // Practice: fixed input delay (ticks ahead of estimated server tick)
+        // Snapshots for rendering
+        private readonly SnapshotRingBuffer _snapshots;
+        private readonly RenderInterpolator _interpolator;
+
+        // Practice knobs
         public int InputDelayTicks { get; set; } = 3;
+        public int RenderDelayTicks { get; set; } = 3;
 
         public ClientSim(ITransportEndpoint net)
         {
             _net = net;
+            TickRateHz = 20;
+            _timeSync = new ClientTimeSync(TickRateHz);
+
+            _snapshots = new SnapshotRingBuffer(capacity: 128);
+            _interpolator = new RenderInterpolator();
         }
 
         public void Connect(string name)
@@ -33,43 +42,83 @@ namespace Sim
 
         public void PumpNetwork()
         {
-            while (_net.TryReceive(out IMessage msg))
+            IMessage msg;
+            while (_net.TryReceive(out msg))
             {
-                switch (msg)
+                WelcomeMsg welcomeMsg;
+                AckMsg ackMsg;
+                SnapshotMsg snapshotMsg;
+
+                if (msg is WelcomeMsg)
                 {
-                    case WelcomeMsg welcome:
-                        PlayerId = welcome.PlayerId;
-                        ServerTick = welcome.ServerTick;
-                        TickRateHz = welcome.TickRateHz;
-                        Console.WriteLine($"[Client] Welcome: PlayerId={PlayerId}, ServerTick={ServerTick}, Rate={TickRateHz}Hz");
-                        break;
+                    welcomeMsg = (WelcomeMsg)msg;
+                    PlayerId = welcomeMsg.PlayerId;
+                    TickRateHz = welcomeMsg.TickRateHz;
 
-                    case AckMsg ack:
-                        if (ack.AckClientSeq > _lastAckedSeq)
-                            _lastAckedSeq = ack.AckClientSeq;
-                        break;
+                    _timeSync.SetTickRate(TickRateHz);
+                    _timeSync.OnSnapshotReceived(welcomeMsg.ServerTick);
 
-                    case SnapshotMsg snap:
-                        LastSnapshot = snap;
-                        ServerTick = snap.Tick; // crude sync for now
-                        break;
+                    Console.WriteLine("[Client] Welcome: PlayerId=" + PlayerId + " ServerTick=" + welcomeMsg.ServerTick + " Rate=" + TickRateHz + "Hz");
+                    continue;
+                }
+
+                if (msg is AckMsg)
+                {
+                    ackMsg = (AckMsg)msg;
+                    if (ackMsg.AckClientSeq > _lastAckedSeq)
+                        _lastAckedSeq = ackMsg.AckClientSeq;
+                    continue;
+                }
+
+                if (msg is SnapshotMsg)
+                {
+                    snapshotMsg = (SnapshotMsg)msg;
+                    _snapshots.Add(snapshotMsg);
+                    _timeSync.OnSnapshotReceived(snapshotMsg.Tick);
+                    continue;
                 }
             }
         }
 
+        public int GetEstimatedServerTickFloor()
+        {
+            return _timeSync.GetEstimatedServerTickFloor();
+        }
+
+        public EntityState[] GetRenderEntities()
+        {
+            double estServerTick = _timeSync.GetEstimatedServerTickDouble();
+            double renderTick = estServerTick - RenderDelayTicks;
+
+
+            if (!_snapshots.TryGetPairForTickDouble(renderTick, out SnapshotMsg a, out SnapshotMsg b, out double t))
+            {
+                // Fallback: return most recent snapshot if any
+                int est = (int)Math.Floor(estServerTick);
+                if (_snapshots.TryGet(est, out SnapshotMsg latest))
+                    return latest.Entities;
+
+                return []; // empty array
+            }
+
+            EntityState[] renderStates = _interpolator.Interpolate(a, b, t);
+            return renderStates;
+        }
+
         public void SendMoveCommand(int entityId, short dx, short dy)
         {
-            if (PlayerId == 0) return;
+            if (PlayerId == 0)
+                return;
 
-            int targetTick = ServerTick + InputDelayTicks;
+            int estimatedServerTick = _timeSync.GetEstimatedServerTickFloor();
+            int targetTick = estimatedServerTick + InputDelayTicks;
+
             int packed = (dx << 16) | (ushort)dy;
 
-            List<Command> cmds = new(1)
-            {
-                new Command(PlayerId, targetTick, CommandType.Move, entityId, packed)
-            };
+            List<Command> cmds = new List<Command>(1);
+            cmds.Add(new Command(PlayerId, targetTick, CommandType.Move, entityId, packed));
 
-            CommandBatchMsg msg = new(++_clientSeq, PlayerId, cmds);
+            CommandBatchMsg msg = new CommandBatchMsg(++_clientSeq, PlayerId, cmds);
             _net.Send(msg);
         }
     }
