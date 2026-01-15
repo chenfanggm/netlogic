@@ -4,43 +4,36 @@ namespace Sim
 {
     /// <summary>
     /// Authoritative engine output for a single fixed server tick.
-    /// Contains ONLY engine-level data — no transport, protocol, or lane concepts.
+    /// NOTE: No protocol, no transport, no hashing, no lanes.
     /// </summary>
     public readonly struct EngineTickResult
     {
         public readonly int ServerTick;
         public readonly long ServerTimeMs;
-        public readonly uint WorldHash;
 
         /// <summary>
-        /// Lightweight continuous snapshot (typically encoded into Sample lane).
+        /// Continuous snapshot for rendering/interpolation.
+        /// Adapter typically encodes this into Sample lane (latest-wins).
         /// </summary>
-        public readonly SampleEntityPos[] SamplePositions;
+        public readonly SampleEntityPos[] Snapshot;
 
         /// <summary>
-        /// Discrete reliable ops produced by the engine this tick.
-        /// The network adapter decides how to packetize and send these.
+        /// Discrete ops (domain-level) that must be delivered reliably.
+        /// Adapter encodes these into wire ops and feeds ServerReliableStream.
         /// </summary>
-        public readonly EngineReliableOpBatch[] ReliableOps;
+        public readonly EngineOpBatch[] ReliableOps;
 
-        public EngineTickResult(
-            int serverTick,
-            long serverTimeMs,
-            uint worldHash,
-            SampleEntityPos[] samplePositions,
-            EngineReliableOpBatch[] reliableOps)
+        public EngineTickResult(int serverTick, long serverTimeMs, SampleEntityPos[] snapshot, EngineOpBatch[] reliableOps)
         {
             ServerTick = serverTick;
             ServerTimeMs = serverTimeMs;
-            WorldHash = worldHash;
-            SamplePositions = samplePositions ?? Array.Empty<SampleEntityPos>();
-            ReliableOps = reliableOps ?? Array.Empty<EngineReliableOpBatch>();
+            Snapshot = snapshot ?? Array.Empty<SampleEntityPos>();
+            ReliableOps = reliableOps ?? Array.Empty<EngineOpBatch>();
         }
     }
 
     /// <summary>
     /// Minimal continuous state for interpolation.
-    /// Protocol encoding is handled by the adapter.
     /// </summary>
     public readonly struct SampleEntityPos
     {
@@ -57,20 +50,56 @@ namespace Sim
     }
 
     /// <summary>
-    /// Engine-level batch of discrete reliable ops.
-    /// Payload is engine-defined; adapter encodes to wire.
+    /// Domain-level discrete op types (NOT wire OpType).
+    /// Expand over time: container ops, entity spawn/despawn, status changes, etc.
     /// </summary>
-    public readonly struct EngineReliableOpBatch
+    public enum EngineOpType : byte
+    {
+        None = 0,
+
+        // Examples for future use:
+        // MoveCard = 10,
+        // RemoveEntity = 20,
+        // SpawnEntity = 21,
+    }
+
+    /// <summary>
+    /// Domain-level discrete op (NOT byte[] payload).
+    /// Keep this deterministic and codec-friendly.
+    /// </summary>
+    public readonly struct EngineOp
+    {
+        public readonly EngineOpType Type;
+
+        // Generic payload fields (keep small; add specialized structs later if needed).
+        public readonly int A;
+        public readonly int B;
+        public readonly int C;
+        public readonly int D;
+
+        public EngineOp(EngineOpType type, int a = 0, int b = 0, int c = 0, int d = 0)
+        {
+            Type = type;
+            A = a;
+            B = b;
+            C = c;
+            D = d;
+        }
+    }
+
+    /// <summary>
+    /// A batch of discrete ops targeted at a connection.
+    /// Use ConnId = -1 for broadcast if you want that convention later.
+    /// </summary>
+    public readonly struct EngineOpBatch
     {
         public readonly int ConnId;
-        public readonly ushort OpCount;
-        public readonly byte[] OpsPayload;
+        public readonly EngineOp[] Ops;
 
-        public EngineReliableOpBatch(int connId, ushort opCount, byte[] opsPayload)
+        public EngineOpBatch(int connId, EngineOp[] ops)
         {
             ConnId = connId;
-            OpCount = opCount;
-            OpsPayload = opsPayload ?? Array.Empty<byte>();
+            Ops = ops ?? Array.Empty<EngineOp>();
         }
     }
 }
