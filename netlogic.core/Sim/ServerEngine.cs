@@ -33,7 +33,7 @@ namespace Sim
 
         public void EnqueueClientCommands(
             int connId,
-            int requestedClientTick,
+            int clientTick,
             uint clientCmdSeq,
             List<ClientCommand> commands)
         {
@@ -42,11 +42,10 @@ namespace Sim
 
             _cmdBuffer.EnqueueWithValidation(
                 connectionId: connId,
-                requestedClientTick: requestedClientTick,
+                clientTick: clientTick,
                 clientCmdSeq: clientCmdSeq,
                 commands: commands,
-                currentServerTick: _ticker.CurrentTick,
-                scheduledTick: out _);
+                serverTick: _ticker.CurrentTick);
         }
 
         public EngineTickResult TickOnce()

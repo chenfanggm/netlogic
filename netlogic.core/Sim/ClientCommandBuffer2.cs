@@ -34,42 +34,42 @@ namespace Sim
         /// </summary>
         public bool EnqueueWithValidation(
             int connectionId,
-            int requestedClientTick,
+            int clientTick,
             uint clientCmdSeq,
             List<ClientCommand> commands,
-            int currentServerTick,
-            out int scheduledTick)
+            int serverTick)
         {
+            int scheduledTick = clientTick;
             if (commands == null || commands.Count == 0)
             {
-                scheduledTick = currentServerTick;
+                scheduledTick = serverTick;
                 return false;
             }
 
             // Normalize requested tick into server scheduling window.
-            int minTick = currentServerTick - MaxPastTicks;
-            int maxTick = currentServerTick + MaxFutureTicks;
+            int minTick = serverTick - MaxPastTicks;
+            int maxTick = serverTick + MaxFutureTicks;
 
-            if (requestedClientTick < minTick)
+            if (clientTick < minTick)
             {
                 // Too old => drop
-                scheduledTick = requestedClientTick;
+                scheduledTick = clientTick;
                 return false;
             }
 
-            if (requestedClientTick > maxTick)
+            if (clientTick > maxTick)
             {
                 // Too far future => clamp to max allowed (or drop if you want)
                 scheduledTick = maxTick;
             }
-            else if (requestedClientTick < currentServerTick)
+            else if (clientTick < serverTick)
             {
                 // Late => shift to current tick
-                scheduledTick = currentServerTick;
+                scheduledTick = serverTick;
             }
             else
             {
-                scheduledTick = requestedClientTick;
+                scheduledTick = clientTick;
             }
 
             EnqueueInternal(scheduledTick, connectionId, new ScheduledBatch(scheduledTick, clientCmdSeq, commands));
