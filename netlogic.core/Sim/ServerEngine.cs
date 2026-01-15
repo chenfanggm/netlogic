@@ -1,48 +1,29 @@
-using System;
-using System.Collections.Generic;
 using Game;
 using LiteNetLib.Utils;
 using Net;
 
 namespace Sim
 {
-    public sealed class ServerEngine
+    public sealed class ServerEngine(int tickRateHz, World world)
     {
-        private readonly World _world;
-        private readonly TickTicker _ticker;
-
-        private readonly ClientCommandBuffer _cmdBuffer;
-
-        private readonly List<int> _clients;
-        private readonly Dictionary<int, ServerReliableStream> _reliableStreams;
-
         private const int ReliableMaxOpsBytesPerTick = 8 * 1024;
         private const int ReliableMaxPendingPackets = 128;
 
-        private uint _serverSampleSeq;
+        private readonly World _world = world ?? throw new ArgumentNullException(nameof(world));
+        private readonly TickTicker _ticker = new TickTicker(tickRateHz);
+        private readonly ClientCommandBuffer _cmdBuffer = new ClientCommandBuffer();
 
-        private readonly NetDataWriter _opsWriter;
+        private readonly List<int> _clients = new List<int>(32);
+        private readonly Dictionary<int, ServerReliableStream> _reliableStreams = new Dictionary<int, ServerReliableStream>(32);
 
-        private readonly Queue<OutboundPacket> _outbound;
+        private uint _serverSampleSeq = 1;
+
+        private readonly NetDataWriter _opsWriter = new NetDataWriter();
+
+        private readonly Queue<OutboundPacket> _outbound = new Queue<OutboundPacket>(256);
 
         public int CurrentServerTick => _ticker.CurrentTick;
         public int TickRateHz => _ticker.TickRateHz;
-
-        public ServerEngine(int tickRateHz, World world)
-        {
-            _world = world ?? throw new ArgumentNullException(nameof(world));
-            _ticker = new TickTicker(tickRateHz);
-
-            _cmdBuffer = new ClientCommandBuffer();
-
-            _clients = new List<int>(32);
-            _reliableStreams = new Dictionary<int, ServerReliableStream>(32);
-
-            _serverSampleSeq = 1;
-            _opsWriter = new NetDataWriter();
-
-            _outbound = new Queue<OutboundPacket>(256);
-        }
 
         // -------------------------
         // Network-facing hooks

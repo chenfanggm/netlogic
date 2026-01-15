@@ -4,23 +4,15 @@ using Net;
 
 namespace Sim
 {
-    public sealed class GameServer
+    public sealed class GameServer(IServerTransport transport, int tickRateHz, World world)
     {
-        private readonly IServerTransport _transport;
-        private readonly ServerEngine _engine;
+        private readonly IServerTransport _transport = transport ?? throw new ArgumentNullException(nameof(transport));
+        private readonly ServerEngine _engine = new ServerEngine(tickRateHz, world);
 
-        private readonly ClientOpsMsgToClientCommandConverter _converter;
+        private readonly ClientOpsMsgToClientCommandConverter _converter = new ClientOpsMsgToClientCommandConverter(initialCapacity: 32);
 
         public int CurrentServerTick => _engine.CurrentServerTick;
         public int TickRateHz => _engine.TickRateHz;
-
-        public GameServer(IServerTransport transport, int tickRateHz, World world)
-        {
-            _transport = transport ?? throw new ArgumentNullException(nameof(transport));
-            _engine = new ServerEngine(tickRateHz, world);
-
-            _converter = new ClientOpsMsgToClientCommandConverter(initialCapacity: 32);
-        }
 
         public void Start(int port)
         {
@@ -57,32 +49,27 @@ namespace Sim
                 if (packet.Lane != Lane.Reliable)
                     continue;
 
-                Hello hello;
-                if (MsgCodec.TryDecodeHello(packet.Payload, out hello))
+                if (MsgCodec.TryDecodeHello(packet.Payload, out Hello hello))
                 {
                     _engine.OnClientHello(packet.ConnId);
                     continue;
                 }
 
-                PingMsg ping;
-                if (MsgCodec.TryDecodePing(packet.Payload, out ping))
+                if (MsgCodec.TryDecodePing(packet.Payload, out PingMsg ping))
                 {
                     _engine.OnClientPing(packet.ConnId, ping);
                     continue;
                 }
 
-                ClientAckMsg ack;
-                if (MsgCodec.TryDecodeClientAck(packet.Payload, out ack))
+                if (MsgCodec.TryDecodeClientAck(packet.Payload, out ClientAckMsg ack))
                 {
                     _engine.OnClientAck(packet.ConnId, ack);
                     continue;
                 }
 
-                ClientOpsMsg ops;
-                if (MsgCodec.TryDecodeClientOps(packet.Payload, out ops))
+                if (MsgCodec.TryDecodeClientOps(packet.Payload, out ClientOpsMsg ops))
                 {
-                    int commandCount;
-                    ClientCommand[] commands = _converter.Convert(ops, out commandCount);
+                    ClientCommand[] commands = _converter.Convert(ops, out int commandCount);
 
                     _engine.EnqueueClientCommands(
                         connId: packet.ConnId,
@@ -98,9 +85,8 @@ namespace Sim
 
         private void FlushOutbound()
         {
-            ServerEngine.OutboundPacket p;
 
-            while (_engine.TryDequeueOutbound(out p))
+            while (_engine.TryDequeueOutbound(out ServerEngine.OutboundPacket p))
             {
                 byte[] bytes = p.Bytes;
                 _transport.Send(p.ConnId, p.Lane, new ArraySegment<byte>(bytes, 0, bytes.Length));
