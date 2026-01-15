@@ -5,13 +5,13 @@ namespace Sim
 {
     public sealed class ClientCommandBuffer2
     {
-        public readonly struct ScheduledBatch
+        public readonly struct CommandBatch
         {
             public readonly int ScheduledTick;
             public readonly uint ClientCmdSeq;
             public readonly List<ClientCommand> Commands;
 
-            public ScheduledBatch(int scheduledTick, uint clientCmdSeq, List<ClientCommand> commands)
+            public CommandBatch(int scheduledTick, uint clientCmdSeq, List<ClientCommand> commands)
             {
                 ScheduledTick = scheduledTick;
                 ClientCmdSeq = clientCmdSeq;
@@ -19,8 +19,8 @@ namespace Sim
             }
         }
 
-        private readonly Dictionary<int, Dictionary<int, Queue<ScheduledBatch>>> _byTickThenConn =
-            new Dictionary<int, Dictionary<int, Queue<ScheduledBatch>>>();
+        private readonly Dictionary<int, Dictionary<int, Queue<CommandBatch>>> _byTickThenConn =
+            new Dictionary<int, Dictionary<int, Queue<CommandBatch>>>();
 
         // Optional: dedup per connection (future). For now: keep simple.
         // private readonly Dictionary<int, uint> _lastSeqByConn = new();
@@ -72,27 +72,27 @@ namespace Sim
                 scheduledTick = clientTick;
             }
 
-            EnqueueInternal(scheduledTick, connectionId, new ScheduledBatch(scheduledTick, clientCmdSeq, commands));
+            EnqueueInternal(scheduledTick, connectionId, new CommandBatch(scheduledTick, clientCmdSeq, commands));
             return true;
         }
 
         public IEnumerable<int> ConnectionIdsForTick(int tick)
         {
-            if (!_byTickThenConn.TryGetValue(tick, out Dictionary<int, Queue<ScheduledBatch>>? byConn) || byConn == null)
+            if (!_byTickThenConn.TryGetValue(tick, out Dictionary<int, Queue<CommandBatch>>? byConn) || byConn == null)
                 yield break;
 
             foreach (int connId in byConn.Keys)
                 yield return connId;
         }
 
-        public bool TryDequeueForTick(int tick, int connectionId, out ScheduledBatch batch)
+        public bool TryDequeueForTick(int tick, int connectionId, out CommandBatch batch)
         {
             batch = default;
 
-            if (!_byTickThenConn.TryGetValue(tick, out Dictionary<int, Queue<ScheduledBatch>>? byConn) || byConn == null)
+            if (!_byTickThenConn.TryGetValue(tick, out Dictionary<int, Queue<CommandBatch>>? byConn) || byConn == null)
                 return false;
 
-            if (!byConn.TryGetValue(connectionId, out Queue<ScheduledBatch>? q) || q == null)
+            if (!byConn.TryGetValue(connectionId, out Queue<CommandBatch>? q) || q == null)
                 return false;
 
             if (q.Count == 0)
@@ -138,17 +138,17 @@ namespace Sim
             }
         }
 
-        private void EnqueueInternal(int tick, int connId, ScheduledBatch batch)
+        private void EnqueueInternal(int tick, int connId, CommandBatch batch)
         {
-            if (!_byTickThenConn.TryGetValue(tick, out Dictionary<int, Queue<ScheduledBatch>>? byConn) || byConn == null)
+            if (!_byTickThenConn.TryGetValue(tick, out Dictionary<int, Queue<CommandBatch>>? byConn) || byConn == null)
             {
-                byConn = new Dictionary<int, Queue<ScheduledBatch>>();
+                byConn = new Dictionary<int, Queue<CommandBatch>>();
                 _byTickThenConn.Add(tick, byConn);
             }
 
-            if (!byConn.TryGetValue(connId, out Queue<ScheduledBatch>? q) || q == null)
+            if (!byConn.TryGetValue(connId, out Queue<CommandBatch>? q) || q == null)
             {
-                q = new Queue<ScheduledBatch>();
+                q = new Queue<CommandBatch>();
                 byConn.Add(connId, q);
             }
 

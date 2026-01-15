@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game;
+using Sim.Commands;
 
 namespace Sim
 {
@@ -13,6 +14,7 @@ namespace Sim
         private readonly TickTicker _ticker;
         private readonly World _world;
         private readonly ClientCommandBuffer2 _cmdBuffer;
+        private readonly ClientCommandHandlerRegistry _handlers;
 
         public int CurrentServerTick => _ticker.CurrentTick;
         public int TickRateHz => _ticker.TickRateHz;
@@ -23,6 +25,9 @@ namespace Sim
             _ticker = new TickTicker(tickRateHz);
             _world = initialWorld ?? throw new ArgumentNullException(nameof(initialWorld));
             _cmdBuffer = new ClientCommandBuffer2();
+            _handlers = new ClientCommandHandlerRegistry();
+            _handlers.RegisterMany(
+                new MoveByCommandHandler());
         }
 
         /// <summary>
@@ -70,24 +75,10 @@ namespace Sim
 
             foreach (int connId in _cmdBuffer.ConnectionIdsForTick(tick))
             {
-                while (_cmdBuffer.TryDequeueForTick(tick, connId, out ClientCommandBuffer2.ScheduledBatch batch))
+                while (_cmdBuffer.TryDequeueForTick(tick, connId, out ClientCommandBuffer2.CommandBatch commandBatch))
                 {
-                    ApplyCommands(batch.Commands);
+                    _handlers.ApplyAll(_world, commandBatch.Commands);
                 }
-            }
-        }
-
-        private void ApplyCommands(List<ClientCommand> commands)
-        {
-            int i = 0;
-            while (i < commands.Count)
-            {
-                ClientCommand c = commands[i];
-
-                if (c.Type == ClientCommandType.MoveBy)
-                    _world.TryMoveEntityBy(c.EntityId, c.Dx, c.Dy);
-
-                i++;
             }
         }
 
