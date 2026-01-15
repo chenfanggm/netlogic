@@ -34,23 +34,19 @@ namespace Sim
                 return false;
 
             // Late but acceptable -> shift to current
+            if (scheduledTick < currentServerTick && !CommandValidation.ShiftLateToCurrentTick)
+                return false;
+
             if (scheduledTick < currentServerTick)
-            {
-                if (CommandValidation.ShiftLateToCurrentTick)
-                    scheduledTick = currentServerTick;
-                else
-                    return false;
-            }
+                scheduledTick = currentServerTick;
 
             // Too far future -> clamp or drop
             int maxAllowedFuture = currentServerTick + CommandValidation.MaxFutureTicks;
+            if (scheduledTick > maxAllowedFuture && !CommandValidation.ClampFutureToMax)
+                return false;
+
             if (scheduledTick > maxAllowedFuture)
-            {
-                if (CommandValidation.ClampFutureToMax)
-                    scheduledTick = maxAllowedFuture;
-                else
-                    return false;
-            }
+                scheduledTick = maxAllowedFuture;
 
             EnqueueInternal(connectionId, scheduledTick, clientCmdSeq, commands);
             return true;

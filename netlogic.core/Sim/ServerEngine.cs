@@ -16,7 +16,7 @@ namespace Sim
     {
         private readonly World _world;
         private readonly TickTicker _ticker;
-        private readonly ClientCommandBuffer2 _cmdBuffer;
+        private readonly ClientCommandBuffer _cmdBuffer;
 
         public int CurrentServerTick => _ticker.CurrentTick;
         public int TickRateHz => _ticker.TickRateHz;
@@ -26,7 +26,7 @@ namespace Sim
         {
             _world = world ?? throw new ArgumentNullException(nameof(world));
             _ticker = new TickTicker(tickRateHz);
-            _cmdBuffer = new ClientCommandBuffer2();
+            _cmdBuffer = new ClientCommandBuffer();
         }
 
         /// <summary>
@@ -91,7 +91,7 @@ namespace Sim
 
             foreach (int connId in _cmdBuffer.ConnectionIdsForTick(tick))
             {
-                while (_cmdBuffer.TryDequeueForTick(tick, connId, out ClientCommandBuffer2.ScheduledBatch batch))
+                while (_cmdBuffer.TryDequeueForTick(tick, connId, out ClientCommandBuffer.ScheduledBatch batch))
                 {
                     ApplyClientCommands(batch.Commands);
                 }
