@@ -16,18 +16,21 @@ namespace Sim.Commanding
             new Dictionary<ClientCommandType, ISystemCommandSink>(256);
 
         private readonly ISystemCommandSink[] _systems;
+        private readonly int _maxStoredTicks;
 
         public CommandSystem(
             ISystemCommandSink[] systems,
             int maxFutureTicks,
-            int maxPastTicks)
+            int maxPastTicks,
+            int maxStoredTicks)
         {
             if (systems == null || systems.Length == 0)
                 throw new ArgumentException("systems must not be empty", nameof(systems));
 
             _systems = systems;
             _buffer = new ClientCommandBuffer(maxFutureTicks, maxPastTicks);
-
+            _maxStoredTicks = maxStoredTicks;
+            
             // Auto-register routes from system declarations
             for (int i = 0; i < systems.Length; i++)
             {
@@ -81,29 +84,17 @@ namespace Sim.Commanding
         /// Dequeue all batches for tick and dispatch commands into system inboxes.
         /// Called ONLY from TickOnce().
         /// </summary>
-        public void DispatchTick(int tick)
+        public void DispatchCommands(int tick)
         {
             foreach (int connId in _buffer.ConnectionIdsForTick(tick))
             {
                 while (_buffer.TryDequeueForTick(tick, connId, out CommandBatch batch))
                 {
-                    DispatchBatch(tick, connId, batch.Commands);
-                }
-            }
-        }
-
-        private void DispatchBatch(
-            int tick,
-            int connId,
-            List<ClientCommand> commands)
-        {
-            for (int i = 0; i < commands.Count; i++)
-            {
-                ClientCommand cmd = commands[i];
-
-                if (_routes.TryGetValue(cmd.Type, out ISystemCommandSink? sink) && sink != null)
-                {
-                    sink.EnqueueCommand(tick, connId, in cmd);
+                    foreach (ClientCommand cmd in batch.Commands)
+                    {
+                        if (_routes.TryGetValue(cmd.Type, out ISystemCommandSink? sink) && sink != null)
+                            sink.EnqueueCommand(tick, connId, in cmd);
+                    }
                 }
             }
         }
@@ -112,9 +103,9 @@ namespace Sim.Commanding
         /// Cleanup central buffer only.
         /// Systems do NOT store multi-tick data in Option-2.
         /// </summary>
-        public void DropOldTick(int oldestAllowedTick)
+        public void DropOldTick(int currentTick)
         {
-            _buffer.DropOldTick(oldestAllowedTick);
+            _buffer.DropOldTick(currentTick - _maxStoredTicks);
         }
     }
 }

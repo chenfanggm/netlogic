@@ -88,9 +88,12 @@ namespace Game
             return TryGetEntity(id, out e);
         }
 
-        public void StepFixed()
+        public void Advance(int tick)
         {
             // Put deterministic per-tick world logic here (regen, ai, projectiles, etc.)
+            // This is called by the ServerEngine after the systems have executed
+            // and before the snapshot is built.
+            // The tick parameter is the current tick of the server.
         }
 
         public SampleEntityPos[] BuildSnapshot()

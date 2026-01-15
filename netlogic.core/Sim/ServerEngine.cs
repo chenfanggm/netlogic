@@ -28,7 +28,7 @@ namespace Sim
             _systems = [
                 movement
             ];
-            _commandSystem = new CommandSystem(_systems, maxFutureTicks: 2, maxPastTicks: 2);
+            _commandSystem = new CommandSystem(_systems, maxFutureTicks: 2, maxPastTicks: 2, maxStoredTicks: 16);
         }
 
         /// <summary>
@@ -59,17 +59,17 @@ namespace Sim
             int tick = _ticker.Advance(1);
 
             // 1) Dispatch inputs for this tick into system inboxes
-            _commandSystem.DispatchTick(tick);
+            _commandSystem.DispatchCommands(tick);
 
             // 2) Execute systems in stable order
-            for (int i = 0; i < _systems.Length; i++)
-                _systems[i].Execute(tick, ref _world);
+            foreach (ISystemCommandSink system in _systems)
+                system.Execute(tick, ref _world);
 
             // 3) World fixed step
-            _world.StepFixed();
+            _world.Advance(1);
 
-            // 4) Cleanup central input buffer only
-            _commandSystem.DropOldTick(tick - 16);
+            // 4) Cleanup central input buffer
+            _commandSystem.DropOldTick(tick);
 
             return new EngineTickResult(
                 serverTick: tick,

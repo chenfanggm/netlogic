@@ -21,8 +21,5 @@ namespace Sim.Commanding
 
         /// <summary>Called by ServerEngine in stable order.</summary>
         void Execute(int tick, ref Game.World world);
-
-        /// <summary>Optional cleanup hook.</summary>
-        void DropOldTick(int oldestAllowedTick);
     }
 }

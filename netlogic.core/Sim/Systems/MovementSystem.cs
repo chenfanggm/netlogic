@@ -37,10 +37,5 @@ namespace Sim.Systems
 
             _inbox.Clear();
         }
-
-        public void DropOldTick(int oldestAllowedTick)
-        {
-            // No multi-tick storage in Option-2.
-        }
     }
 }
