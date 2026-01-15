@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game;
+using Sim.Commanding;
 using Sim.Systems;
 
 namespace Sim
@@ -13,9 +14,8 @@ namespace Sim
     {
         private World _world;
         private readonly TickTicker _ticker;
-        private readonly ClientCommandBuffer2 _cmdBuffer;
-        private readonly CommandRouter _router;
-        private readonly IGameSystem[] _systems;
+        private readonly CommandSystem _commandSystem;
+        private readonly ISystemCommandSink[] _systems;
 
         public int CurrentServerTick => _ticker.CurrentTick;
         public int TickRateHz => _ticker.TickRateHz;
@@ -25,13 +25,19 @@ namespace Sim
         {
             _world = initialWorld ?? throw new ArgumentNullException(nameof(initialWorld));
             _ticker = new TickTicker(tickRateHz);
-            _cmdBuffer = new ClientCommandBuffer2();
-            _router = new CommandRouter();
 
-            _systems = new IGameSystem[]
+            MovementSystem movement = new MovementSystem();
+
+            _systems = new ISystemCommandSink[]
             {
-                new MovementSystem(),
+                movement,
             };
+
+            _commandSystem = new CommandSystem();
+            _commandSystem.RegisterSystem(movement);
+            _commandSystem.MapMany(movement, ClientCommandType.MoveBy);
+            _commandSystem.MaxFutureTicks = 2;
+            _commandSystem.MaxPastTicks = 2;
         }
 
         /// <summary>
@@ -42,19 +48,19 @@ namespace Sim
 
         public void EnqueueClientCommands(
             int connId,
-            int clientTick,
+            int requestedClientTick,
             uint clientCmdSeq,
             List<ClientCommand> commands)
         {
             if (commands == null || commands.Count == 0)
                 return;
 
-            _cmdBuffer.EnqueueWithValidation(
-                connectionId: connId,
-                clientTick: clientTick,
+            _commandSystem.EnqueueClientBatch(
+                connId: connId,
+                requestedClientTick: requestedClientTick,
                 clientCmdSeq: clientCmdSeq,
                 commands: commands,
-                serverTick: _ticker.CurrentTick);
+                currentServerTick: _ticker.CurrentTick);
         }
 
         public EngineTickResult TickOnce()
@@ -63,33 +69,20 @@ namespace Sim
 
             int tick = _ticker.CurrentTick;
 
-            RouteCommandsForTick(tick);
+            _commandSystem.RouteTick(tick);
 
-            SystemInputs inputs = new SystemInputs(tick, _router);
             for (int i = 0; i < _systems.Length; i++)
-                _systems[i].Execute(tick, ref _world, inputs);
+                _systems[i].Execute(tick, ref _world);
 
             _world.StepFixed();
 
-            _cmdBuffer.DropBeforeTick(tick - 16);
-            _router.DropBeforeTick(tick - 16);
+            _commandSystem.DropBeforeTick(tick - 16);
 
             return new EngineTickResult(
                 serverTick: tick,
                 serverTimeMs: _ticker.ServerTimeMs,
                 snapshot: BuildSnapshot(),
                 reliableOps: Array.Empty<EngineOpBatch>());
-        }
-
-        private void RouteCommandsForTick(int tick)
-        {
-            foreach (int connId in _cmdBuffer.ConnectionIdsForTick(tick))
-            {
-                while (_cmdBuffer.TryDequeueForTick(tick, connId, out ClientCommandBuffer2.CommandBatch commandBatch))
-                {
-                    _router.RouteBatch(commandBatch.ScheduledTick, connId, commandBatch.Commands);
-                }
-            }
         }
 
         private SampleEntityPos[] BuildSnapshot()

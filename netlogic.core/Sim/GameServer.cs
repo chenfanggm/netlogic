@@ -144,7 +144,7 @@ namespace Sim
 
                     _engine.EnqueueClientCommands(
                         connId: packet.ConnId,
-                        clientTick: ops.ClientTick,
+                        requestedClientTick: ops.ClientTick,
                         clientCmdSeq: ops.ClientCmdSeq,
                         commands: list);
 

@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Sim.Systems
+namespace Sim.Commanding
 {
     public static class DeterministicKeys
     {
