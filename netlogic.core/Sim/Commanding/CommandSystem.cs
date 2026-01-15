@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace Sim.Commanding
 {
     /// <summary>
@@ -14,7 +11,7 @@ namespace Sim.Commanding
     /// </summary>
     public sealed class CommandSystem
     {
-        private readonly ClientCommandBuffer2 _buffer = new ClientCommandBuffer2();
+        private readonly ClientCommandBuffer _buffer = new ClientCommandBuffer();
 
         private readonly Dictionary<ClientCommandType, ISystemCommandSink> _routes =
             new Dictionary<ClientCommandType, ISystemCommandSink>(256);
@@ -35,8 +32,7 @@ namespace Sim.Commanding
 
         public CommandSystem(ISystemCommandSink[] systems)
         {
-            if (systems == null)
-                throw new ArgumentNullException(nameof(systems));
+            ArgumentNullException.ThrowIfNull(systems, $"{nameof(systems)} is null");
 
             if (systems.Length == 0)
                 throw new ArgumentException("systems must not be empty", nameof(systems));
@@ -46,12 +42,10 @@ namespace Sim.Commanding
             for (int i = 0; i < systems.Length; i++)
             {
                 ISystemCommandSink sys = systems[i];
-                if (sys == null)
-                    throw new ArgumentException("systems contains null", nameof(systems));
+                ArgumentNullException.ThrowIfNull(sys, $"systems[{i}] is null");
 
                 IReadOnlyList<ClientCommandType> owned = sys.OwnedCommandTypes;
-                if (owned == null)
-                    continue;
+                ArgumentNullException.ThrowIfNull(owned, $"systems[{i}].OwnedCommandTypes is null");
 
                 for (int j = 0; j < owned.Count; j++)
                 {
@@ -95,7 +89,7 @@ namespace Sim.Commanding
         {
             foreach (int connId in _buffer.ConnectionIdsForTick(tick))
             {
-                while (_buffer.TryDequeueForTick(tick, connId, out ClientCommandBuffer2.CommandBatch batch))
+                while (_buffer.TryDequeueForTick(tick, connId, out ClientCommandBuffer.CommandBatch batch))
                 {
                     RouteBatch(tick, connId, batch.Commands);
                 }

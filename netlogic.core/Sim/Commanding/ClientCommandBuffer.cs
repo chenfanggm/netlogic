@@ -3,22 +3,8 @@ using System.Collections.Generic;
 
 namespace Sim
 {
-    public sealed class ClientCommandBuffer2
+    public sealed class ClientCommandBuffer
     {
-        public readonly struct CommandBatch
-        {
-            public readonly int ScheduledTick;
-            public readonly uint ClientCmdSeq;
-            public readonly List<ClientCommand> Commands;
-
-            public CommandBatch(int scheduledTick, uint clientCmdSeq, List<ClientCommand> commands)
-            {
-                ScheduledTick = scheduledTick;
-                ClientCmdSeq = clientCmdSeq;
-                Commands = commands ?? throw new ArgumentNullException(nameof(commands));
-            }
-        }
-
         private readonly Dictionary<int, Dictionary<int, Queue<CommandBatch>>> _byTickThenConn =
             new Dictionary<int, Dictionary<int, Queue<CommandBatch>>>();
 
