@@ -17,38 +17,37 @@ namespace Sim
         }
 
         public bool EnqueueWithValidation(
-            int connectionId,
-            int requestedClientTick,
+            int clientId,
+            int clientTick,
             uint clientCmdSeq,
-            ClientCommand[] commands,
-            int currentServerTick,
-            out int scheduledTick)
+            ClientCommand[] clientCommands,
+            int serverTick)
         {
-            scheduledTick = requestedClientTick;
+            int scheduledTick = clientTick;
 
-            if (commands == null || commands.Length == 0)
+            if (clientCommands == null || clientCommands.Length == 0)
                 return false;
 
             // Too old -> drop
-            if (scheduledTick < currentServerTick - CommandValidation.MaxPastTicks)
+            if (scheduledTick < serverTick - CommandValidation.MaxPastTicks)
                 return false;
 
             // Late but acceptable -> shift to current
-            if (scheduledTick < currentServerTick && !CommandValidation.ShiftLateToCurrentTick)
+            if (scheduledTick < serverTick && !CommandValidation.ShiftLateToCurrentTick)
                 return false;
 
-            if (scheduledTick < currentServerTick)
-                scheduledTick = currentServerTick;
+            if (scheduledTick < serverTick)
+                scheduledTick = serverTick;
 
             // Too far future -> clamp or drop
-            int maxAllowedFuture = currentServerTick + CommandValidation.MaxFutureTicks;
+            int maxAllowedFuture = serverTick + CommandValidation.MaxFutureTicks;
             if (scheduledTick > maxAllowedFuture && !CommandValidation.ClampFutureToMax)
                 return false;
 
             if (scheduledTick > maxAllowedFuture)
                 scheduledTick = maxAllowedFuture;
 
-            EnqueueInternal(connectionId, scheduledTick, clientCmdSeq, commands);
+            EnqueueInternal(clientId, scheduledTick, clientCmdSeq, clientCommands);
             return true;
         }
 

@@ -1,4 +1,4 @@
-using System;
+using System.Collections.Generic;
 using LiteNetLib.Utils;
 using Net;
 
@@ -6,31 +6,27 @@ namespace Sim
 {
     public sealed class ClientOpsMsgToClientCommandConverter
     {
-        private ClientCommand[] _scratch;
-
         public ClientOpsMsgToClientCommandConverter(int initialCapacity)
         {
-            if (initialCapacity < 1)
-                initialCapacity = 1;
-
-            _scratch = new ClientCommand[initialCapacity];
+            _ = initialCapacity;
         }
 
-        public ClientCommand[] Convert(ClientOpsMsg msg, out int commandCount)
+        /// <summary>
+        /// Always returns a NEW list instance. Caller must not modify after enqueue.
+        /// </summary>
+        public List<ClientCommand> ConvertToNewList(ClientOpsMsg msg)
         {
-            commandCount = 0;
-
             if (msg == null)
-                return Array.Empty<ClientCommand>();
+                return new List<ClientCommand>(0);
 
             if (msg.OpCount == 0)
-                return Array.Empty<ClientCommand>();
+                return new List<ClientCommand>(0);
 
             byte[] payload = msg.OpsPayload;
             if (payload == null || payload.Length == 0)
-                return Array.Empty<ClientCommand>();
+                return new List<ClientCommand>(0);
 
-            EnsureCapacity(msg.OpCount);
+            List<ClientCommand> list = new List<ClientCommand>(msg.OpCount);
 
             NetDataReader reader = new NetDataReader(payload, 0, payload.Length);
 
@@ -46,8 +42,7 @@ namespace Sim
                     int dx = reader.GetInt();
                     int dy = reader.GetInt();
 
-                    _scratch[commandCount] = ClientCommand.MoveBy(entityId, dx, dy);
-                    commandCount++;
+                    list.Add(ClientCommand.MoveBy(entityId, dx, dy));
                 }
                 else
                 {
@@ -57,31 +52,7 @@ namespace Sim
                 i++;
             }
 
-            if (commandCount == 0)
-                return Array.Empty<ClientCommand>();
-
-            ClientCommand[] result = new ClientCommand[commandCount];
-
-            int k = 0;
-            while (k < commandCount)
-            {
-                result[k] = _scratch[k];
-                k++;
-            }
-
-            return result;
-        }
-
-        private void EnsureCapacity(int needed)
-        {
-            if (_scratch.Length >= needed)
-                return;
-
-            int newSize = _scratch.Length;
-            while (newSize < needed)
-                newSize = newSize * 2;
-
-            _scratch = new ClientCommand[newSize];
+            return list;
         }
     }
 }

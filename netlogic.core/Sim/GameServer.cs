@@ -19,7 +19,6 @@ namespace Sim
     {
         private readonly IServerTransport _transport;
         private readonly ServerEngine _engine;
-        private readonly World _world;
 
         private readonly ClientOpsMsgToClientCommandConverter _converter;
 
@@ -35,11 +34,10 @@ namespace Sim
         public int CurrentServerTick => _engine.CurrentServerTick;
         public int TickRateHz => _engine.TickRateHz;
 
-        public GameServer(IServerTransport transport, int tickRateHz, World world)
+        public GameServer(IServerTransport transport, int tickRateHz, World initialWorld)
         {
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
-            _world = world ?? throw new ArgumentNullException(nameof(world));
-            _engine = new ServerEngine(tickRateHz, _world);
+            _engine = new ServerEngine(tickRateHz, initialWorld ?? throw new ArgumentNullException(nameof(initialWorld)));
 
             _converter = new ClientOpsMsgToClientCommandConverter(initialCapacity: 32);
 
@@ -68,7 +66,8 @@ namespace Sim
             EngineTickResult tick = _engine.TickOnce();
 
             // Adapter-owned hashing (engine does not hash).
-            uint worldHash = StateHash.ComputeWorldHash(_world);
+            World world = _engine.ReadOnlyWorld;
+            uint worldHash = StateHash.ComputeWorldHash(world);
 
             // Baseline cadence is adapter-owned.
             if ((tick.ServerTick % Protocol.BaselineIntervalTicks) == 0)
@@ -141,15 +140,13 @@ namespace Sim
 
                 if (MsgCodec.TryDecodeClientOps(packet.Payload, out ClientOpsMsg ops))
                 {
-                    int commandCount;
-                    ClientCommand[] commands = _converter.Convert(ops, out commandCount);
+                    List<ClientCommand> list = _converter.ConvertToNewList(ops);
 
                     _engine.EnqueueClientCommands(
                         connId: packet.ConnId,
                         requestedClientTick: ops.ClientTick,
                         clientCmdSeq: ops.ClientCmdSeq,
-                        commands: commands,
-                        commandCount: commandCount);
+                        commands: list);
 
                     continue;
                 }
@@ -168,7 +165,8 @@ namespace Sim
 
         private void SendBaseline(int connId)
         {
-            EntityState[] entities = _world.ToSnapshot();
+            World world = _engine.ReadOnlyWorld;
+            EntityState[] entities = world.ToSnapshot();
             uint hash = StateHash.ComputeEntitiesHash(entities);
 
             BaselineMsg msg = new BaselineMsg(_engine.CurrentServerTick, hash, entities);
