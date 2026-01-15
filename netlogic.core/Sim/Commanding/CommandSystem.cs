@@ -19,7 +19,7 @@ namespace Sim.Commanding
         private readonly Dictionary<ClientCommandType, ISystemCommandSink> _routes =
             new Dictionary<ClientCommandType, ISystemCommandSink>(256);
 
-        private ISystemCommandSink[] _systems = Array.Empty<ISystemCommandSink>();
+        private readonly ISystemCommandSink[] _systems;
 
         public int MaxFutureTicks
         {
@@ -33,11 +33,7 @@ namespace Sim.Commanding
             set => _buffer.MaxPastTicks = value;
         }
 
-        /// <summary>
-        /// Initializes command routing using systems' OwnedCommandTypes declarations.
-        /// Must be called once at startup.
-        /// </summary>
-        public void Initialize(ISystemCommandSink[] systems)
+        public CommandSystem(ISystemCommandSink[] systems)
         {
             if (systems == null)
                 throw new ArgumentNullException(nameof(systems));
@@ -46,7 +42,6 @@ namespace Sim.Commanding
                 throw new ArgumentException("systems must not be empty", nameof(systems));
 
             _systems = systems;
-            _routes.Clear();
 
             for (int i = 0; i < systems.Length; i++)
             {

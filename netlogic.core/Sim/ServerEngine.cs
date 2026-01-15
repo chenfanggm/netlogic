@@ -28,10 +28,11 @@ namespace Sim
             _systems = [
                 movement
             ];
-            _commandSystem = new CommandSystem();
-            _commandSystem.Initialize(_systems);
-            _commandSystem.MaxFutureTicks = 2;
-            _commandSystem.MaxPastTicks = 2;
+            _commandSystem = new CommandSystem(_systems)
+            {
+                MaxFutureTicks = 2,
+                MaxPastTicks = 2
+            };
         }
 
         /// <summary>
