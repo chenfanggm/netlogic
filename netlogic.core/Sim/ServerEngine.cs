@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using Game;
 using Sim.Commanding;
 using Sim.Systems;
@@ -27,12 +25,9 @@ namespace Sim
             _ticker = new TickTicker(tickRateHz);
 
             MovementSystem movement = new MovementSystem();
-
-            _systems = new ISystemCommandSink[]
-            {
-                movement,
-            };
-
+            _systems = [
+                movement
+            ];
             _commandSystem = new CommandSystem();
             _commandSystem.Initialize(_systems);
             _commandSystem.MaxFutureTicks = 2;
