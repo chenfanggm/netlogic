@@ -49,9 +49,10 @@ namespace Sim
         /// <summary>
         /// Advance tick counter without blocking (for caller-controlled timing).
         /// </summary>
-        public void Advance(int count)
+        public int Advance(int count)
         {
             CurrentTick += count;
+            return CurrentTick;
         }
     }
 }

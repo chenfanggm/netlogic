@@ -101,7 +101,7 @@ namespace Sim
             return true;
         }
 
-        public void DropBeforeTick(int oldestAllowedTick)
+        public void DropOldTick(int oldestAllowedTick)
         {
             if (_byTickThenConn.Count == 0)
                 return;

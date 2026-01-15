@@ -1,41 +1,62 @@
-using System.Linq;
+using System;
+using System.Collections.Generic;
 
 namespace Sim.Commanding
 {
     /// <summary>
-    /// Owns:
-    /// - tick scheduling buffer (ClientCommandBuffer2)
-    /// - routing registry (ClientCommandType -> ISystemCommandSink)
-    /// - per-tick routing execution (dequeue batches, route to systems)
-    ///
-    /// Does NOT mutate World directly.
-    /// Systems mutate World in their Execute() in stable order.
+    /// OPTION-2: Central command scheduling and dispatch.
+    /// Owns central scheduling buffer and routing table.
+    /// Dispatches commands into system inboxes (systems don't store multi-tick data).
     /// </summary>
     public sealed class CommandSystem
     {
-        private readonly ISystemCommandSink[] _systems;
         private readonly ClientCommandBuffer _buffer;
 
         private readonly Dictionary<ClientCommandType, ISystemCommandSink> _routes =
             new Dictionary<ClientCommandType, ISystemCommandSink>(256);
 
+        private readonly ISystemCommandSink[] _systems;
 
-        public CommandSystem(ISystemCommandSink[] systems, int maxFutureTicks = 2, int maxPastTicks = 2)
+        public CommandSystem(
+            ISystemCommandSink[] systems,
+            int maxFutureTicks,
+            int maxPastTicks)
         {
-            _systems = systems ?? throw new ArgumentNullException(nameof(systems), "systems must not be null");
+            if (systems == null || systems.Length == 0)
+                throw new ArgumentException("systems must not be empty", nameof(systems));
+
+            _systems = systems;
             _buffer = new ClientCommandBuffer(maxFutureTicks, maxPastTicks);
 
-            foreach (ISystemCommandSink sys in _systems)
+            // Auto-register routes from system declarations
+            for (int i = 0; i < systems.Length; i++)
             {
-                IReadOnlyList<ClientCommandType> cmdTypes = sys.OwnedCommandTypes;
-                foreach (ClientCommandType item in cmdTypes)
-                    if (!_routes.TryAdd(item, sys))
-                        throw new InvalidOperationException($"Command {item} owned by multiple systems: {sys.Name}");
+                ISystemCommandSink sys = systems[i];
+
+                IReadOnlyList<ClientCommandType> owned = sys.OwnedCommandTypes;
+                if (owned == null)
+                    continue;
+
+                for (int j = 0; j < owned.Count; j++)
+                {
+                    ClientCommandType type = owned[j];
+
+                    if (_routes.TryGetValue(type, out ISystemCommandSink? existing) &&
+                        existing != null &&
+                        !ReferenceEquals(existing, sys))
+                    {
+                        throw new InvalidOperationException(
+                            $"Command {type} owned by multiple systems: {existing.Name} and {sys.Name}");
+                    }
+
+                    _routes[type] = sys;
+                }
             }
         }
 
         /// <summary>
-        /// CommandSystem schedules commands for execution on a server tick (validation inside buffer).
+        /// Stage incoming commands (called by ServerEngine / adapter).
+        /// NO routing here.
         /// </summary>
         public void EnqueueCommands(
             int connId,
@@ -56,42 +77,44 @@ namespace Sim.Commanding
         }
 
         /// <summary>
-        /// Routes all command batches scheduled for this tick into the mapped systems' queues.
+        /// OPTION-2 CORE:
+        /// Dequeue all batches for tick and dispatch commands into system inboxes.
+        /// Called ONLY from TickOnce().
         /// </summary>
-        public void RouteTick(int tick)
+        public void DispatchTick(int tick)
         {
             foreach (int connId in _buffer.ConnectionIdsForTick(tick))
             {
                 while (_buffer.TryDequeueForTick(tick, connId, out CommandBatch batch))
                 {
-                    RouteBatch(tick, connId, batch.Commands);
+                    DispatchBatch(tick, connId, batch.Commands);
+                }
+            }
+        }
+
+        private void DispatchBatch(
+            int tick,
+            int connId,
+            List<ClientCommand> commands)
+        {
+            for (int i = 0; i < commands.Count; i++)
+            {
+                ClientCommand cmd = commands[i];
+
+                if (_routes.TryGetValue(cmd.Type, out ISystemCommandSink? sink) && sink != null)
+                {
+                    sink.EnqueueCommand(tick, connId, in cmd);
                 }
             }
         }
 
         /// <summary>
-        /// Cleanup old buffered batches (engine-owned tick policy).
+        /// Cleanup central buffer only.
+        /// Systems do NOT store multi-tick data in Option-2.
         /// </summary>
-        public void DropBeforeTick(int oldestAllowedTick)
+        public void DropOldTick(int oldestAllowedTick)
         {
-            _buffer.DropBeforeTick(oldestAllowedTick);
-
-            for (int i = 0; i < _systems.Length; i++)
-                _systems[i].DropBeforeTick(oldestAllowedTick);
-        }
-
-        private void RouteBatch(int scheduledTick, int connId, List<ClientCommand> commands)
-        {
-            for (int i = 0; i < commands.Count; i++)
-            {
-                ClientCommand c = commands[i];
-
-                if (_routes.TryGetValue(c.Type, out ISystemCommandSink? sink) && sink != null)
-                {
-                    sink.EnqueueCommand(scheduledTick, connId, in c);
-                    continue;
-                }
-            }
+            _buffer.DropOldTick(oldestAllowedTick);
         }
     }
 }

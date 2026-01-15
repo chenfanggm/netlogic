@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Net;
+using Sim;
 
 namespace Game
 {
@@ -90,6 +91,14 @@ namespace Game
         public void StepFixed()
         {
             // Put deterministic per-tick world logic here (regen, ai, projectiles, etc.)
+        }
+
+        public SampleEntityPos[] BuildSnapshot()
+        {
+            List<SampleEntityPos> list = new List<SampleEntityPos>(128);
+            foreach (Entity e in Entities)
+                list.Add(new SampleEntityPos(e.Id, e.X, e.Y));
+            return list.ToArray();
         }
     }
 

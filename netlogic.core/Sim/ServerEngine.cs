@@ -56,32 +56,26 @@ namespace Sim
 
         public EngineTickResult TickOnce()
         {
-            _ticker.Advance(1);
+            int tick = _ticker.Advance(1);
 
-            int tick = _ticker.CurrentTick;
+            // 1) Dispatch inputs for this tick into system inboxes
+            _commandSystem.DispatchTick(tick);
 
-            _commandSystem.RouteTick(tick);
-
+            // 2) Execute systems in stable order
             for (int i = 0; i < _systems.Length; i++)
                 _systems[i].Execute(tick, ref _world);
 
+            // 3) World fixed step
             _world.StepFixed();
 
-            _commandSystem.DropBeforeTick(tick - 16);
+            // 4) Cleanup central input buffer only
+            _commandSystem.DropOldTick(tick - 16);
 
             return new EngineTickResult(
                 serverTick: tick,
                 serverTimeMs: _ticker.ServerTimeMs,
-                snapshot: BuildSnapshot(),
-                reliableOps: Array.Empty<EngineOpBatch>());
-        }
-
-        private SampleEntityPos[] BuildSnapshot()
-        {
-            List<SampleEntityPos> list = new List<SampleEntityPos>(128);
-            foreach (Entity e in _world.Entities)
-                list.Add(new SampleEntityPos(e.Id, e.X, e.Y));
-            return list.ToArray();
+                snapshot: _world.BuildSnapshot(),
+                reliableOps: []);
         }
     }
 }

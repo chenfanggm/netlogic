@@ -23,6 +23,6 @@ namespace Sim.Commanding
         void Execute(int tick, ref Game.World world);
 
         /// <summary>Optional cleanup hook.</summary>
-        void DropBeforeTick(int oldestAllowedTick);
+        void DropOldTick(int oldestAllowedTick);
     }
 }

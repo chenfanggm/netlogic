@@ -1,3 +1,7 @@
+// FILE: netlogic.core/Sim/Systems/MovementSystem.cs
+// Option-2 (B): flat tick-local inbox, cleared every Execute().
+// No multi-tick storage. DropOldTick is no-op.
+
 using System.Collections.Generic;
 using Game;
 using Sim.Commanding;
@@ -14,70 +18,29 @@ namespace Sim.Systems
             ClientCommandType.MoveBy,
         };
 
-        private readonly Dictionary<int, Dictionary<int, List<ClientCommand>>> _buf =
-            new Dictionary<int, Dictionary<int, List<ClientCommand>>>();
+        // Tick-local inbox (Option-2).
+        private readonly List<ClientCommand> _inbox = new List<ClientCommand>(256);
 
         public void EnqueueCommand(int tick, int connId, in ClientCommand command)
         {
-            if (!_buf.TryGetValue(tick, out Dictionary<int, List<ClientCommand>>? byConn) || byConn == null)
-            {
-                byConn = new Dictionary<int, List<ClientCommand>>();
-                _buf.Add(tick, byConn);
-            }
-
-            if (!byConn.TryGetValue(connId, out List<ClientCommand>? list) || list == null)
-            {
-                list = new List<ClientCommand>(8);
-                byConn.Add(connId, list);
-            }
-
-            list.Add(command);
+            // Called only during CommandSystem.DispatchTick(tick) inside TickOnce.
+            _inbox.Add(command);
         }
 
         public void Execute(int tick, ref World world)
         {
-            if (!_buf.TryGetValue(tick, out Dictionary<int, List<ClientCommand>>? byConn) || byConn == null)
-                return;
-
-            int[] connIds = DeterministicKeys.GetSortedKeys(byConn);
-
-            for (int i = 0; i < connIds.Length; i++)
+            for (int i = 0; i < _inbox.Count; i++)
             {
-                int connId = connIds[i];
-                List<ClientCommand> list = byConn[connId];
-
-                for (int j = 0; j < list.Count; j++)
-                {
-                    ClientCommand c = list[j];
-                    world.TryMoveEntityBy(c.EntityId, c.Dx, c.Dy);
-                }
+                ClientCommand c = _inbox[i];
+                world.TryMoveEntityBy(c.EntityId, c.Dx, c.Dy);
             }
 
-            _buf.Remove(tick);
+            _inbox.Clear();
         }
 
-        public void DropBeforeTick(int oldestAllowedTick)
+        public void DropOldTick(int oldestAllowedTick)
         {
-            if (_buf.Count == 0)
-                return;
-
-            List<int> toRemove = new List<int>(16);
-            bool hasRemovals = false;
-
-            foreach (int t in _buf.Keys)
-            {
-                if (t < oldestAllowedTick)
-                {
-                    toRemove.Add(t);
-                    hasRemovals = true;
-                }
-            }
-
-            if (!hasRemovals)
-                return;
-
-            for (int i = 0; i < toRemove.Count; i++)
-                _buf.Remove(toRemove[i]);
+            // No multi-tick storage in Option-2.
         }
     }
 }
