@@ -8,6 +8,12 @@ namespace Sim.Systems
     {
         public string Name => "Movement";
 
+        public IReadOnlyList<ClientCommandType> OwnedCommandTypes => _owned;
+        private static readonly ClientCommandType[] _owned =
+        {
+            ClientCommandType.MoveBy,
+        };
+
         private readonly Dictionary<int, Dictionary<int, List<ClientCommand>>> _buf =
             new Dictionary<int, Dictionary<int, List<ClientCommand>>>();
 
@@ -48,6 +54,30 @@ namespace Sim.Systems
             }
 
             _buf.Remove(tick);
+        }
+
+        public void DropBeforeTick(int oldestAllowedTick)
+        {
+            if (_buf.Count == 0)
+                return;
+
+            List<int> toRemove = new List<int>(16);
+            bool hasRemovals = false;
+
+            foreach (int t in _buf.Keys)
+            {
+                if (t < oldestAllowedTick)
+                {
+                    toRemove.Add(t);
+                    hasRemovals = true;
+                }
+            }
+
+            if (!hasRemovals)
+                return;
+
+            for (int i = 0; i < toRemove.Count; i++)
+                _buf.Remove(toRemove[i]);
         }
     }
 }

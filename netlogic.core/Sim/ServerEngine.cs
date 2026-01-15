@@ -34,8 +34,7 @@ namespace Sim
             };
 
             _commandSystem = new CommandSystem();
-            _commandSystem.RegisterSystem(movement);
-            _commandSystem.MapMany(movement, ClientCommandType.MoveBy);
+            _commandSystem.Initialize(_systems);
             _commandSystem.MaxFutureTicks = 2;
             _commandSystem.MaxPastTicks = 2;
         }

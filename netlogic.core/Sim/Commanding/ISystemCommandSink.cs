@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Sim.Commanding
 {
     /// <summary>
@@ -8,12 +10,19 @@ namespace Sim.Commanding
     {
         string Name { get; }
 
-        /// <summary>Called by CommandSystem when routing commands.</summary>
+        /// <summary>
+        /// Declare which command types this system owns.
+        /// CommandSystem will auto-register routes based on this list.
+        /// </summary>
+        IReadOnlyList<ClientCommandType> OwnedCommandTypes { get; }
+
+        /// <summary>Called by CommandSystem during routing.</summary>
         void EnqueueCommand(int tick, int connId, in ClientCommand command);
 
-        /// <summary>
-        /// Called by ServerEngine in stable order. System should consume commands for the tick.
-        /// </summary>
+        /// <summary>Called by ServerEngine in stable order.</summary>
         void Execute(int tick, ref Game.World world);
+
+        /// <summary>Optional cleanup hook.</summary>
+        void DropBeforeTick(int oldestAllowedTick);
     }
 }

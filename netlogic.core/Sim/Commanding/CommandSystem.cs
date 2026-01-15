@@ -17,10 +17,9 @@ namespace Sim.Commanding
         private readonly ClientCommandBuffer2 _buffer = new ClientCommandBuffer2();
 
         private readonly Dictionary<ClientCommandType, ISystemCommandSink> _routes =
-            new Dictionary<ClientCommandType, ISystemCommandSink>(128);
+            new Dictionary<ClientCommandType, ISystemCommandSink>(256);
 
-        private readonly Dictionary<string, ISystemCommandSink> _systemsByName =
-            new Dictionary<string, ISystemCommandSink>(32);
+        private ISystemCommandSink[] _systems = Array.Empty<ISystemCommandSink>();
 
         public int MaxFutureTicks
         {
@@ -34,32 +33,41 @@ namespace Sim.Commanding
             set => _buffer.MaxPastTicks = value;
         }
 
-        public void RegisterSystem(ISystemCommandSink system)
+        /// <summary>
+        /// Initializes command routing using systems' OwnedCommandTypes declarations.
+        /// Must be called once at startup.
+        /// </summary>
+        public void Initialize(ISystemCommandSink[] systems)
         {
-            if (system == null)
-                throw new ArgumentNullException(nameof(system));
+            if (systems == null)
+                throw new ArgumentNullException(nameof(systems));
 
-            if (_systemsByName.ContainsKey(system.Name))
-                throw new InvalidOperationException($"Duplicate system name: {system.Name}");
+            if (systems.Length == 0)
+                throw new ArgumentException("systems must not be empty", nameof(systems));
 
-            _systemsByName.Add(system.Name, system);
-        }
+            _systems = systems;
+            _routes.Clear();
 
-        public void Map(ClientCommandType type, ISystemCommandSink system)
-        {
-            if (system == null)
-                throw new ArgumentNullException(nameof(system));
+            for (int i = 0; i < systems.Length; i++)
+            {
+                ISystemCommandSink sys = systems[i];
+                if (sys == null)
+                    throw new ArgumentException("systems contains null", nameof(systems));
 
-            if (_routes.TryGetValue(type, out ISystemCommandSink? existing) && existing != null && !ReferenceEquals(existing, system))
-                throw new InvalidOperationException($"Command {type} already mapped to {existing.Name}");
+                IReadOnlyList<ClientCommandType> owned = sys.OwnedCommandTypes;
+                if (owned == null)
+                    continue;
 
-            _routes[type] = system;
-        }
+                for (int j = 0; j < owned.Count; j++)
+                {
+                    ClientCommandType type = owned[j];
 
-        public void MapMany(ISystemCommandSink system, params ClientCommandType[] types)
-        {
-            for (int i = 0; i < types.Length; i++)
-                Map(types[i], system);
+                    if (_routes.TryGetValue(type, out ISystemCommandSink? existing) && existing != null && !ReferenceEquals(existing, sys))
+                        throw new InvalidOperationException($"Command {type} owned by multiple systems: {existing.Name} and {sys.Name}");
+
+                    _routes[type] = sys;
+                }
+            }
         }
 
         /// <summary>
@@ -105,6 +113,9 @@ namespace Sim.Commanding
         public void DropBeforeTick(int oldestAllowedTick)
         {
             _buffer.DropBeforeTick(oldestAllowedTick);
+
+            for (int i = 0; i < _systems.Length; i++)
+                _systems[i].DropBeforeTick(oldestAllowedTick);
         }
 
         private void RouteBatch(int scheduledTick, int connId, List<ClientCommand> commands)
