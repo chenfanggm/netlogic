@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game;
-using Sim.Commands;
+using Sim.Systems;
 
 namespace Sim
 {
@@ -11,10 +11,11 @@ namespace Sim
     /// </summary>
     public sealed class ServerEngine
     {
+        private World _world;
         private readonly TickTicker _ticker;
-        private readonly World _world;
         private readonly ClientCommandBuffer2 _cmdBuffer;
-        private readonly ClientCommandHandlerRegistry _handlers;
+        private readonly CommandRouter _router;
+        private readonly IGameSystem[] _systems;
 
         public int CurrentServerTick => _ticker.CurrentTick;
         public int TickRateHz => _ticker.TickRateHz;
@@ -22,12 +23,15 @@ namespace Sim
 
         public ServerEngine(int tickRateHz, World initialWorld)
         {
-            _ticker = new TickTicker(tickRateHz);
             _world = initialWorld ?? throw new ArgumentNullException(nameof(initialWorld));
+            _ticker = new TickTicker(tickRateHz);
             _cmdBuffer = new ClientCommandBuffer2();
-            _handlers = new ClientCommandHandlerRegistry();
-            _handlers.RegisterMany(
-                new MoveByCommandHandler());
+            _router = new CommandRouter();
+
+            _systems = new IGameSystem[]
+            {
+                new MovementSystem(),
+            };
         }
 
         /// <summary>
@@ -57,27 +61,33 @@ namespace Sim
         {
             _ticker.Advance(1);
 
-            ExecuteCommandsForCurrentTick();
-            _cmdBuffer.DropBeforeTick(_ticker.CurrentTick - 16);
+            int tick = _ticker.CurrentTick;
+
+            RouteCommandsForTick(tick);
+
+            SystemInputs inputs = new SystemInputs(tick, _router);
+            for (int i = 0; i < _systems.Length; i++)
+                _systems[i].Execute(tick, ref _world, inputs);
 
             _world.StepFixed();
 
+            _cmdBuffer.DropBeforeTick(tick - 16);
+            _router.DropBeforeTick(tick - 16);
+
             return new EngineTickResult(
-                serverTick: _ticker.CurrentTick,
+                serverTick: tick,
                 serverTimeMs: _ticker.ServerTimeMs,
                 snapshot: BuildSnapshot(),
                 reliableOps: Array.Empty<EngineOpBatch>());
         }
 
-        private void ExecuteCommandsForCurrentTick()
+        private void RouteCommandsForTick(int tick)
         {
-            int tick = _ticker.CurrentTick;
-
             foreach (int connId in _cmdBuffer.ConnectionIdsForTick(tick))
             {
                 while (_cmdBuffer.TryDequeueForTick(tick, connId, out ClientCommandBuffer2.CommandBatch commandBatch))
                 {
-                    _handlers.ApplyAll(_world, commandBatch.Commands);
+                    _router.RouteBatch(commandBatch.ScheduledTick, connId, commandBatch.Commands);
                 }
             }
         }
