@@ -11,8 +11,14 @@ namespace Sim
         // Optional: dedup per connection (future). For now: keep simple.
         // private readonly Dictionary<int, uint> _lastSeqByConn = new();
 
-        public int MaxFutureTicks { get; set; } = 2;
-        public int MaxPastTicks { get; set; } = 2;
+        public int MaxFutureTicks { get; }
+        public int MaxPastTicks { get; }
+
+        public ClientCommandBuffer(int maxFutureTicks = 2, int maxPastTicks = 2)
+        {
+            MaxFutureTicks = maxFutureTicks;
+            MaxPastTicks = maxPastTicks;
+        }
 
         /// <summary>
         /// Enqueues a batch with validation/scheduling.

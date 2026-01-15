@@ -11,26 +11,14 @@ namespace Sim.Commanding
     /// </summary>
     public sealed class CommandSystem
     {
-        private readonly ClientCommandBuffer _buffer = new ClientCommandBuffer();
+        private readonly ClientCommandBuffer _buffer;
 
         private readonly Dictionary<ClientCommandType, ISystemCommandSink> _routes =
             new Dictionary<ClientCommandType, ISystemCommandSink>(256);
 
         private readonly ISystemCommandSink[] _systems;
 
-        public int MaxFutureTicks
-        {
-            get => _buffer.MaxFutureTicks;
-            set => _buffer.MaxFutureTicks = value;
-        }
-
-        public int MaxPastTicks
-        {
-            get => _buffer.MaxPastTicks;
-            set => _buffer.MaxPastTicks = value;
-        }
-
-        public CommandSystem(ISystemCommandSink[] systems)
+        public CommandSystem(ISystemCommandSink[] systems, int maxFutureTicks = 2, int maxPastTicks = 2)
         {
             ArgumentNullException.ThrowIfNull(systems, $"{nameof(systems)} is null");
 
@@ -38,6 +26,7 @@ namespace Sim.Commanding
                 throw new ArgumentException("systems must not be empty", nameof(systems));
 
             _systems = systems;
+            _buffer = new ClientCommandBuffer(maxFutureTicks, maxPastTicks);
 
             for (int i = 0; i < systems.Length; i++)
             {
@@ -89,7 +78,7 @@ namespace Sim.Commanding
         {
             foreach (int connId in _buffer.ConnectionIdsForTick(tick))
             {
-                while (_buffer.TryDequeueForTick(tick, connId, out ClientCommandBuffer.CommandBatch batch))
+                while (_buffer.TryDequeueForTick(tick, connId, out CommandBatch batch))
                 {
                     RouteBatch(tick, connId, batch.Commands);
                 }

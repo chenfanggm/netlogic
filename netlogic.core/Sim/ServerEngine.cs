@@ -28,11 +28,7 @@ namespace Sim
             _systems = [
                 movement
             ];
-            _commandSystem = new CommandSystem(_systems)
-            {
-                MaxFutureTicks = 2,
-                MaxPastTicks = 2
-            };
+            _commandSystem = new CommandSystem(_systems, maxFutureTicks: 2, maxPastTicks: 2);
         }
 
         /// <summary>
