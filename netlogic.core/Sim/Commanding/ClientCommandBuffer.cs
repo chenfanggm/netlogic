@@ -29,9 +29,9 @@ namespace Sim
             int requestedClientTick,
             uint clientCmdSeq,
             List<ClientCommand> commands,
-            int currentServerTick,
-            out int scheduledTick)
+            int currentServerTick)
         {
+            int scheduledTick = requestedClientTick;
             if (commands == null || commands.Count == 0)
             {
                 scheduledTick = currentServerTick;

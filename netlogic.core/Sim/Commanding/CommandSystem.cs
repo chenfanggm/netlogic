@@ -1,3 +1,5 @@
+using System.Linq;
+
 namespace Sim.Commanding
 {
     /// <summary>
@@ -11,48 +13,31 @@ namespace Sim.Commanding
     /// </summary>
     public sealed class CommandSystem
     {
+        private readonly ISystemCommandSink[] _systems;
         private readonly ClientCommandBuffer _buffer;
 
         private readonly Dictionary<ClientCommandType, ISystemCommandSink> _routes =
             new Dictionary<ClientCommandType, ISystemCommandSink>(256);
 
-        private readonly ISystemCommandSink[] _systems;
 
         public CommandSystem(ISystemCommandSink[] systems, int maxFutureTicks = 2, int maxPastTicks = 2)
         {
-            ArgumentNullException.ThrowIfNull(systems, $"{nameof(systems)} is null");
-
-            if (systems.Length == 0)
-                throw new ArgumentException("systems must not be empty", nameof(systems));
-
-            _systems = systems;
+            _systems = systems ?? throw new ArgumentNullException(nameof(systems), "systems must not be null");
             _buffer = new ClientCommandBuffer(maxFutureTicks, maxPastTicks);
 
-            for (int i = 0; i < systems.Length; i++)
+            foreach (ISystemCommandSink sys in _systems)
             {
-                ISystemCommandSink sys = systems[i];
-                ArgumentNullException.ThrowIfNull(sys, $"systems[{i}] is null");
-
-                IReadOnlyList<ClientCommandType> owned = sys.OwnedCommandTypes;
-                ArgumentNullException.ThrowIfNull(owned, $"systems[{i}].OwnedCommandTypes is null");
-
-                for (int j = 0; j < owned.Count; j++)
-                {
-                    ClientCommandType type = owned[j];
-
-                    if (_routes.TryGetValue(type, out ISystemCommandSink? existing) && existing != null && !ReferenceEquals(existing, sys))
-                        throw new InvalidOperationException($"Command {type} owned by multiple systems: {existing.Name} and {sys.Name}");
-
-                    _routes[type] = sys;
-                }
+                IReadOnlyList<ClientCommandType> cmdTypes = sys.OwnedCommandTypes;
+                foreach (ClientCommandType item in cmdTypes)
+                    if (!_routes.TryAdd(item, sys))
+                        throw new InvalidOperationException($"Command {item} owned by multiple systems: {sys.Name}");
             }
         }
 
         /// <summary>
-        /// Adapter calls this with a fresh list (no reuse).
-        /// CommandSystem schedules it for execution on a server tick (validation inside buffer).
+        /// CommandSystem schedules commands for execution on a server tick (validation inside buffer).
         /// </summary>
-        public void EnqueueClientBatch(
+        public void EnqueueCommands(
             int connId,
             int requestedClientTick,
             uint clientCmdSeq,
@@ -67,8 +52,7 @@ namespace Sim.Commanding
                 requestedClientTick: requestedClientTick,
                 clientCmdSeq: clientCmdSeq,
                 commands: commands,
-                currentServerTick: currentServerTick,
-                scheduledTick: out _);
+                currentServerTick: currentServerTick);
         }
 
         /// <summary>
