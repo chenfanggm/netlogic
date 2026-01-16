@@ -11,6 +11,7 @@ namespace Sim
     /// - Owns transport
     /// - Owns handshake/ping/ack/baseline
     /// - Converts wire ClientOps -> ClientCommand[]
+    /// - Converts ClientCommand[] -> EngineCommand[]
     /// - Feeds ServerEngine
     /// - Calls TickOnce()
     /// - Hashes + encodes EngineTickResult into wire packets (Reliable + Sample)
@@ -21,6 +22,7 @@ namespace Sim
         private readonly ServerEngine _engine;
 
         private readonly ClientOpsMsgToClientCommandConverter _converter;
+        private readonly ClientCommandToEngineCommandConverter _engineCommandConverter;
 
         private readonly List<int> _clients;
         private readonly Dictionary<int, ServerReliableStream> _reliableStreams;
@@ -40,6 +42,7 @@ namespace Sim
             _engine = new ServerEngine(tickRateHz, initialWorld ?? throw new ArgumentNullException(nameof(initialWorld)));
 
             _converter = new ClientOpsMsgToClientCommandConverter(initialCapacity: 32);
+            _engineCommandConverter = new ClientCommandToEngineCommandConverter();
 
             _clients = new List<int>(32);
             _reliableStreams = new Dictionary<int, ServerReliableStream>(32);
@@ -140,13 +143,14 @@ namespace Sim
 
                 if (MsgCodec.TryDecodeClientOps(packet.Payload, out ClientOpsMsg ops))
                 {
-                    List<ClientCommand> list = _converter.ConvertToNewList(ops);
+                    List<ClientCommand> clientCommands = _converter.ConvertToNewList(ops);
+                    List<EngineCommand> engineCommands = _engineCommandConverter.ConvertToNewList(clientCommands);
 
-                    _engine.EnqueueClientCommands(
+                    _engine.EnqueueEngineCommands(
                         connId: packet.ConnId,
                         requestedClientTick: ops.ClientTick,
                         clientCmdSeq: ops.ClientCmdSeq,
-                        commands: list);
+                        commands: engineCommands);
 
                     continue;
                 }

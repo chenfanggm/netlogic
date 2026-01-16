@@ -12,26 +12,27 @@ namespace Sim.Systems
     {
         public string Name => "Movement";
 
-        public IReadOnlyList<ClientCommandType> CommandTypes => _owned;
-        private static readonly ClientCommandType[] _owned =
+        public IReadOnlyList<EngineCommandType> CommandTypes => _owned;
+        private static readonly EngineCommandType[] _owned =
         {
-            ClientCommandType.MoveBy,
+            EngineCommandType.MoveBy,
         };
 
         // Tick-local inbox (Option-2).
-        private readonly List<ClientCommand> _inbox = new List<ClientCommand>(256);
+        private readonly List<MoveByEngineCommand> _inbox = new List<MoveByEngineCommand>(256);
 
-        public void EnqueueCommand(int tick, int connId, in ClientCommand command)
+        public void EnqueueCommand(int tick, int connId, EngineCommand command)
         {
-            // Called only during CommandSystem.DispatchTick(tick) inside TickOnce.
-            _inbox.Add(command);
+            // Called only during CommandSystem.Dispatch(tick) inside TickOnce.
+            if (command is MoveByEngineCommand move)
+                _inbox.Add(move);
         }
 
         public void Execute(int tick, World world)
         {
             for (int i = 0; i < _inbox.Count; i++)
             {
-                ClientCommand c = _inbox[i];
+                MoveByEngineCommand c = _inbox[i];
                 world.TryMoveEntityBy(c.EntityId, c.Dx, c.Dy);
             }
 

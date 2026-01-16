@@ -8,9 +8,6 @@ namespace Sim
         private readonly Dictionary<int, Dictionary<int, Queue<CommandBatch>>> _byTickThenConn =
             new Dictionary<int, Dictionary<int, Queue<CommandBatch>>>();
 
-        // Optional: dedup per connection (future). For now: keep simple.
-        // private readonly Dictionary<int, uint> _lastSeqByConn = new();
-
         public int MaxFutureTicks { get; }
         public int MaxPastTicks { get; }
 
@@ -20,15 +17,11 @@ namespace Sim
             MaxPastTicks = maxPastTicks;
         }
 
-        /// <summary>
-        /// Enqueues a batch with validation/scheduling.
-        /// Returns false if dropped; true if enqueued. Outputs scheduledTick.
-        /// </summary>
         public bool EnqueueWithValidation(
             int connectionId,
             int requestedClientTick,
             uint clientCmdSeq,
-            List<ClientCommand> commands,
+            List<EngineCommand> commands,
             int currentServerTick)
         {
             int scheduledTick = requestedClientTick;
@@ -38,25 +31,21 @@ namespace Sim
                 return false;
             }
 
-            // Normalize requested tick into server scheduling window.
             int minTick = currentServerTick - MaxPastTicks;
             int maxTick = currentServerTick + MaxFutureTicks;
 
             if (requestedClientTick < minTick)
             {
-                // Too old => drop
                 scheduledTick = requestedClientTick;
                 return false;
             }
 
             if (requestedClientTick > maxTick)
             {
-                // Too far future => clamp to max allowed (or drop if you want)
                 scheduledTick = maxTick;
             }
             else if (requestedClientTick < currentServerTick)
             {
-                // Late => shift to current tick
                 scheduledTick = currentServerTick;
             }
             else
@@ -106,7 +95,6 @@ namespace Sim
             if (_byTickThenConn.Count == 0)
                 return;
 
-            // Collect keys to remove (avoid modifying during enumeration)
             List<int> toRemove = new List<int>(16);
             bool hasRemovals = false;
 

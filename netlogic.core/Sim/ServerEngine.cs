@@ -37,11 +37,11 @@ namespace Sim
                 maxStoredTicks: 16);
         }
 
-        public void EnqueueClientCommands(
+        public void EnqueueEngineCommands(
             int connId,
             int requestedClientTick,
             uint clientCmdSeq,
-            List<ClientCommand> commands)
+            List<EngineCommand> commands)
         {
             if (commands == null || commands.Count == 0)
                 return;

@@ -11,8 +11,8 @@ namespace Sim.Commanding
     {
         private ISystemCommandSink[] _systems;
         private readonly ClientCommandBuffer _buffer;
-        private readonly Dictionary<ClientCommandType, ISystemCommandSink> _routes =
-            new Dictionary<ClientCommandType, ISystemCommandSink>(256);
+        private readonly Dictionary<EngineCommandType, ISystemCommandSink> _routes =
+            new Dictionary<EngineCommandType, ISystemCommandSink>(256);
 
         private readonly int _maxStoredTicks;
 
@@ -38,7 +38,7 @@ namespace Sim.Commanding
             int connId,
             int requestedClientTick,
             uint clientCmdSeq,
-            List<ClientCommand> commands,
+            List<EngineCommand> commands,
             int currentServerTick)
         {
             if (commands == null || commands.Count == 0)
@@ -58,10 +58,10 @@ namespace Sim.Commanding
             {
                 while (_buffer.TryDequeueForTick(tick, connId, out CommandBatch batch))
                 {
-                    foreach (ClientCommand cmd in batch.Commands)
+                    foreach (EngineCommand cmd in batch.Commands)
                     {
                         if (_routes.TryGetValue(cmd.Type, out ISystemCommandSink? system) && system != null)
-                            system.EnqueueCommand(tick, connId, in cmd);
+                            system.EnqueueCommand(tick, connId, cmd);
                     }
                 }
             }
@@ -84,18 +84,13 @@ namespace Sim.Commanding
 
         private void RegisterRoutes(ISystemCommandSink[] systems)
         {
-            for (int i = 0; i < systems.Length; i++)
-            {
-                ISystemCommandSink sys = systems[i];
-            }
-
             foreach (ISystemCommandSink system in systems)
             {
-                IReadOnlyList<ClientCommandType> commandTypes = system.CommandTypes;
+                IReadOnlyList<EngineCommandType> commandTypes = system.CommandTypes;
                 if (commandTypes == null || commandTypes.Count == 0)
                     continue;
 
-                foreach (ClientCommandType commandType in commandTypes)
+                foreach (EngineCommandType commandType in commandTypes)
                 {
                     if (_routes.TryGetValue(commandType, out ISystemCommandSink? existing) &&
                         existing != null &&

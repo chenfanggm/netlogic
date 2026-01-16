@@ -7,9 +7,9 @@ namespace Sim
     {
         public readonly int ScheduledTick;
         public readonly uint ClientCmdSeq;
-        public readonly List<ClientCommand> Commands;
+        public readonly List<EngineCommand> Commands;
 
-        public CommandBatch(int scheduledTick, uint clientCmdSeq, List<ClientCommand> commands)
+        public CommandBatch(int scheduledTick, uint clientCmdSeq, List<EngineCommand> commands)
         {
             ScheduledTick = scheduledTick;
             ClientCmdSeq = clientCmdSeq;
