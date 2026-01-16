@@ -20,6 +20,6 @@ namespace Sim.Commanding
         void EnqueueCommand(int tick, int connId, in ClientCommand command);
 
         /// <summary>Called by ServerEngine in stable order.</summary>
-        void Execute(int tick, ref Game.World world);
+        void Execute(int tick, Game.World world);
     }
 }

@@ -27,7 +27,7 @@ namespace Sim.Systems
             _inbox.Add(command);
         }
 
-        public void Execute(int tick, ref World world)
+        public void Execute(int tick, World world)
         {
             for (int i = 0; i < _inbox.Count; i++)
             {

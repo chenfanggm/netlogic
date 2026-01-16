@@ -1,5 +1,4 @@
-using System;
-using System.Collections.Generic;
+using Game;
 
 namespace Sim.Commanding
 {
@@ -10,16 +9,16 @@ namespace Sim.Commanding
     /// </summary>
     public sealed class CommandSystem
     {
-        private readonly ClientCommandBuffer _buffer;
+        private ISystemCommandSink[] _systems;
+        private readonly int _maxStoredTicks;
 
+        private readonly ClientCommandBuffer _buffer;
         private readonly Dictionary<ClientCommandType, ISystemCommandSink> _routes =
             new Dictionary<ClientCommandType, ISystemCommandSink>(256);
 
-        private readonly ISystemCommandSink[] _systems;
-        private readonly int _maxStoredTicks;
-
         public CommandSystem(
             ISystemCommandSink[] systems,
+            TickTicker ticker,
             int maxFutureTicks,
             int maxPastTicks,
             int maxStoredTicks)
@@ -30,7 +29,7 @@ namespace Sim.Commanding
             _systems = systems;
             _buffer = new ClientCommandBuffer(maxFutureTicks, maxPastTicks);
             _maxStoredTicks = maxStoredTicks;
-            
+
             // Auto-register routes from system declarations
             for (int i = 0; i < systems.Length; i++)
             {
@@ -100,12 +99,26 @@ namespace Sim.Commanding
         }
 
         /// <summary>
+        /// Execute systems in stable order.
+        /// </summary>
+        public void Execute(int tick, World world)
+        {
+            // 1) Dispatch inputs for this tick into system inboxes
+            DispatchCommands(tick);
+            // 2) Execute systems in stable order
+            for (int i = 0; i < _systems.Length; i++)
+                _systems[i].Execute(tick, world);
+            // 3) Cleanup central input buffer
+            DropOldTick(tick);
+        }
+
+        /// <summary>
         /// Cleanup central buffer only.
         /// Systems do NOT store multi-tick data in Option-2.
         /// </summary>
-        public void DropOldTick(int currentTick)
+        public void DropOldTick(int tick)
         {
-            _buffer.DropOldTick(currentTick - _maxStoredTicks);
+            _buffer.DropOldTick(tick - _maxStoredTicks);
         }
     }
 }
