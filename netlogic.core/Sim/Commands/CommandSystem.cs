@@ -60,7 +60,7 @@ namespace Sim.Commanding
         /// Stage incoming commands (called by ServerEngine / adapter).
         /// NO routing here.
         /// </summary>
-        public void EnqueueCommands(
+        public void Enqueue(
             int connId,
             int requestedClientTick,
             uint clientCmdSeq,
@@ -83,7 +83,7 @@ namespace Sim.Commanding
         /// Dequeue all batches for tick and dispatch commands into system inboxes.
         /// Called ONLY from TickOnce().
         /// </summary>
-        public void DispatchCommands(int tick)
+        public void Dispatch(int tick)
         {
             foreach (int connId in _buffer.ConnectionIdsForTick(tick))
             {
@@ -104,7 +104,7 @@ namespace Sim.Commanding
         public void Execute(int tick, World world)
         {
             // 1) Dispatch inputs for this tick into system inboxes
-            DispatchCommands(tick);
+            Dispatch(tick);
             // 2) Execute systems in stable order
             for (int i = 0; i < _systems.Length; i++)
                 _systems[i].Execute(tick, world);

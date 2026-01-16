@@ -46,7 +46,7 @@ namespace Sim
             if (commands == null || commands.Count == 0)
                 return;
 
-            _commandSystem.EnqueueCommands(
+            _commandSystem.Enqueue(
                 connId: connId,
                 requestedClientTick: requestedClientTick,
                 clientCmdSeq: clientCmdSeq,
