@@ -14,7 +14,7 @@ namespace Sim.Commanding
         /// Declare which command types this system owns.
         /// CommandSystem will auto-register routes based on this list.
         /// </summary>
-        IReadOnlyList<ClientCommandType> OwnedCommandTypes { get; }
+        IReadOnlyList<ClientCommandType> CommandTypes { get; }
 
         /// <summary>Called by CommandSystem during routing.</summary>
         void EnqueueCommand(int tick, int connId, in ClientCommand command);

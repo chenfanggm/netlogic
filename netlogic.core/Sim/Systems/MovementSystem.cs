@@ -12,7 +12,7 @@ namespace Sim.Systems
     {
         public string Name => "Movement";
 
-        public IReadOnlyList<ClientCommandType> OwnedCommandTypes => _owned;
+        public IReadOnlyList<ClientCommandType> CommandTypes => _owned;
         private static readonly ClientCommandType[] _owned =
         {
             ClientCommandType.MoveBy,

@@ -10,11 +10,11 @@ namespace Sim.Commanding
     public sealed class CommandSystem
     {
         private ISystemCommandSink[] _systems;
-        private readonly int _maxStoredTicks;
-
         private readonly ClientCommandBuffer _buffer;
         private readonly Dictionary<ClientCommandType, ISystemCommandSink> _routes =
             new Dictionary<ClientCommandType, ISystemCommandSink>(256);
+
+        private readonly int _maxStoredTicks;
 
         public CommandSystem(
             ISystemCommandSink[] systems,
@@ -31,35 +31,9 @@ namespace Sim.Commanding
             _maxStoredTicks = maxStoredTicks;
 
             // Auto-register routes from system declarations
-            for (int i = 0; i < systems.Length; i++)
-            {
-                ISystemCommandSink sys = systems[i];
-
-                IReadOnlyList<ClientCommandType> owned = sys.OwnedCommandTypes;
-                if (owned == null)
-                    continue;
-
-                for (int j = 0; j < owned.Count; j++)
-                {
-                    ClientCommandType type = owned[j];
-
-                    if (_routes.TryGetValue(type, out ISystemCommandSink? existing) &&
-                        existing != null &&
-                        !ReferenceEquals(existing, sys))
-                    {
-                        throw new InvalidOperationException(
-                            $"Command {type} owned by multiple systems: {existing.Name} and {sys.Name}");
-                    }
-
-                    _routes[type] = sys;
-                }
-            }
+            RegisterRoutes(systems);
         }
 
-        /// <summary>
-        /// Stage incoming commands (called by ServerEngine / adapter).
-        /// NO routing here.
-        /// </summary>
         public void Enqueue(
             int connId,
             int requestedClientTick,
@@ -78,11 +52,6 @@ namespace Sim.Commanding
                 currentServerTick: currentServerTick);
         }
 
-        /// <summary>
-        /// OPTION-2 CORE:
-        /// Dequeue all batches for tick and dispatch commands into system inboxes.
-        /// Called ONLY from TickOnce().
-        /// </summary>
         public void Dispatch(int tick)
         {
             foreach (int connId in _buffer.ConnectionIdsForTick(tick))
@@ -91,8 +60,8 @@ namespace Sim.Commanding
                 {
                     foreach (ClientCommand cmd in batch.Commands)
                     {
-                        if (_routes.TryGetValue(cmd.Type, out ISystemCommandSink? sink) && sink != null)
-                            sink.EnqueueCommand(tick, connId, in cmd);
+                        if (_routes.TryGetValue(cmd.Type, out ISystemCommandSink? system) && system != null)
+                            system.EnqueueCommand(tick, connId, in cmd);
                     }
                 }
             }
@@ -109,16 +78,36 @@ namespace Sim.Commanding
             for (int i = 0; i < _systems.Length; i++)
                 _systems[i].Execute(tick, world);
             // 3) Cleanup central input buffer
-            DropOldTick(tick);
+            _buffer.DropOldTick(tick - _maxStoredTicks);
+
         }
 
-        /// <summary>
-        /// Cleanup central buffer only.
-        /// Systems do NOT store multi-tick data in Option-2.
-        /// </summary>
-        public void DropOldTick(int tick)
+        private void RegisterRoutes(ISystemCommandSink[] systems)
         {
-            _buffer.DropOldTick(tick - _maxStoredTicks);
+            for (int i = 0; i < systems.Length; i++)
+            {
+                ISystemCommandSink sys = systems[i];
+            }
+
+            foreach (ISystemCommandSink system in systems)
+            {
+                IReadOnlyList<ClientCommandType> commandTypes = system.CommandTypes;
+                if (commandTypes == null || commandTypes.Count == 0)
+                    continue;
+
+                foreach (ClientCommandType commandType in commandTypes)
+                {
+                    if (_routes.TryGetValue(commandType, out ISystemCommandSink? existing) &&
+                        existing != null &&
+                        !ReferenceEquals(existing, system))
+                    {
+                        throw new InvalidOperationException(
+                            $"Command {commandType} owned by multiple systems: {existing.Name} and {system.Name}");
+                    }
+
+                    _routes[commandType] = system;
+                }
+            }
         }
     }
 }
