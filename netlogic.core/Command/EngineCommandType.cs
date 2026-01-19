@@ -4,6 +4,9 @@ namespace Sim
     {
         None = 0,
         // MovementSystem
-        MoveBy = 1
+        MoveBy = 1,
+
+        // GameFlowSystem
+        FlowFire = 10
     }
 }

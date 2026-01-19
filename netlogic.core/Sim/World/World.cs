@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
+using Game.Flow;
+using Game.Runtime;
 using Net;
 using Sim;
 
@@ -13,17 +15,233 @@ namespace Game
         private int _nextEntityId = 1;
         private readonly Dictionary<int, Entity> _entities = new Dictionary<int, Entity>(128);
 
-        /// <summary>
-        /// Authoritative deterministic "now" for the simulation.
-        /// Set by ServerEngine (and/or systems) before command handlers run.
-        /// </summary>
+        // ------------------------------------------------------------------
+        // Authoritative time
+        // ------------------------------------------------------------------
+
         public int CurrentTick { get; internal set; }
+
+        // ------------------------------------------------------------------
+        // Authoritative flow state + runtime state containers
+        // ------------------------------------------------------------------
+
+        public GameFlowState FlowState { get; private set; } = GameFlowState.Boot;
+
+        public RunRuntime Run { get; } = new RunRuntime();
+        public LevelRuntime Level { get; } = new LevelRuntime();
+        public RoundRuntime Round { get; } = new RoundRuntime();
+
+        // Controllers are rebuildable logic; not serialized
+        internal GameFlowController Flow { get; }
+        internal RoundFlowController RoundFlow { get; }
+
+        // Lifecycle tracking (deterministic, internal)
+        private GameFlowState _prevFlowState = (GameFlowState)255;
+
+        // Server-generated commands requested by systems/handlers. Drained by ServerEngine.
+        private readonly List<EngineCommand> _serverCommandOutbox = new List<EngineCommand>(32);
+
+        public World()
+        {
+            Flow = new GameFlowController(this);
+            RoundFlow = new RoundFlowController(this);
+        }
+
+        internal void SetFlowStateInternal(GameFlowState state)
+        {
+            FlowState = state;
+        }
+
+        /// <summary>
+        /// Drains server-generated commands requested during this tick.
+        /// ServerEngine will enqueue these into CommandSystem for tick+1.
+        /// </summary>
+        internal List<EngineCommand> DrainServerCommandsToNewList()
+        {
+            if (_serverCommandOutbox.Count == 0)
+                return new List<EngineCommand>(0);
+
+            List<EngineCommand> list = new List<EngineCommand>(_serverCommandOutbox.Count);
+            list.AddRange(_serverCommandOutbox);
+            _serverCommandOutbox.Clear();
+            return list;
+        }
+
+        // ------------------------------------------------------------------
+        // Deterministic lifecycle: runs every tick, reacts to FlowState changes
+        // ------------------------------------------------------------------
+
+        private void LifecycleStep()
+        {
+            if (_prevFlowState != FlowState)
+            {
+                OnExitFlowState(_prevFlowState);
+                OnEnterFlowState(FlowState);
+                _prevFlowState = FlowState;
+            }
+
+            // You can add other deterministic per-tick checks here if needed.
+            // For example: auto-advance level when all 3 customers served and last round won.
+        }
+
+        private void OnExitFlowState(GameFlowState state)
+        {
+            // Keep exit actions minimal; most work should be on enter.
+            _ = state;
+        }
+
+        private void OnEnterFlowState(GameFlowState state)
+        {
+            switch (state)
+            {
+                case GameFlowState.Boot:
+                    // No work. We usually transition to MainMenu by client or by a boot command.
+                    break;
+
+                case GameFlowState.MainMenu:
+                    // Reset everything for a clean slate
+                    ResetAllRuntime();
+                    break;
+
+                case GameFlowState.RunSetup:
+                    // Prepare a fresh run setup selection screen.
+                    ResetAllRuntime();
+                    // Player will choose hat -> Run.SelectedChefHatId
+                    break;
+
+                case GameFlowState.LevelOverview:
+                    // If this is a new run start or a new level, ensure level data exists.
+                    // We (re)build level preview customers only when needed.
+                    EnsureLevelInitialized();
+                    break;
+
+                case GameFlowState.InRound:
+                    // When player clicks Serve, Level.PendingServeCustomerIndex is set.
+                    InitRoundFromPendingServe();
+                    break;
+
+                case GameFlowState.RunDefeat:
+                    // Nothing required; UI will show defeat.
+                    break;
+
+                case GameFlowState.RunVictory:
+                    // Nothing required; UI will show victory.
+                    break;
+
+                default:
+                    break;
+            }
+        }
+
+        private void ResetAllRuntime()
+        {
+            Run.SelectedChefHatId = 0;
+            Run.LevelIndex = 0;
+            Run.RunSeed = 0;
+            Run.Rng = new DeterministicRng(1);
+
+            Level.ResetForNewLevel();
+            Round.ResetForNewRound();
+        }
+
+        private void EnsureLevelInitialized()
+        {
+            // If level index is 0, this is the first time entering a run.
+            if (Run.LevelIndex <= 0)
+            {
+                Run.LevelIndex = 1;
+
+                // Seed can be derived deterministically; here we use tick as a placeholder.
+                // In production you probably set seed when starting the run (ClickStartRun).
+                Run.RunSeed = (uint)(CurrentTick + 12345);
+                Run.Rng = new DeterministicRng(Run.RunSeed);
+            }
+
+            // If customer preview not set, generate 3 customers deterministically
+            bool needsCustomers = Level.CustomerIds[0] == 0 || Level.CustomerIds[1] == 0 || Level.CustomerIds[2] == 0;
+            if (needsCustomers)
+            {
+                // Refresh pool per level — tune this
+                Level.RefreshesRemaining = 3;
+
+                // Deterministic customer IDs. Replace with weighted roll from data.
+                for (int i = 0; i < 3; i++)
+                {
+                    // Example: base 1000 + level bias + rng
+                    int id = 1000 + Run.LevelIndex * 10 + Run.Rng.NextInt(0, 10);
+                    Level.CustomerIds[i] = id;
+                    Level.Served[i] = false;
+                }
+
+                Level.PendingServeCustomerIndex = -1;
+            }
+        }
+
+        private void InitRoundFromPendingServe()
+        {
+            int idx = Level.PendingServeCustomerIndex;
+
+            // Validate serve index
+            if (idx < 0 || idx >= 3)
+            {
+                // Invalid selection; fallback: choose first unserved
+                idx = FirstUnservedCustomerIndexOrMinus1();
+            }
+
+            if (idx < 0)
+            {
+                // No available customer; treat as level completion placeholder.
+                // For now, just keep LevelOverview.
+                SetFlowStateInternal(GameFlowState.LevelOverview);
+                return;
+            }
+
+            // Mark served and clear pending
+            Level.Served[idx] = true;
+            Level.PendingServeCustomerIndex = -1;
+
+            // Initialize round runtime
+            Round.ResetForNewRound();
+
+            Round.RoundIndex = Level.ServedCount(); // after marking served, count is 1..3
+            Round.CustomerId = Level.CustomerIds[idx];
+
+            // Target curve placeholder: tune based on your difficulty system
+            Round.TargetScore = ComputeTargetScore(Run.LevelIndex, Round.RoundIndex);
+
+            Round.State = RoundState.Prepare;
+        }
+
+        private int FirstUnservedCustomerIndexOrMinus1()
+        {
+            for (int i = 0; i < 3; i++)
+                if (!Level.Served[i]) return i;
+            return -1;
+        }
+
+        private static int ComputeTargetScore(int levelIndex, int roundIndex)
+        {
+            // Placeholder difficulty curve:
+            // Round 1 easy, Round 2 medium, Round 3 boss
+            int baseTarget = 120 + (levelIndex - 1) * 25;
+            int roundAdd = roundIndex switch
+            {
+                1 => 0,
+                2 => 40,
+                3 => 80,
+                _ => 0
+            };
+            return baseTarget + roundAdd;
+        }
+
+        // ------------------------------------------------------------------
+        // Entities (unchanged)
+        // ------------------------------------------------------------------
 
         public IEnumerable<Entity> Entities
         {
             get
             {
-                // Stable iteration order for hashing + deterministic behavior
                 IEnumerable<int> keys = _entities.Keys.OrderBy(x => x);
                 foreach (int k in keys)
                     yield return _entities[k];
@@ -58,7 +276,6 @@ namespace Game
 
         public EntityState[] ToSnapshot()
         {
-            // stable order
             List<EntityState> list = new List<EntityState>(_entities.Count);
 
             IEnumerable<int> keys = _entities.Keys.OrderBy(x => x);
@@ -76,7 +293,6 @@ namespace Game
             if (!_entities.TryGetValue(entityId, out Entity? entity) || entity == null)
                 return false;
 
-            // TODO: authoritative collision here (grid/tile checks)
             entity.X += dx;
             entity.Y += dy;
 
@@ -84,41 +300,51 @@ namespace Game
         }
 
         // Compatibility methods for existing ServerSim code
-        public Entity Spawn(int x, int y)
-        {
-            return CreateEntityAt(x, y);
-        }
+        public Entity Spawn(int x, int y) => CreateEntityAt(x, y);
 
-        public bool TryGet(int id, out Entity e)
-        {
-            return TryGetEntity(id, out e);
-        }
+        public bool TryGet(int id, out Entity e) => TryGetEntity(id, out e);
 
         /// <summary>
         /// Called once per server tick after systems have executed.
-        /// The argument is treated as the tick delta since last advance.
         /// </summary>
         public void Advance(int deltaTick)
         {
             CurrentTick += deltaTick;
 
+            // Deterministic lifecycle step (enter/exit hooks, init state)
+            LifecycleStep();
+
             // Put deterministic per-tick world logic here (regen, ai, projectiles, etc.)
-            // This is called by the ServerEngine after the systems have executed
-            // and before the snapshot is built.
         }
 
-        public SampleEntityPos[] BuildSnapshot()
+        public FlowSnapshot BuildFlowSnapshot()
+        {
+            // Keep it compact and always safe to read on client.
+            return new FlowSnapshot(
+                flowState: FlowState,
+                levelIndex: Run.LevelIndex,
+                roundIndex: Round.RoundIndex,
+                selectedChefHatId: Run.SelectedChefHatId,
+                targetScore: Round.TargetScore,
+                cumulativeScore: Round.CumulativeScore,
+                cookAttemptsUsed: Round.CookAttemptsUsed,
+                roundState: Round.State,
+                cookResultSeq: Round.LastCookSeq,
+                lastCookScoreDelta: Round.LastCookScoreDelta,
+                lastCookMetTarget: Round.LastCookMetTarget);
+        }
+
+        public SampleWorldSnapshot BuildSnapshot()
         {
             List<SampleEntityPos> list = new List<SampleEntityPos>(128);
             foreach (Entity e in Entities)
                 list.Add(new SampleEntityPos(e.Id, e.X, e.Y));
-            return list.ToArray();
+
+            FlowSnapshot flow = BuildFlowSnapshot();
+            return new SampleWorldSnapshot(flow, list.ToArray());
         }
     }
 
-    /// <summary>
-    /// Game entity with position, health, and movement capabilities.
-    /// </summary>
     public sealed class Entity
     {
         public int Id { get; }
@@ -134,11 +360,7 @@ namespace Game
             Hp = 100;
         }
 
-        public void MoveBy(int dx, int dy)
-        {
-            X += dx;
-            Y += dy;
-        }
+        public void MoveBy(int dx, int dy) => X += dx;
 
         public void Damage(int amount)
         {

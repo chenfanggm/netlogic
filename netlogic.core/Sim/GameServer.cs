@@ -278,7 +278,7 @@ namespace Sim
             _opsWriter.Reset();
             ushort opCount = 0;
 
-            SampleEntityPos[] snap = tick.Snapshot;
+            SampleEntityPos[] snap = tick.Snapshot.Entities;
 
             int i = 0;
             while (i < snap.Length)

@@ -6,6 +6,7 @@ namespace Net
     {
         // Client -> Server (Reliable)
         MoveBy = 1,
+        FlowFire = 2,
 
         // Server -> Client (Sample)
         PositionAt = 50
@@ -21,6 +22,18 @@ namespace Net
             w.Put(entityId);
             w.Put(dx);
             w.Put(dy);
+        }
+
+        // Payload: [byte trigger][3 bytes padding]
+        // We keep a fixed op length (4) for simplicity and forward compatibility.
+        public static void WriteFlowFire(NetDataWriter w, byte trigger)
+        {
+            w.Put((byte)OpType.FlowFire);
+            w.Put((ushort)4);
+            w.Put(trigger);
+            w.Put((byte)0);
+            w.Put((byte)0);
+            w.Put((byte)0);
         }
 
         public static void WritePositionAt(NetDataWriter w, int entityId, int x, int y)

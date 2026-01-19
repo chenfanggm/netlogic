@@ -25,8 +25,12 @@ namespace Sim
             _ticker = new TickTicker(tickRateHz);
             _world = initialWorld ?? throw new ArgumentNullException(nameof(initialWorld));
 
+            // Stable system execution order matters for determinism.
+            // GameFlowSystem first: flow transitions happen before gameplay systems.
+            GameFlowSystem flow = new GameFlowSystem();
             MovementSystem movement = new MovementSystem();
             _systems = [
+                flow,
                 movement
             ];
             _commandSystem = new CommandSystem(
@@ -59,6 +63,20 @@ namespace Sim
 
             // 1) Execute systems in stable order
             _commandSystem.Execute(tick, _world);
+
+            // 1.5) Drain any server-generated commands requested by handlers/systems
+            // and schedule them for tick+1.
+            List<EngineCommand> serverCmds = _world.DrainServerCommandsToNewList();
+            if (serverCmds.Count > 0)
+            {
+                _commandSystem.Enqueue(
+                    connId: 0,
+                    clientRequestedTick: tick + 1,
+                    clientCmdSeq: 0,
+                    commands: serverCmds,
+                    currentServerTick: tick);
+            }
+
             // 2) World fixed step
             _world.Advance(1);
 

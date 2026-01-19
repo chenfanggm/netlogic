@@ -1,4 +1,5 @@
 using System;
+using Net;
 
 namespace Sim
 {
@@ -15,7 +16,7 @@ namespace Sim
         /// Continuous snapshot for rendering/interpolation.
         /// Adapter typically encodes this into Sample lane (latest-wins).
         /// </summary>
-        public readonly SampleEntityPos[] Snapshot;
+        public readonly SampleWorldSnapshot Snapshot;
 
         /// <summary>
         /// Discrete ops (domain-level) that must be delivered reliably.
@@ -23,11 +24,11 @@ namespace Sim
         /// </summary>
         public readonly EngineOpBatch[] ReliableOps;
 
-        public EngineTickResult(int serverTick, long serverTimeMs, SampleEntityPos[] snapshot, EngineOpBatch[] reliableOps)
+        public EngineTickResult(int serverTick, long serverTimeMs, SampleWorldSnapshot snapshot, EngineOpBatch[] reliableOps)
         {
             ServerTick = serverTick;
             ServerTimeMs = serverTimeMs;
-            Snapshot = snapshot ?? Array.Empty<SampleEntityPos>();
+            Snapshot = snapshot;
             ReliableOps = reliableOps ?? Array.Empty<EngineOpBatch>();
         }
     }

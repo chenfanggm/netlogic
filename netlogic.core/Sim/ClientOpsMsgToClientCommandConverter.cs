@@ -44,6 +44,16 @@ namespace Sim
 
                     list.Add(ClientCommand.MoveBy(entityId, dx, dy));
                 }
+                else if (opType == OpType.FlowFire)
+                {
+                    byte trigger = reader.GetByte();
+                    // padding
+                    reader.GetByte();
+                    reader.GetByte();
+                    reader.GetByte();
+
+                    list.Add(ClientCommand.FlowFire(trigger));
+                }
                 else
                 {
                     OpsReader.SkipBytes(reader, opLen);

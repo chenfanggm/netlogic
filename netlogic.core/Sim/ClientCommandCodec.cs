@@ -14,6 +14,12 @@ namespace Sim
                 return;
             }
 
+            if (cmd.Type == ClientCommandType.FlowFire)
+            {
+                OpsWriter.WriteFlowFire(writer, cmd.Trigger);
+                return;
+            }
+
             throw new InvalidOperationException("Unsupported ClientCommandType: " + cmd.Type);
         }
     }

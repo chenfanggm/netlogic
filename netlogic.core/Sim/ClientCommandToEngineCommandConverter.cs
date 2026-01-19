@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Game.Flow;
 
 namespace Sim
 {
@@ -28,6 +29,13 @@ namespace Sim
                 {
                     case ClientCommandType.MoveBy:
                         list.Add(new MoveByEngineCommand(c.EntityId, c.Dx, c.Dy));
+                        break;
+
+                    case ClientCommandType.FlowFire:
+                        // Flow intents are authoritative; we accept a byte and cast.
+                        // Unknown values are ignored.
+                        if (c.Trigger != 0)
+                            list.Add(new FlowIntentEngineCommand((GameFlowIntent)c.Trigger));
                         break;
 
                     case ClientCommandType.None:
