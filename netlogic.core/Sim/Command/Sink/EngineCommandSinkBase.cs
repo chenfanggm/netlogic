@@ -11,7 +11,6 @@ namespace Sim.Systems
     {
         /// <summary>
         /// Command types owned by this system (used by CommandSystem routing).
-        /// Typically this should match the handlers you register.
         /// </summary>
         public IReadOnlyList<EngineCommandType> CommandTypes => _ownedCmdTypes;
 
@@ -64,7 +63,6 @@ namespace Sim.Systems
 
         /// <summary>
         /// Called by ServerEngine in stable order each tick.
-        /// Sink should consume its tick-local inbox here.
         /// </summary>
         public void Execute(World world)
         {
@@ -73,6 +71,8 @@ namespace Sim.Systems
                 EngineCommand command = _inbox[i];
                 if (_handlers.TryGetValue(command.Type, out IEngineCommandHandler? handler) && handler != null)
                     handler.Handle(world, command);
+                else
+                    throw new InvalidOperationException($"No handler found for {command.Type} in system {GetType().Name}");
             }
 
             _inbox.Clear();
