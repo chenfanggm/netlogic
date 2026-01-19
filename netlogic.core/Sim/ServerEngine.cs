@@ -47,10 +47,10 @@ namespace Sim
 
             _commandSystem.Enqueue(
                 connId: connId,
-                clientTick: requestedClientTick,
+                clientRequestedTick: requestedClientTick,
                 clientCmdSeq: clientCmdSeq,
                 commands: commands,
-                serverTick: _ticker.CurrentTick);
+                currentServerTick: _ticker.CurrentTick);
         }
 
         public EngineTickResult TickOnce()

@@ -28,20 +28,20 @@ namespace Sim.Commanding
 
         public void Enqueue(
             int connId,
-            int clientTick,
+            int clientRequestedTick,
             uint clientCmdSeq,
             List<EngineCommand> commands,
-            int serverTick)
+            int currentServerTick)
         {
             if (commands == null || commands.Count == 0)
                 return;
 
             _buffer.EnqueueWithValidation(
                 connId: connId,
-                clientTick: clientTick,
+                clientRequestedTick: clientRequestedTick,
                 clientCmdSeq: clientCmdSeq,
                 commands: commands,
-                serverTick: serverTick);
+                currentServerTick: currentServerTick);
         }
 
         /// <summary>
