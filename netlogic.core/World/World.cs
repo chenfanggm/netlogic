@@ -13,6 +13,12 @@ namespace Game
         private int _nextEntityId = 1;
         private readonly Dictionary<int, Entity> _entities = new Dictionary<int, Entity>(128);
 
+        /// <summary>
+        /// Authoritative deterministic "now" for the simulation.
+        /// Set by ServerEngine (and/or systems) before command handlers run.
+        /// </summary>
+        public int CurrentTick { get; internal set; }
+
         public IEnumerable<Entity> Entities
         {
             get
@@ -88,12 +94,17 @@ namespace Game
             return TryGetEntity(id, out e);
         }
 
-        public void Advance(int tick)
+        /// <summary>
+        /// Called once per server tick after systems have executed.
+        /// The argument is treated as the tick delta since last advance.
+        /// </summary>
+        public void Advance(int deltaTick)
         {
+            CurrentTick += deltaTick;
+
             // Put deterministic per-tick world logic here (regen, ai, projectiles, etc.)
             // This is called by the ServerEngine after the systems have executed
             // and before the snapshot is built.
-            // The tick parameter is the current tick of the server.
         }
 
         public SampleEntityPos[] BuildSnapshot()
