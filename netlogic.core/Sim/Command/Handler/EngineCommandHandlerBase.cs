@@ -11,14 +11,9 @@ namespace Sim.Systems
         public void Handle(Game.World world, EngineCommand command)
         {
             if (command is TCommand typed)
-            {
                 Handle(world, typed);
-            }
             else
-            {
-                throw new InvalidOperationException(
-                    $"Command {command.Type} is not of type {typeof(TCommand).Name}");
-            }
+                throw new InvalidOperationException($"Command {command.Type} is not of type {typeof(TCommand).Name}");
         }
 
         public abstract void Handle(Game.World world, TCommand command);

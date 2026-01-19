@@ -1,12 +1,15 @@
 namespace Sim
 {
+    /// <summary>
+    /// Buffers engine commands by tick and connection, validates scheduling bounds,
+    /// and dequeues sorted command batches for execution.
+    /// </summary>
     public sealed class EngineCommandBuffer(
         int maxFutureTicks = 2,
         int maxPastTicks = 2,
         int maxStoredTicks = 4)
     {
-        private readonly Dictionary<int, Dictionary<int, Queue<EngineCommandBatch>>> _byTickThenConn =
-            new Dictionary<int, Dictionary<int, Queue<EngineCommandBatch>>>();
+        private readonly Dictionary<int, Dictionary<int, EngineCommandBucket>> _byTickThenConn = [];
         private readonly int _maxStoredTicks = maxStoredTicks;
 
         public int MaxFutureTicks { get; } = maxFutureTicks;
@@ -48,13 +51,14 @@ namespace Sim
                 scheduledTick = clientTick;
             }
 
-            EnqueueInternal(scheduledTick, connId, new EngineCommandBatch(scheduledTick, clientCmdSeq, commands));
+            EngineCommandBucket bucket = GetOrCreateBucket(scheduledTick, connId);
+            bucket.MergeReplace(clientCmdSeq, commands);
             return true;
         }
 
         public IEnumerable<int> ConnectionIdsForTick(int tick)
         {
-            if (!_byTickThenConn.TryGetValue(tick, out Dictionary<int, Queue<EngineCommandBatch>>? byConn) || byConn == null)
+            if (!_byTickThenConn.TryGetValue(tick, out Dictionary<int, EngineCommandBucket>? byConn) || byConn == null)
                 yield break;
 
             foreach (int connId in byConn.Keys)
@@ -65,19 +69,15 @@ namespace Sim
         {
             batch = default;
 
-            if (!_byTickThenConn.TryGetValue(tick, out Dictionary<int, Queue<EngineCommandBatch>>? byConn) || byConn == null)
+            if (!_byTickThenConn.TryGetValue(tick, out Dictionary<int, EngineCommandBucket>? byConn) || byConn == null)
                 return false;
 
-            if (!byConn.TryGetValue(connectionId, out Queue<EngineCommandBatch>? q) || q == null)
+            if (!byConn.TryGetValue(connectionId, out EngineCommandBucket? bucket) || bucket == null)
                 return false;
 
-            if (q.Count == 0)
-                return false;
-
-            batch = q.Dequeue();
-
-            if (q.Count == 0)
-                byConn.Remove(connectionId);
+            List<EngineCommand> list = bucket.MaterializeSorted();
+            batch = new EngineCommandBatch(tick, bucket.MaxClientCmdSeq, list);
+            byConn.Remove(connectionId);
 
             if (byConn.Count == 0)
                 _byTickThenConn.Remove(tick);
@@ -115,21 +115,22 @@ namespace Sim
             }
         }
 
-        private void EnqueueInternal(int tick, int connId, EngineCommandBatch batch)
+        private EngineCommandBucket GetOrCreateBucket(int tick, int connId)
         {
-            if (!_byTickThenConn.TryGetValue(tick, out Dictionary<int, Queue<EngineCommandBatch>>? byConn) || byConn == null)
+            if (!_byTickThenConn.TryGetValue(tick, out Dictionary<int, EngineCommandBucket>? byConn) || byConn == null)
             {
-                byConn = new Dictionary<int, Queue<EngineCommandBatch>>();
+                byConn = new Dictionary<int, EngineCommandBucket>();
                 _byTickThenConn.Add(tick, byConn);
             }
 
-            if (!byConn.TryGetValue(connId, out Queue<EngineCommandBatch>? q) || q == null)
+            if (!byConn.TryGetValue(connId, out EngineCommandBucket? bucket) || bucket == null)
             {
-                q = new Queue<EngineCommandBatch>();
-                byConn.Add(connId, q);
+                bucket = new EngineCommandBucket();
+                byConn.Add(connId, bucket);
             }
 
-            q.Enqueue(batch);
+            return bucket;
         }
+
     }
 }

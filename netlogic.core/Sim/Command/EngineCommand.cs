@@ -7,5 +7,11 @@ namespace Sim
     public abstract class EngineCommand(EngineCommandType type)
     {
         public EngineCommandType Type { get; } = type;
+
+        /// <summary>
+        /// Replacement identity within a tick (per-connection).
+        /// Commands with the same (Type, ReplaceKey) replace each other.
+        /// </summary>
+        public abstract int ReplaceKey { get; }
     }
 }
