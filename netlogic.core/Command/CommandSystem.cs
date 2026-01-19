@@ -61,7 +61,7 @@ namespace Sim.Commanding
 
         private void Dispatch(int tick)
         {
-            foreach (int connId in _buffer.ConnectionIdsForTick(tick))
+            foreach (int connId in _buffer.GetConnIdsByTick(tick))
             {
                 while (_buffer.TryDequeueForTick(tick, connId, out EngineCommandBatch batch))
                 {
