@@ -22,8 +22,6 @@ namespace Sim
         private readonly ServerEngine _engine;
 
         private readonly ClientOpsMsgToClientCommandConverter _converter;
-        private readonly ClientCommandToEngineCommandConverter _engineCommandConverter;
-
         private readonly List<int> _clients;
         private readonly Dictionary<int, ServerReliableStream> _reliableStreams;
 
@@ -42,7 +40,6 @@ namespace Sim
             _engine = new ServerEngine(tickRateHz, initialWorld ?? throw new ArgumentNullException(nameof(initialWorld)));
 
             _converter = new ClientOpsMsgToClientCommandConverter(initialCapacity: 32);
-            _engineCommandConverter = new ClientCommandToEngineCommandConverter();
 
             _clients = new List<int>(32);
             _reliableStreams = new Dictionary<int, ServerReliableStream>(32);
@@ -144,9 +141,9 @@ namespace Sim
                 if (MsgCodec.TryDecodeClientOps(packet.Payload, out ClientOpsMsg ops))
                 {
                     List<ClientCommand> clientCommands = _converter.ConvertToNewList(ops);
-                    List<EngineCommand> engineCommands = _engineCommandConverter.ConvertToNewList(clientCommands);
+                    List<EngineCommand> engineCommands = ClientCommandToEngineCommandConverter.ConvertToNewList(clientCommands);
 
-                    _engine.EnqueueEngineCommands(
+                    _engine.EnqueueCommands(
                         connId: packet.ConnId,
                         requestedClientTick: ops.ClientTick,
                         clientCmdSeq: ops.ClientCmdSeq,

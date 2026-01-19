@@ -18,7 +18,7 @@ namespace Sim
         private readonly TickTicker _ticker;
         private readonly World _world;
         private readonly CommandSystem _commandSystem;
-        private readonly ISystemCommandSink[] _systems;
+        private readonly IEngineCommandSink[] _systems;
 
         public ServerEngine(int tickRateHz, World initialWorld)
         {
@@ -31,13 +31,12 @@ namespace Sim
             ];
             _commandSystem = new CommandSystem(
                 _systems,
-                _ticker,
                 maxFutureTicks: 2,
                 maxPastTicks: 2,
                 maxStoredTicks: 16);
         }
 
-        public void EnqueueEngineCommands(
+        public void EnqueueCommands(
             int connId,
             int requestedClientTick,
             uint clientCmdSeq,
@@ -48,10 +47,10 @@ namespace Sim
 
             _commandSystem.Enqueue(
                 connId: connId,
-                requestedClientTick: requestedClientTick,
+                clientTick: requestedClientTick,
                 clientCmdSeq: clientCmdSeq,
                 commands: commands,
-                currentServerTick: _ticker.CurrentTick);
+                serverTick: _ticker.CurrentTick);
         }
 
         public EngineTickResult TickOnce()

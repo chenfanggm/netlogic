@@ -14,7 +14,7 @@ namespace Sim
         /// <summary>
         /// Always returns a NEW list instance. Caller must not mutate after enqueue.
         /// </summary>
-        public List<EngineCommand> ConvertToNewList(List<ClientCommand> clientCommands)
+        public static List<EngineCommand> ConvertToNewList(List<ClientCommand> clientCommands)
         {
             if (clientCommands == null || clientCommands.Count == 0)
                 return new List<EngineCommand>(0);

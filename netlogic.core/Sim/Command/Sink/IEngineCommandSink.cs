@@ -6,10 +6,8 @@ namespace Sim.Commanding
     /// A gameplay system that can receive routed engine commands for a tick.
     /// The system owns the queue/buffer of those commands and consumes them during Execute().
     /// </summary>
-    public interface ISystemCommandSink
+    public interface IEngineCommandSink
     {
-        string Name { get; }
-
         /// <summary>
         /// Declare which engine command types this system owns.
         /// CommandSystem will auto-register routes based on this list.
@@ -17,9 +15,9 @@ namespace Sim.Commanding
         IReadOnlyList<EngineCommandType> CommandTypes { get; }
 
         /// <summary>Called by CommandSystem during routing.</summary>
-        void EnqueueCommand(int tick, int connId, EngineCommand command);
+        void InboxCommand(EngineCommand command);
 
         /// <summary>Called by ServerEngine in stable order.</summary>
-        void Execute(int tick, Game.World world);
+        void Execute(Game.World world);
     }
 }
