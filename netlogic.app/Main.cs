@@ -5,17 +5,23 @@ namespace App
     public static class Program
     {
         // Set to true to run StepTickProgram, false to run LoopTickProgram
-        private static readonly bool ManualTick = false;
+        private static readonly int program = 1;
 
         public static void Main()
         {
-            if (ManualTick)
+            switch (program)
             {
-                ManualTickProgram.Run(totalTicks: 400);
-            }
-            else
-            {
-                AutoTickProgram.Run(maxRunningDuration: TimeSpan.FromSeconds(6));
+                case 1:
+                    AutoEngineTickProgram.Run(maxRunningDuration: TimeSpan.FromSeconds(6));
+                    break;
+                case 2:
+                    AutoTickProgram.Run(maxRunningDuration: TimeSpan.FromSeconds(6));
+                    break;
+                case 3:
+                    ManualTickProgram.Run(totalTicks: 400);
+                    break;
+                default:
+                    throw new ArgumentException("Invalid program");
             }
         }
     }
