@@ -81,7 +81,14 @@ namespace Program
                     EngineTickResult r;
                     lock (lastLock) r = last;
 
-                    SampleWorldSnapshot snap = r.Snapshot;
+                    SampleWorldSnapshot? snap = r.Snapshot;
+                    if (snap == null)
+                    {
+                        Console.WriteLine(
+                            $"Tick={r.ServerTick} TimeMs={r.ServerTimeMs} Snapshot=<null>");
+                        Thread.Sleep(500);
+                        continue;
+                    }
 
                     if (TryGetEntityPos(snap, entityId, out int x, out int y))
                     {
@@ -186,7 +193,13 @@ namespace Program
 
         private static bool TryGetEntityPos(SampleWorldSnapshot snap, int entityId, out int x, out int y)
         {
-            SampleEntityPos[] arr = snap.Entities;
+            SampleEntityPos[]? arr = snap.Entities;
+            if (arr == null || arr.Length == 0)
+            {
+                x = 0;
+                y = 0;
+                return false;
+            }
             for (int i = 0; i < arr.Length; i++)
             {
                 if (arr[i].EntityId == entityId)
