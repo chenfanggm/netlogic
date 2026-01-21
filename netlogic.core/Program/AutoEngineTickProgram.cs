@@ -139,10 +139,10 @@ namespace Program
                 // Schedule for next server tick to pass validation window.
                 int requestedTick = engine.CurrentServerTick + 1;
 
-                var cmds = new List<EngineCommand<EngineCommandType>>(1)
-                {
+                List<EngineCommand<EngineCommandType>> cmds =
+                [
                     new MoveByEngineCommand(entityId: entityId, dx: 1, dy: 0)
-                };
+                ];
 
                 engine.EnqueueCommands(
                     connId: 1,
