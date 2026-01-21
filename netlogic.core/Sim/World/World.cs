@@ -35,10 +35,6 @@ namespace Game
         // Lifecycle tracking (deterministic, internal)
         private GameFlowState _prevFlowState = (GameFlowState)255;
 
-        // Server-generated commands requested by systems/handlers. Drained by ServerEngine.
-        private readonly List<EngineCommand<EngineCommandType>> _serverCommandOutbox =
-            new List<EngineCommand<EngineCommandType>>(32);
-
         public World()
         {
             Flow = new GameFlowController(this);
@@ -48,22 +44,6 @@ namespace Game
         internal void SetFlowStateInternal(GameFlowState state)
         {
             FlowState = state;
-        }
-
-        /// <summary>
-        /// Drains server-generated commands requested during this tick.
-        /// ServerEngine will enqueue these into CommandSystem for tick+1.
-        /// </summary>
-        internal List<EngineCommand<EngineCommandType>> DrainServerCommandsToNewList()
-        {
-            if (_serverCommandOutbox.Count == 0)
-                return new List<EngineCommand<EngineCommandType>>(0);
-
-            List<EngineCommand<EngineCommandType>> list =
-                new List<EngineCommand<EngineCommandType>>(_serverCommandOutbox.Count);
-            list.AddRange(_serverCommandOutbox);
-            _serverCommandOutbox.Clear();
-            return list;
         }
 
         // ------------------------------------------------------------------

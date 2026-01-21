@@ -57,25 +57,33 @@ namespace Sim
                 currentServerTick: _ticker.CurrentTick);
         }
 
+         /// <summary>
+        /// Enqueue server-generated commands for a given tick.
+        /// connId is always 0 for server-generated commands.
+        /// </summary>
+        public void EnqueueServerCommands(
+            List<EngineCommand<EngineCommandType>> commands, int requestedTick = -1)
+        {
+            if (commands == null || commands.Count == 0)
+                return;
+
+            if (requestedTick == -1)
+                requestedTick = _ticker.CurrentTick + 1;
+
+            _commandSystem.Enqueue(
+                connId: 0,
+                clientRequestedTick: requestedTick,
+                clientCmdSeq: 0,
+                commands: commands,
+                currentServerTick: _ticker.CurrentTick);
+        }
+
         public EngineTickResult TickOnce()
         {
             int tick = _ticker.Advance(1);
 
             // 1) Execute systems in stable order
             _commandSystem.Execute(tick, _world);
-
-            // 1.5) Drain any server-generated commands requested by handlers/systems
-            // and schedule them for tick+1.
-            List<EngineCommand<EngineCommandType>> serverCmds = _world.DrainServerCommandsToNewList();
-            if (serverCmds.Count > 0)
-            {
-                _commandSystem.Enqueue(
-                    connId: 0,
-                    clientRequestedTick: tick + 1,
-                    clientCmdSeq: 0,
-                    commands: serverCmds,
-                    currentServerTick: tick);
-            }
 
             // 2) World fixed step
             _world.Advance(1);
