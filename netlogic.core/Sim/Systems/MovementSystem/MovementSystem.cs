@@ -1,5 +1,6 @@
 // FILE: netlogic.core/Sim/Systems/MovementSystem.cs
 // MovementSystem auto-discovers handlers in the same assembly.
+using Game;
 
 namespace Sim.Systems
 {

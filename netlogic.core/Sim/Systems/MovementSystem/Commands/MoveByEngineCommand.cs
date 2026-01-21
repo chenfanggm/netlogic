@@ -1,3 +1,5 @@
+using Game;
+
 namespace Sim
 {
     public sealed class MoveByEngineCommand : EngineCommand<EngineCommandType>
