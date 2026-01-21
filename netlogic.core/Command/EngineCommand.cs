@@ -1,12 +1,15 @@
+using System;
+
 namespace Sim
 {
     /// <summary>
     /// Base class for all commands that can be enqueued into <see cref="ServerEngine"/>.
     /// Engine commands are authoritative: the server can accept, schedule, validate, and route them.
     /// </summary>
-    public abstract class EngineCommand(EngineCommandType type)
+    public abstract class EngineCommand<TCommandType>(TCommandType type)
+        where TCommandType : struct, Enum
     {
-        public EngineCommandType Type { get; } = type;
+        public TCommandType Type { get; } = type;
 
         /// <summary>
         /// Replacement identity within a tick (per-connection).

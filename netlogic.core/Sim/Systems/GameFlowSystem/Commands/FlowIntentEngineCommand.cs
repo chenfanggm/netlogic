@@ -1,4 +1,4 @@
-using Game.Flow;
+using Game;
 
 namespace Sim
 {
@@ -7,7 +7,7 @@ namespace Sim
     /// Payload is generic (Param0) to avoid a command type explosion.
     /// Determinism rule: this is purely player-authored intent.
     /// </summary>
-    public sealed class FlowIntentEngineCommand : EngineCommand
+    public sealed class FlowIntentEngineCommand : EngineCommand<EngineCommandType>
     {
         public GameFlowIntent Intent { get; }
         public int Param0 { get; }

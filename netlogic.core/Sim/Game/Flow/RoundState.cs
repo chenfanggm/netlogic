@@ -1,4 +1,4 @@
-namespace Game.Flow
+namespace Game
 {
     /// <summary>
     /// Server-authoritative round phase.

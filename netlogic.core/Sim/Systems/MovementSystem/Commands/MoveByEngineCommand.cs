@@ -1,6 +1,6 @@
 namespace Sim
 {
-    public sealed class MoveByEngineCommand : EngineCommand
+    public sealed class MoveByEngineCommand : EngineCommand<EngineCommandType>
     {
         public int EntityId { get; }
         public int Dx { get; }

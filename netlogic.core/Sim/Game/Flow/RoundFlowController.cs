@@ -1,7 +1,4 @@
-using System;
-using Game.Flow;
-
-namespace Game.Flow
+namespace Game
 {
     /// <summary>
     /// Pure round flow rules. Reads/writes World.Round runtime state.

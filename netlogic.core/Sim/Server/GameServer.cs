@@ -141,7 +141,8 @@ namespace Sim
                 if (MsgCodec.TryDecodeClientOps(packet.Payload, out ClientOpsMsg ops))
                 {
                     List<ClientCommand> clientCommands = _converter.ConvertToNewList(ops);
-                    List<EngineCommand> engineCommands = ClientCommandToEngineCommandConverter.ConvertToNewList(clientCommands);
+                    List<EngineCommand<EngineCommandType>> engineCommands =
+                        ClientCommandToEngineCommandConverter.ConvertToNewList(clientCommands);
 
                     _engine.EnqueueCommands(
                         connId: packet.ConnId,

@@ -22,17 +22,25 @@ namespace Sim
     ///
     /// Note: This class is NOT a world-state system. It normalizes input before it reaches systems.
     /// </summary>
-    public sealed class EngineCommandBuffer(
-        int maxFutureTicks = 2,
-        int maxPastTicks = 2,
-        int maxStoredTicks = 4)
+    public sealed class EngineCommandBuffer<TCommandType>
+        where TCommandType : struct, Enum
     {
         // scheduledTick -> connId -> bucket
-        private readonly Dictionary<int, Dictionary<int, EngineCommandBucket>> _byTickThenConn = [];
+        private readonly Dictionary<int, Dictionary<int, EngineCommandBucket<TCommandType>>> _byTickThenConn = [];
 
-        private readonly int _maxFutureTicks = maxFutureTicks;
-        private readonly int _maxPastTicks = maxPastTicks;
-        private readonly int _maxStoredTicks = maxStoredTicks;
+        private readonly int _maxFutureTicks;
+        private readonly int _maxPastTicks;
+        private readonly int _maxStoredTicks;
+
+        public EngineCommandBuffer(
+            int maxFutureTicks = 2,
+            int maxPastTicks = 2,
+            int maxStoredTicks = 4)
+        {
+            _maxFutureTicks = maxFutureTicks;
+            _maxPastTicks = maxPastTicks;
+            _maxStoredTicks = maxStoredTicks;
+        }
 
         /// <summary>
         /// Attempts to enqueue a set of commands coming from a client.
@@ -45,7 +53,7 @@ namespace Sim
             int connId,
             int clientRequestedTick,
             uint clientCmdSeq,
-            List<EngineCommand> commands,
+            List<EngineCommand<TCommandType>> commands,
             int currentServerTick)
         {
             if (commands == null || commands.Count == 0)
@@ -61,7 +69,7 @@ namespace Sim
             // Compute where the server will actually schedule these commands.
             int scheduledTick = ComputeScheduledTick(clientRequestedTick, currentServerTick, maxAcceptedTick);
 
-            EngineCommandBucket bucket = GetOrCreateBucket(scheduledTick, connId);
+            EngineCommandBucket<TCommandType> bucket = GetOrCreateBucket(scheduledTick, connId);
 
             // MergeReplace enforces "latest intent wins" replacement inside the bucket.
             bucket.MergeReplace(clientCmdSeq, commands);
@@ -74,7 +82,7 @@ namespace Sim
         /// </summary>
         public IEnumerable<int> GetConnIdsByTick(int tick)
         {
-            if (!_byTickThenConn.TryGetValue(tick, out Dictionary<int, EngineCommandBucket>? byConn) || byConn == null)
+            if (!_byTickThenConn.TryGetValue(tick, out Dictionary<int, EngineCommandBucket<TCommandType>>? byConn) || byConn == null)
                 yield break;
 
             foreach (int connId in byConn.Keys)
@@ -85,18 +93,18 @@ namespace Sim
         /// Dequeues the buffered batch for (tick, connId).
         /// The returned batch commands are stable-sorted for deterministic execution.
         /// </summary>
-        public bool TryDequeueForTick(int tick, int connId, out EngineCommandBatch batch)
+        public bool TryDequeueForTick(int tick, int connId, out EngineCommandBatch<TCommandType> batch)
         {
             batch = default;
 
-            if (!_byTickThenConn.TryGetValue(tick, out Dictionary<int, EngineCommandBucket>? byConn) || byConn == null)
+            if (!_byTickThenConn.TryGetValue(tick, out Dictionary<int, EngineCommandBucket<TCommandType>>? byConn) || byConn == null)
                 return false;
 
-            if (!byConn.TryGetValue(connId, out EngineCommandBucket? bucket) || bucket == null)
+            if (!byConn.TryGetValue(connId, out EngineCommandBucket<TCommandType>? bucket) || bucket == null)
                 return false;
 
-            List<EngineCommand> commands = bucket.MaterializeSorted();
-            batch = new EngineCommandBatch(tick, bucket.MaxClientCmdSeq, commands);
+            List<EngineCommand<TCommandType>> commands = bucket.MaterializeSorted();
+            batch = new EngineCommandBatch<TCommandType>(tick, bucket.MaxClientCmdSeq, commands);
 
             // Remove consumed bucket.
             byConn.Remove(connId);
@@ -143,17 +151,17 @@ namespace Sim
             return requestedClientTick;
         }
 
-        private EngineCommandBucket GetOrCreateBucket(int tick, int connId)
+        private EngineCommandBucket<TCommandType> GetOrCreateBucket(int tick, int connId)
         {
-            if (!_byTickThenConn.TryGetValue(tick, out Dictionary<int, EngineCommandBucket>? byConn) || byConn == null)
+            if (!_byTickThenConn.TryGetValue(tick, out Dictionary<int, EngineCommandBucket<TCommandType>>? byConn) || byConn == null)
             {
-                byConn = new Dictionary<int, EngineCommandBucket>();
+                byConn = new Dictionary<int, EngineCommandBucket<TCommandType>>();
                 _byTickThenConn.Add(tick, byConn);
             }
 
-            if (!byConn.TryGetValue(connId, out EngineCommandBucket? bucket) || bucket == null)
+            if (!byConn.TryGetValue(connId, out EngineCommandBucket<TCommandType>? bucket) || bucket == null)
             {
-                bucket = new EngineCommandBucket();
+                bucket = new EngineCommandBucket<TCommandType>();
                 byConn.Add(connId, bucket);
             }
 

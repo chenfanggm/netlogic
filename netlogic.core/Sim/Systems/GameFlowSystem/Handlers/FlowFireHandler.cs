@@ -1,10 +1,9 @@
 using Game;
-using Game.Flow;
 
 namespace Sim.Systems
 {
     [EngineCommandHandler(typeof(GameFlowSystem))]
-    internal sealed class FlowIntentHandler : EngineCommandHandlerBase<FlowIntentEngineCommand>
+    internal sealed class FlowIntentHandler : EngineCommandHandlerBase<FlowIntentEngineCommand, EngineCommandType>
     {
         public FlowIntentHandler() : base(EngineCommandType.FlowFire)
         {

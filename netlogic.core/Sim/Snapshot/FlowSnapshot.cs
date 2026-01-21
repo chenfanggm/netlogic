@@ -1,6 +1,5 @@
-using Game.Flow;
 
-namespace Net
+namespace Game
 {
     /// <summary>
     /// Compact authoritative snapshot of game flow + run/level/round runtime.

@@ -1,59 +1,62 @@
 // FILE: netlogic.core/Sim/Systems/SystemBase.cs
 // Base system with handler registry and tick-local inbox.
 
+using System;
+using System.Collections.Generic;
 using System.Reflection;
 using Game;
 using Sim.Commanding;
 
 namespace Sim.Systems
 {
-    public abstract class EngineCommandSinkBase : IEngineCommandSink
+    public abstract class EngineCommandSinkBase<TCommandType> : IEngineCommandSink<TCommandType>
+        where TCommandType : struct, Enum
     {
         /// <summary>
         /// Command types owned by this system (used by CommandSystem routing).
         /// </summary>
-        public IReadOnlyList<EngineCommandType> CommandTypes => _ownedCmdTypes;
+        public IReadOnlyList<TCommandType> CommandTypes => _ownedCmdTypes;
 
-        private readonly EngineCommandType[] _ownedCmdTypes;
-        private readonly Dictionary<EngineCommandType, IEngineCommandHandler> _handlers;
-        private readonly List<EngineCommand> _inbox;
+        private readonly TCommandType[] _ownedCmdTypes;
+        private readonly Dictionary<TCommandType, IEngineCommandHandler<TCommandType>> _handlers;
+        private readonly List<EngineCommand<TCommandType>> _inbox;
 
         protected EngineCommandSinkBase(
-            IEnumerable<IEngineCommandHandler> handlers,
+            IEnumerable<IEngineCommandHandler<TCommandType>> handlers,
             int inboxCapacity = 256,
             int handlerCapacity = 16)
         {
             ArgumentNullException.ThrowIfNull(handlers);
 
-            _handlers = new Dictionary<EngineCommandType, IEngineCommandHandler>(handlerCapacity);
-            _inbox = new List<EngineCommand>(inboxCapacity);
+            _handlers = new Dictionary<TCommandType, IEngineCommandHandler<TCommandType>>(handlerCapacity);
+            _inbox = new List<EngineCommand<TCommandType>>(inboxCapacity);
 
-            List<EngineCommandType> ownedCmdTypes = new List<EngineCommandType>(handlerCapacity);
+            List<TCommandType> ownedCmdTypes = new List<TCommandType>(handlerCapacity);
 
-            foreach (IEngineCommandHandler handler in handlers)
+            foreach (IEngineCommandHandler<TCommandType> handler in handlers)
             {
                 RegisterHandler(handler);
                 ownedCmdTypes.Add(handler.CommandType);
             }
 
-            ownedCmdTypes.Sort((a, b) => ((byte)a).CompareTo((byte)b));
+            ownedCmdTypes.Sort(Comparer<TCommandType>.Default.Compare);
             _ownedCmdTypes = [.. ownedCmdTypes];
         }
 
-        protected void RegisterHandler(IEngineCommandHandler handler)
+        protected void RegisterHandler(IEngineCommandHandler<TCommandType> handler)
         {
             ArgumentNullException.ThrowIfNull(handler);
 
-            EngineCommandType type = handler.CommandType;
+            TCommandType type = handler.CommandType;
 
-            if (_handlers.TryGetValue(type, out IEngineCommandHandler? existing) && existing != handler)
+            if (_handlers.TryGetValue(type, out IEngineCommandHandler<TCommandType>? existing) && existing != handler)
                 throw new InvalidOperationException(
                     $"Duplicate handler for {type} in system {GetType().Name}: {existing.GetType().Name} vs {handler.GetType().Name}");
 
             _handlers[type] = handler;
         }
 
-        public void InboxCommand(EngineCommand command)
+        public void InboxCommand(EngineCommand<TCommandType> command)
         {
             if (command == null)
                 return;
@@ -68,8 +71,8 @@ namespace Sim.Systems
         {
             for (int i = 0; i < _inbox.Count; i++)
             {
-                EngineCommand command = _inbox[i];
-                if (_handlers.TryGetValue(command.Type, out IEngineCommandHandler? handler) && handler != null)
+                EngineCommand<TCommandType> command = _inbox[i];
+                if (_handlers.TryGetValue(command.Type, out IEngineCommandHandler<TCommandType>? handler) && handler != null)
                     handler.Handle(world, command);
                 else
                     throw new InvalidOperationException($"No handler found for {command.Type} in system {GetType().Name}");
@@ -86,14 +89,13 @@ namespace Sim.Systems
         /// </summary>
         protected virtual void ExecuteAfterCommands(World world) { }
 
-        protected static IEngineCommandHandler[] DiscoverHandlersForSystem(Type systemType)
+        protected static IEngineCommandHandler<TCommandType>[] DiscoverHandlersForSystem(Type systemType)
         {
             ArgumentNullException.ThrowIfNull(systemType);
 
+            List<IEngineCommandHandler<TCommandType>> list = new List<IEngineCommandHandler<TCommandType>>(16);
 
-            List<IEngineCommandHandler> list = new List<IEngineCommandHandler>(16);
-
-            Type handlerInterface = typeof(IEngineCommandHandler);
+            Type handlerInterface = typeof(IEngineCommandHandler<TCommandType>);
 
             Type[] types;
             try
@@ -132,11 +134,12 @@ namespace Sim.Systems
                         $"Handler {type.FullName} is marked for {systemType.Name} but has no parameterless constructor.");
                 }
 
-                IEngineCommandHandler instance = (IEngineCommandHandler)Activator.CreateInstance(type)!;
+                IEngineCommandHandler<TCommandType> instance =
+                    (IEngineCommandHandler<TCommandType>)Activator.CreateInstance(type)!;
                 list.Add(instance);
             }
 
-            list.Sort((x, y) => ((byte)x.CommandType).CompareTo((byte)y.CommandType));
+            list.Sort((x, y) => Comparer<TCommandType>.Default.Compare(x.CommandType, y.CommandType));
 
             return [.. list];
         }

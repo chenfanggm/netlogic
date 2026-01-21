@@ -1,6 +1,6 @@
 using Sim;
 
-namespace Net
+namespace Game
 {
     /// <summary>
     /// Sample snapshot payload sent each server tick (or at sampling frequency).

@@ -1,5 +1,4 @@
-using System.Collections.Generic;
-using Game.Flow;
+using Game;
 
 namespace Sim
 {
@@ -15,12 +14,13 @@ namespace Sim
         /// <summary>
         /// Always returns a NEW list instance. Caller must not mutate after enqueue.
         /// </summary>
-        public static List<EngineCommand> ConvertToNewList(List<ClientCommand> clientCommands)
+        public static List<EngineCommand<EngineCommandType>> ConvertToNewList(List<ClientCommand> clientCommands)
         {
             if (clientCommands == null || clientCommands.Count == 0)
-                return new List<EngineCommand>(0);
+                return new List<EngineCommand<EngineCommandType>>(0);
 
-            List<EngineCommand> list = new List<EngineCommand>(clientCommands.Count);
+            List<EngineCommand<EngineCommandType>> list =
+                new List<EngineCommand<EngineCommandType>>(clientCommands.Count);
 
             for (int i = 0; i < clientCommands.Count; i++)
             {

@@ -1,4 +1,4 @@
-namespace Game.Flow
+namespace Game
 {
     /// <summary>
     /// Player intents that can change game flow.

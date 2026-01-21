@@ -1,5 +1,4 @@
-using System;
-using Net;
+using Game;
 
 namespace Sim
 {

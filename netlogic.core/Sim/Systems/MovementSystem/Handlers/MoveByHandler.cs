@@ -4,7 +4,7 @@ using Game;
 namespace Sim.Systems
 {
     [EngineCommandHandler(typeof(MovementSystem))]
-    internal sealed class MoveByHandler : EngineCommandHandlerBase<MoveByEngineCommand>
+    internal sealed class MoveByHandler : EngineCommandHandlerBase<MoveByEngineCommand, EngineCommandType>
     {
         public MoveByHandler() : base(EngineCommandType.MoveBy)
         {

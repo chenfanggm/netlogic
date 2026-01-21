@@ -1,7 +1,6 @@
-using System;
 using Stateless;
 
-namespace Game.Flow
+namespace Game
 {
     public sealed class GameFlowController
     {

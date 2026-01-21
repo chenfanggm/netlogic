@@ -3,7 +3,7 @@
 
 namespace Sim.Systems
 {
-    public sealed class GameFlowSystem : EngineCommandSinkBase
+    public sealed class GameFlowSystem : EngineCommandSinkBase<EngineCommandType>
     {
         public GameFlowSystem() : base(handlers: DiscoverHandlersForSystem(systemType: typeof(GameFlowSystem)))
         {

@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Game;
 
 namespace Sim.Commanding
@@ -7,21 +9,22 @@ namespace Sim.Commanding
     /// Owns central scheduling buffer and routing table.
     /// Dispatches commands into sink inboxes (sinks don't store multi-tick data).
     /// </summary>
-    public sealed class CommandSystem
+    public sealed class CommandSystem<TCommandType>
+        where TCommandType : struct, Enum
     {
-        private IEngineCommandSink[] _sinks;
-        private readonly EngineCommandBuffer _buffer;
-        private readonly Dictionary<EngineCommandType, IEngineCommandSink> _routes =
-            new Dictionary<EngineCommandType, IEngineCommandSink>(256);
+        private IEngineCommandSink<TCommandType>[] _sinks;
+        private readonly EngineCommandBuffer<TCommandType> _buffer;
+        private readonly Dictionary<TCommandType, IEngineCommandSink<TCommandType>> _routes =
+            new Dictionary<TCommandType, IEngineCommandSink<TCommandType>>(256);
 
         public CommandSystem(
-            IEngineCommandSink[] sinks,
+            IEngineCommandSink<TCommandType>[] sinks,
             int maxFutureTicks,
             int maxPastTicks,
             int maxStoredTicks)
         {
             _sinks = sinks ?? throw new ArgumentNullException(nameof(sinks));
-            _buffer = new EngineCommandBuffer(maxFutureTicks, maxPastTicks, maxStoredTicks);
+            _buffer = new EngineCommandBuffer<TCommandType>(maxFutureTicks, maxPastTicks, maxStoredTicks);
             // Auto-register routes from system declarations
             RegisterRoutes(sinks);
         }
@@ -30,7 +33,7 @@ namespace Sim.Commanding
             int connId,
             int clientRequestedTick,
             uint clientCmdSeq,
-            List<EngineCommand> commands,
+            List<EngineCommand<TCommandType>> commands,
             int currentServerTick)
         {
             if (commands == null || commands.Count == 0)
@@ -63,28 +66,28 @@ namespace Sim.Commanding
         {
             foreach (int connId in _buffer.GetConnIdsByTick(tick))
             {
-                while (_buffer.TryDequeueForTick(tick, connId, out EngineCommandBatch batch))
+                while (_buffer.TryDequeueForTick(tick, connId, out EngineCommandBatch<TCommandType> batch))
                 {
-                    foreach (EngineCommand cmd in batch.Commands)
+                    foreach (EngineCommand<TCommandType> cmd in batch.Commands)
                     {
-                        if (_routes.TryGetValue(cmd.Type, out IEngineCommandSink? sink) && sink != null)
+                        if (_routes.TryGetValue(cmd.Type, out IEngineCommandSink<TCommandType>? sink) && sink != null)
                             sink.InboxCommand(cmd);
                     }
                 }
             }
         }
 
-        private void RegisterRoutes(IEngineCommandSink[] sinks)
+        private void RegisterRoutes(IEngineCommandSink<TCommandType>[] sinks)
         {
-            foreach (IEngineCommandSink sink in sinks)
+            foreach (IEngineCommandSink<TCommandType> sink in sinks)
             {
-                IReadOnlyList<EngineCommandType> commandTypes = sink.CommandTypes;
+                IReadOnlyList<TCommandType> commandTypes = sink.CommandTypes;
                 if (commandTypes == null || commandTypes.Count == 0)
                     continue;
 
-                foreach (EngineCommandType commandType in commandTypes)
+                foreach (TCommandType commandType in commandTypes)
                 {
-                    if (_routes.TryGetValue(commandType, out IEngineCommandSink? existing))
+                    if (_routes.TryGetValue(commandType, out IEngineCommandSink<TCommandType>? existing))
                     {
                         throw new InvalidOperationException(
                             $"Command {commandType} owned by multiple sinks: {existing.GetType().Name} and {sink.GetType().Name}");

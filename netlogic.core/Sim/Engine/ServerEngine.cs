@@ -17,8 +17,8 @@ namespace Sim
 
         private readonly TickTicker _ticker;
         private readonly World _world;
-        private readonly CommandSystem _commandSystem;
-        private readonly IEngineCommandSink[] _systems;
+        private readonly CommandSystem<EngineCommandType> _commandSystem;
+        private readonly IEngineCommandSink<EngineCommandType>[] _systems;
 
         public ServerEngine(int tickRateHz, World initialWorld)
         {
@@ -33,7 +33,7 @@ namespace Sim
                 flow,
                 movement
             ];
-            _commandSystem = new CommandSystem(
+            _commandSystem = new CommandSystem<EngineCommandType>(
                 _systems,
                 maxFutureTicks: 2,
                 maxPastTicks: 2,
@@ -44,7 +44,7 @@ namespace Sim
             int connId,
             int requestedClientTick,
             uint clientCmdSeq,
-            List<EngineCommand> commands)
+            List<EngineCommand<EngineCommandType>> commands)
         {
             if (commands == null || commands.Count == 0)
                 return;
@@ -66,7 +66,7 @@ namespace Sim
 
             // 1.5) Drain any server-generated commands requested by handlers/systems
             // and schedule them for tick+1.
-            List<EngineCommand> serverCmds = _world.DrainServerCommandsToNewList();
+            List<EngineCommand<EngineCommandType>> serverCmds = _world.DrainServerCommandsToNewList();
             if (serverCmds.Count > 0)
             {
                 _commandSystem.Enqueue(
