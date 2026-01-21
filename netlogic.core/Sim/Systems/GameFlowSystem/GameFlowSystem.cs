@@ -5,7 +5,7 @@ using Game;
 
 namespace Sim.Systems
 {
-    public sealed class GameFlowSystem : EngineCommandSinkBase<EngineCommandType>
+    public sealed class GameFlowSystem : CommandSinkBase<EngineCommandType>
     {
         public GameFlowSystem() : base(handlers: DiscoverHandlersForSystem(systemType: typeof(GameFlowSystem)))
         {

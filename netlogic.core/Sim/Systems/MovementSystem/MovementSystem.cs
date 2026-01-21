@@ -4,7 +4,7 @@ using Game;
 
 namespace Sim.Systems
 {
-    public sealed class MovementSystem : EngineCommandSinkBase<EngineCommandType>
+    public sealed class MovementSystem : CommandSinkBase<EngineCommandType>
     {
         public MovementSystem() : base(handlers: DiscoverHandlersForSystem(systemType: typeof(MovementSystem)))
         {

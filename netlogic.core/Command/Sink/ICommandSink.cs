@@ -7,7 +7,7 @@ namespace Sim.Commanding
     /// A gameplay system that can receive routed engine commands for a tick.
     /// The system owns the queue/buffer of those commands and consumes them during Execute().
     /// </summary>
-    public interface IEngineCommandSink<TCommandType>
+    public interface ICommandSink<TCommandType>
         where TCommandType : struct, Enum
     {
         /// <summary>

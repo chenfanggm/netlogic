@@ -12,13 +12,13 @@ namespace Sim.Commanding
     public sealed class CommandSystem<TCommandType>
         where TCommandType : struct, Enum
     {
-        private IEngineCommandSink<TCommandType>[] _sinks;
+        private ICommandSink<TCommandType>[] _sinks;
         private readonly EngineCommandBuffer<TCommandType> _buffer;
-        private readonly Dictionary<TCommandType, IEngineCommandSink<TCommandType>> _routes =
-            new Dictionary<TCommandType, IEngineCommandSink<TCommandType>>(256);
+        private readonly Dictionary<TCommandType, ICommandSink<TCommandType>> _routes =
+            new Dictionary<TCommandType, ICommandSink<TCommandType>>(256);
 
         public CommandSystem(
-            IEngineCommandSink<TCommandType>[] sinks,
+            ICommandSink<TCommandType>[] sinks,
             int maxFutureTicks,
             int maxPastTicks,
             int maxStoredTicks)
@@ -70,16 +70,16 @@ namespace Sim.Commanding
                 {
                     foreach (EngineCommand<TCommandType> cmd in batch.Commands)
                     {
-                        if (_routes.TryGetValue(cmd.Type, out IEngineCommandSink<TCommandType>? sink) && sink != null)
+                        if (_routes.TryGetValue(cmd.Type, out ICommandSink<TCommandType>? sink) && sink != null)
                             sink.InboxCommand(cmd);
                     }
                 }
             }
         }
 
-        private void RegisterRoutes(IEngineCommandSink<TCommandType>[] sinks)
+        private void RegisterRoutes(ICommandSink<TCommandType>[] sinks)
         {
-            foreach (IEngineCommandSink<TCommandType> sink in sinks)
+            foreach (ICommandSink<TCommandType> sink in sinks)
             {
                 IReadOnlyList<TCommandType> commandTypes = sink.CommandTypes;
                 if (commandTypes == null || commandTypes.Count == 0)
@@ -87,7 +87,7 @@ namespace Sim.Commanding
 
                 foreach (TCommandType commandType in commandTypes)
                 {
-                    if (_routes.TryGetValue(commandType, out IEngineCommandSink<TCommandType>? existing))
+                    if (_routes.TryGetValue(commandType, out ICommandSink<TCommandType>? existing))
                     {
                         throw new InvalidOperationException(
                             $"Command {commandType} owned by multiple sinks: {existing.GetType().Name} and {sink.GetType().Name}");

@@ -9,7 +9,7 @@ using Sim.Commanding;
 
 namespace Sim.Systems
 {
-    public abstract class EngineCommandSinkBase<TCommandType> : IEngineCommandSink<TCommandType>
+    public abstract class CommandSinkBase<TCommandType> : ICommandSink<TCommandType>
         where TCommandType : struct, Enum
     {
         /// <summary>
@@ -21,7 +21,7 @@ namespace Sim.Systems
         private readonly Dictionary<TCommandType, IEngineCommandHandler<TCommandType>> _handlers;
         private readonly List<EngineCommand<TCommandType>> _inbox;
 
-        protected EngineCommandSinkBase(
+        protected CommandSinkBase(
             IEnumerable<IEngineCommandHandler<TCommandType>> handlers,
             int inboxCapacity = 256,
             int handlerCapacity = 16)

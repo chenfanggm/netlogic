@@ -18,7 +18,7 @@ namespace Sim
         private readonly TickTicker _ticker;
         private readonly World _world;
         private readonly CommandSystem<EngineCommandType> _commandSystem;
-        private readonly IEngineCommandSink<EngineCommandType>[] _systems;
+        private readonly ICommandSink<EngineCommandType>[] _systems;
 
         public ServerEngine(int tickRateHz, World initialWorld)
         {
