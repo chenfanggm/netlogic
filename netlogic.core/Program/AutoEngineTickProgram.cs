@@ -1,149 +1,97 @@
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading;
 using Game;
 using Sim;
 
 namespace Program
 {
     /// <summary>
-    /// No-netcode harness: directly drives ServerEngine at a fixed tick rate,
-    /// injects commands via ServerEngine.EnqueueCommands, and prints snapshot state.
+    /// No-netcode harness: drives ServerEngine at a fixed tick rate,
+    /// injects MoveBy commands, and prints snapshot state periodically.
     /// </summary>
     public static class AutoEngineTickProgram
     {
-        private static CancellationTokenSource? _currentCts;
-        private static readonly object _lock = new object();
+        private sealed class LatestTick
+        {
+            public EngineTickResult Value;
+        }
 
         public static void Run(TimeSpan? maxRunningDuration = null)
         {
             const int tickRateHz = 20;
             const int entityId = 1;
+            const int connId = 1;
 
             // Setup world + engine (no transport)
             World world = new World();
             world.CreateEntityAt(entityId: entityId, x: 0, y: 0);
+
             ServerEngine engine = new ServerEngine(tickRateHz, world);
 
-            CancellationTokenSource cts;
-            lock (_lock)
+            using CancellationTokenSource cts = new CancellationTokenSource();
+            if (maxRunningDuration.HasValue)
+                cts.CancelAfter(maxRunningDuration.Value);
+
+            // Published by engine thread
+            LatestTick latest = new LatestTick();
+            int latestTick = -1;
+
+            Thread engineThread = new Thread(() =>
             {
-                _currentCts?.Dispose();
-                cts = new CancellationTokenSource();
-                _currentCts = cts;
-            }
+                TickLoop(engine, cts.Token, r =>
+                {
+                    Volatile.Write(ref latest, new LatestTick { Value = r });
+                    Volatile.Write(ref latestTick, r.ServerTick);
+                });
+            })
+            {
+                IsBackground = true,
+                Name = "AutoEngineTick.Engine"
+            };
+
+            Thread inputThread = new Thread(() => InputLoop(engine, cts.Token, connId, entityId))
+            {
+                IsBackground = true,
+                Name = "AutoEngineTick.Input"
+            };
+
+            engineThread.Start();
+            inputThread.Start();
 
             try
             {
-                // Background: input injector (pretend client)
-                Thread inputThread = new Thread(() => InputLoop(engine, cts.Token, entityId))
-                {
-                    IsBackground = true,
-                    Name = "AutoEngineTickProgram.Input"
-                };
-                inputThread.Start();
-
-                // Background: tick loop
-                EngineTickResult last = default;
-                object lastLock = new object();
-
-                Thread engineThread = new Thread(() =>
-                {
-                    RunEngineLoop(engine, cts.Token, r =>
-                    {
-                        lock (lastLock) last = r;
-                    });
-                })
-                {
-                    IsBackground = true,
-                    Name = "AutoEngineTickProgram.Engine"
-                };
-                engineThread.Start();
-
-                // Optional: stop-after-duration
-                Thread? durationThread = null;
-                if (maxRunningDuration.HasValue)
-                {
-                    durationThread = new Thread(() =>
-                    {
-                        Thread.Sleep(maxRunningDuration.Value);
-                        Stop();
-                    })
-                    {
-                        IsBackground = true,
-                        Name = "AutoEngineTickProgram.Duration"
-                    };
-                    durationThread.Start();
-                }
-
-                // Print snapshot periodically
-                Stopwatch sw = Stopwatch.StartNew();
                 while (!cts.IsCancellationRequested)
                 {
-                    EngineTickResult r;
-                    lock (lastLock) r = last;
-
-                    SampleWorldSnapshot? snap = r.Snapshot;
-                    if (snap == null)
+                    // Wait until we have at least one real tick result
+                    if (Volatile.Read(ref latestTick) >= 0)
                     {
-                        Console.WriteLine(
-                            $"Tick={r.ServerTick} TimeMs={r.ServerTimeMs} Snapshot=<null>");
-                        Thread.Sleep(500);
-                        continue;
-                    }
-
-                    if (TryGetEntityPos(snap, entityId, out int x, out int y))
-                    {
-                        FlowSnapshot flow = snap.Flow;
-                        Console.WriteLine(
-                            $"Tick={r.ServerTick} TimeMs={r.ServerTimeMs} " +
-                            $"Entity{entityId}=({x},{y}) " +
-                            $"Flow={flow.FlowState} L{flow.LevelIndex} R{flow.RoundIndex} " +
-                            $"RoundState={flow.RoundState} Score={flow.CumulativeScore}/{flow.TargetScore} " +
-                            $"CookSeq={flow.CookResultSeq}");
+                        LatestTick snapshot = Volatile.Read(ref latest);
+                        Print(snapshot.Value, entityId);
                     }
                     else
                     {
-                        Console.WriteLine(
-                            $"Tick={r.ServerTick} TimeMs={r.ServerTimeMs} Entity{entityId}=<not found> Flow={snap.Flow.FlowState}");
+                        Console.WriteLine("Waiting for first tick...");
                     }
-
-                    if (maxRunningDuration.HasValue && sw.Elapsed >= maxRunningDuration.Value)
-                        break;
-
                     Thread.Sleep(500);
                 }
-
-                Stop();
-
-                engineThread.Join();
-                inputThread.Join();
-                durationThread?.Join();
             }
             finally
             {
-                lock (_lock)
-                {
-                    if (_currentCts == cts)
-                        _currentCts = null;
-                    cts.Dispose();
-                }
+                // Ensure threads stop and join
+                cts.Cancel();
+                engineThread.Join();
+                inputThread.Join();
             }
         }
 
-        public static void Stop()
-        {
-            lock (_lock)
-            {
-                _currentCts?.Cancel();
-            }
-        }
-
-        private static void InputLoop(ServerEngine engine, CancellationToken token, int entityId)
+        private static void InputLoop(ServerEngine engine, CancellationToken token, int connId, int entityId)
         {
             uint seq = 0;
 
             while (!token.IsCancellationRequested)
             {
-                // Schedule for next server tick to pass validation window.
                 int requestedTick = engine.CurrentServerTick + 1;
 
                 List<EngineCommand<EngineCommandType>> cmds =
@@ -152,7 +100,7 @@ namespace Program
                 ];
 
                 engine.EnqueueCommands(
-                    connId: 1,
+                    connId: connId,
                     requestedClientTick: requestedTick,
                     clientCmdSeq: seq++,
                     commands: cmds);
@@ -161,21 +109,19 @@ namespace Program
             }
         }
 
-        private static void RunEngineLoop(ServerEngine engine, CancellationToken token, Action<EngineTickResult> onTick)
+        private static void TickLoop(ServerEngine engine, CancellationToken token, Action<EngineTickResult> publish)
         {
             double tickMs = 1000.0 / engine.TickRateHz;
-
             long freq = Stopwatch.Frequency;
             long next = Stopwatch.GetTimestamp();
 
             while (!token.IsCancellationRequested)
             {
-                EngineTickResult r = engine.TickOnce();
-                onTick(r);
+                publish(engine.TickOnce());
 
                 // Drift-corrected fixed-rate loop
                 next += (long)(freq * (tickMs / 1000.0));
-                while (true)
+                while (!token.IsCancellationRequested)
                 {
                     long now = Stopwatch.GetTimestamp();
                     long remaining = next - now;
@@ -188,6 +134,32 @@ namespace Program
                     else
                         Thread.Yield();
                 }
+            }
+        }
+
+        private static void Print(EngineTickResult r, int entityId)
+        {
+            SampleWorldSnapshot? snap = r.Snapshot;
+            if (snap == null)
+            {
+                Console.WriteLine($"Tick={r.ServerTick} TimeMs={r.ServerTimeMs} Snapshot=<null>");
+                return;
+            }
+
+            if (TryGetEntityPos(snap, entityId, out int x, out int y))
+            {
+                FlowSnapshot flow = snap.Flow;
+                Console.WriteLine(
+                    $"Tick={r.ServerTick} TimeMs={r.ServerTimeMs} " +
+                    $"Entity{entityId}=({x},{y}) " +
+                    $"Flow={flow.FlowState} L{flow.LevelIndex} R{flow.RoundIndex} " +
+                    $"RoundState={flow.RoundState} Score={flow.CumulativeScore}/{flow.TargetScore} " +
+                    $"CookSeq={flow.CookResultSeq}");
+            }
+            else
+            {
+                Console.WriteLine(
+                    $"Tick={r.ServerTick} TimeMs={r.ServerTimeMs} Entity{entityId}=<not found> Flow={snap.Flow.FlowState}");
             }
         }
 
