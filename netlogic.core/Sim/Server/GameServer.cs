@@ -18,7 +18,7 @@ namespace Sim.Server
     /// - Converts ClientCommand[] -> EngineCommand[]
     /// - Feeds ServerEngine
     /// - Calls TickOnce()
-    /// - Hashes + encodes EngineTickResult into wire packets (Reliable + Sample)
+    /// - Hashes + encodes TickFrame into wire packets (Reliable + Sample)
     /// </summary>
     public sealed class GameServer
     {
@@ -72,24 +72,23 @@ namespace Sim.Server
 
         public void TickOnce(TickContext ctx)
         {
-            EngineTickResult tick = _engine.TickOnce(ctx);
+            TickFrame frame = _engine.TickOnce(ctx);
 
-            // Adapter-owned hashing (engine does not hash).
-            Game.Game world = _engine.ReadOnlyWorld;
-            uint worldHash = StateHash.ComputeWorldHash(world);
+            // Hash is produced by the engine as part of the canonical Frame.
+            uint worldHash = frame.StateHash;
 
             // Baseline cadence is adapter-owned.
-            if ((tick.ServerTick % Protocol.BaselineIntervalTicks) == 0)
+            if ((frame.Tick % Protocol.BaselineIntervalTicks) == 0)
                 SendBaselineToAll();
 
-            // Encode engine discrete ops into reliable streams (if any).
-            ConsumeReliableOps(tick);
+            // Reliable lane: only reliable RepOps (e.g., FlowFire) are encoded here.
+            ConsumeReliableOps(frame);
 
             // Flush reliable streams (ack/replay lives here).
-            FlushReliableStreams(tick.ServerTick, worldHash);
+            FlushReliableStreams(frame.Tick, worldHash);
 
-            // Encode continuous snapshot into Sample lane.
-            SendSampleSnapshotToAll(tick, worldHash);
+            // Sample lane: positions (latest-wins).
+            SendSampleSnapshotToAll(frame, worldHash);
         }
 
         // -------------------------
@@ -147,18 +146,25 @@ namespace Sim.Server
                     continue;
                 }
 
-                if (MsgCodec.TryDecodeClientOps(packet.Payload, out ClientOpsMsg ops))
+                if (MsgCodec.TryDecodeClientOps(packet.Payload, out ClientOpsMsg clientOps))
                 {
-                    List<ClientCommand> clientCommands = _converter.ConvertToNewList(ops);
-                    List<EngineCommand<EngineCommandType>> engineCommands =
-                        ClientCommandToEngineCommandConverter.ConvertToNewList(clientCommands);
+                    // Convert client wire ops -> client commands -> engine commands.
+                    List<ClientCommand> clientCommands = _converter.ConvertToNewList(clientOps);
+                    if (clientCommands.Count > 0)
+                    {
+                        List<EngineCommand<EngineCommandType>> engineCommands =
+                            ClientCommandToEngineCommandConverter.ConvertToNewList(clientCommands);
 
-                    _engine.EnqueueCommands(
-                        connId: packet.ConnId,
-                        requestedClientTick: ops.ClientTick,
-                        clientCmdSeq: ops.ClientCmdSeq,
-                        commands: engineCommands);
+                        _engine.EnqueueCommands(
+                            connId: packet.ConnId,
+                            requestedClientTick: clientOps.ClientTick,
+                            clientCmdSeq: clientOps.ClientCmdSeq,
+                            commands: engineCommands);
+                    }
 
+                    // Ack receipt (command reliability layer).
+                    // Note: In the current architecture, client sends ClientAckMsg for server->client ops.
+                    // Server doesn't send acks for client->server commands in this design.
                     continue;
                 }
             }
@@ -206,34 +212,35 @@ namespace Sim.Server
         }
 
         // -------------------------
-        // Engine -> Reliable (domain ops -> wire ops -> reliable stream)
+        // Engine -> Reliable (RepOps -> wire ops -> reliable stream)
         // -------------------------
 
-        private void ConsumeReliableOps(in EngineTickResult tick)
+        private void ConsumeReliableOps(in TickFrame frame)
         {
-            if (tick.ReliableOps == null || tick.ReliableOps.Length == 0)
+            // Only a subset of RepOps should be delivered reliably.
+            // In this demo, we treat FlowFire as reliable and everything else as Sample.
+            if (frame.Ops == null || frame.Ops.Length == 0)
                 return;
 
-            int i = 0;
-            while (i < tick.ReliableOps.Length)
+            EncodeReliableRepOpsToWire(frame.Ops, out ushort opCount, out byte[] opsPayload);
+
+            if (opCount == 0)
+                return;
+
+            // Broadcast reliable ops to all connected clients.
+            int k = 0;
+            while (k < _clients.Count)
             {
-                EngineOpBatch batch = tick.ReliableOps[i];
-
-                if (_reliableStreams.TryGetValue(batch.ConnId, out ServerReliableStream? stream) && stream != null)
+                int connId = _clients[k];
+                if (_reliableStreams.TryGetValue(connId, out ServerReliableStream? stream) && stream != null)
                 {
-                    // Encode engine ops into wire ops payload.
-                    // NOTE: Currently EngineOpType is empty in this demo, so this does nothing.
-                    EncodeEngineOpsToWire(batch.Ops, out ushort opCount, out byte[] opsPayload);
-
-                    if (opCount > 0)
-                        stream.AddOpsForTick(tick.ServerTick, opCount, opsPayload);
+                    stream.AddOpsForTick(frame.Tick, opCount, opsPayload);
                 }
-
-                i++;
+                k++;
             }
         }
 
-        private void EncodeEngineOpsToWire(EngineOp[] ops, out ushort opCount, out byte[] payload)
+        private void EncodeReliableRepOpsToWire(RepOp[] ops, out ushort opCount, out byte[] payload)
         {
             _opsWriter.Reset();
             opCount = 0;
@@ -243,13 +250,16 @@ namespace Sim.Server
                 int i = 0;
                 while (i < ops.Length)
                 {
-                    EngineOp op = ops[i];
+                    RepOp op = ops[i];
 
-                    // Map EngineOpType -> wire ops via OpsWriter.
-                    // Add cases as you introduce discrete systems.
                     switch (op.Type)
                     {
-                        case EngineOpType.None:
+                        case RepOpType.FlowFire:
+                            // op.A = trigger (byte stored in int)
+                            OpsWriter.WriteFlowFire(_opsWriter, (byte)op.A);
+                            opCount++;
+                            break;
+
                         default:
                             break;
                     }
@@ -280,22 +290,26 @@ namespace Sim.Server
         }
 
         // -------------------------
-        // Engine -> Sample (snapshot -> wire ops -> broadcast)
+        // Engine -> Sample (RepOps -> wire ops -> broadcast)
         // -------------------------
 
-        private void SendSampleSnapshotToAll(in EngineTickResult tick, uint worldHash)
+        private void SendSampleSnapshotToAll(in TickFrame frame, uint worldHash)
         {
             _opsWriter.Reset();
             ushort opCount = 0;
 
-            SampleEntityPos[] snap = tick.Snapshot.Entities;
+            RepOp[] ops = frame.Ops;
 
             int i = 0;
-            while (i < snap.Length)
+            while (i < ops.Length)
             {
-                SampleEntityPos s = snap[i];
-                OpsWriter.WritePositionAt(_opsWriter, s.EntityId, s.X, s.Y);
-                opCount++;
+                RepOp op = ops[i];
+                if (op.Type == RepOpType.PositionAt)
+                {
+                    // op.A=entityId, op.B=x, op.C=y
+                    OpsWriter.WritePositionAt(_opsWriter, op.A, op.B, op.C);
+                    opCount++;
+                }
                 i++;
             }
 
@@ -305,7 +319,7 @@ namespace Sim.Server
             byte[] opsBytes = _opsWriter.CopyData();
 
             ServerOpsMsg msg = new ServerOpsMsg(
-                serverTick: tick.ServerTick,
+                serverTick: frame.Tick,
                 serverSeq: _serverSampleSeq++,
                 stateHash: worldHash,
                 opCount: opCount,

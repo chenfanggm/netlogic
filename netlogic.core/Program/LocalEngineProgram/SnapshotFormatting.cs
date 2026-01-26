@@ -5,7 +5,7 @@ namespace Program
 {
     public interface ISnapshotFormatter
     {
-        string Format(EngineTickResult r, int entityId);
+        string Format(TickFrame r, int entityId);
     }
 
     public interface IEntityPositionReader
@@ -21,18 +21,18 @@ namespace Program
     {
         private readonly IEntityPositionReader _pos = pos ?? throw new ArgumentNullException(nameof(pos));
 
-        public string Format(EngineTickResult r, int entityId)
+        public string Format(TickFrame r, int entityId)
         {
             GameSnapshot? snap = r.Snapshot;
             if (snap == null)
-                return $"Tick={r.ServerTick} TimeMs={r.ServerTimeMs} Snapshot=<null>";
+                return $"Tick={r.Tick} TimeMs={r.ServerTimeMs} Snapshot=<null>";
 
             FlowSnapshot flow = snap.Flow;
 
             if (_pos.TryGetEntityPos(snap, entityId, out int x, out int y))
             {
                 return
-                    $"Tick={r.ServerTick} TimeMs={r.ServerTimeMs} " +
+                    $"Tick={r.Tick} TimeMs={r.ServerTimeMs} " +
                     $"Entity{entityId}=({x},{y}) " +
                     $"Flow={flow.FlowState} L{flow.LevelIndex} R{flow.RoundIndex} " +
                     $"RoundState={flow.RoundState} Score={flow.CumulativeScore}/{flow.TargetScore} " +
@@ -40,7 +40,7 @@ namespace Program
             }
 
             return
-                $"Tick={r.ServerTick} TimeMs={r.ServerTimeMs} " +
+                $"Tick={r.Tick} TimeMs={r.ServerTimeMs} " +
                 $"Entity{entityId}=<not found> Flow={flow.FlowState}";
         }
     }
@@ -60,14 +60,17 @@ namespace Program
                 return false;
             }
 
-            for (int i = 0; i < arr.Length; i++)
+            int i = 0;
+            while (i < arr.Length)
             {
-                if (arr[i].EntityId == entityId)
+                SampleEntityPos p = arr[i];
+                if (p.EntityId == entityId)
                 {
-                    x = arr[i].X;
-                    y = arr[i].Y;
+                    x = p.X;
+                    y = p.Y;
                     return true;
                 }
+                i++;
             }
 
             x = 0;

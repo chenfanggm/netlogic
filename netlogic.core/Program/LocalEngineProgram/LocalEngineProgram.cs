@@ -25,7 +25,7 @@ namespace Program
                 entityId,
                 period: TimeSpan.FromMilliseconds(500),
                 formatter: new SnapshotFormatter(new EntityPositionReader()));
-            LatestValue<EngineTickResult> latest = new LatestValue<EngineTickResult>();
+            LatestValue<TickFrame> latest = new LatestValue<TickFrame>();
 
             // 3) Host owns threads + lifecycle
             LocalEngineHost host = new LocalEngineHost(engine, runner, input, output, latest);

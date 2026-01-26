@@ -4,7 +4,7 @@ namespace Program
 {
     public interface IOutputPump
     {
-        void Run(LatestValue<EngineTickResult> latest, CancellationToken token);
+        void Run(LatestValue<TickFrame> latest, CancellationToken token);
     }
 
     /// <summary>
@@ -18,11 +18,11 @@ namespace Program
         private readonly TimeSpan _period = period;
         private readonly ISnapshotFormatter _formatter = formatter ?? throw new ArgumentNullException(nameof(formatter));
 
-        public void Run(LatestValue<EngineTickResult> latest, CancellationToken token)
+        public void Run(LatestValue<TickFrame> latest, CancellationToken token)
         {
             while (!token.IsCancellationRequested)
             {
-                EngineTickResult? r = latest.TryRead();
+                TickFrame? r = latest.TryRead();
                 if (!r.HasValue)
                 {
                     Console.WriteLine("Waiting for first tick...");

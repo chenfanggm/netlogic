@@ -25,6 +25,6 @@ namespace Sim.Engine
         void EnqueueServerCommands(
             List<EngineCommand<EngineCommandType>> commands, int requestedTick = -1);
 
-        EngineTickResult TickOnce(TickContext ctx);
+        TickFrame TickOnce(TickContext ctx);
     }
 }

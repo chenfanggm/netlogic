@@ -1,5 +1,6 @@
 using Sim.Command;
 using Sim.Game;
+using Sim.Snapshot;
 using Sim.Time;
 
 namespace Sim.Engine
@@ -32,6 +33,8 @@ namespace Sim.Engine
         private readonly CommandSystem<EngineCommandType> _commandSystem;
         private readonly ICommandSink<EngineCommandType>[] _commandSinks;
 
+        private readonly IReplicationRecorder _replication;
+
         public GameEngine(Game.Game initialGame)
         {
             _game = initialGame ?? throw new ArgumentNullException(nameof(initialGame));
@@ -44,6 +47,8 @@ namespace Sim.Engine
                 flow,
                 movement
             ];
+            _replication = new ReplicationRecorder(initialCapacity: 256);
+
             _commandSystem = new CommandSystem<EngineCommandType>(
                 _commandSinks,
                 maxFutureTicks: 2,
@@ -58,10 +63,12 @@ namespace Sim.Engine
         /// Execute exactly one authoritative tick.
         /// TickContext is provided by the runner (rate/time), but authoritative tick is owned by engine.
         /// </summary>
-        public EngineTickResult TickOnce(TickContext ctx)
+        public TickFrame TickOnce(TickContext ctx)
         {
             int tick = ++_currentTick;
             _lastServerTimeMs = ctx.ServerTimeMs;
+
+            _replication.BeginTick(tick);
 
             // 1) Execute systems in stable order
             _commandSystem.Execute(tick, _game);
@@ -69,11 +76,30 @@ namespace Sim.Engine
             // 2) Game fixed step
             _game.Advance(1);
 
-            return new EngineTickResult(
-                serverTick: _currentTick,
+            // 3) Snapshot (can be made periodic/on-demand later)
+            GameSnapshot snapshot = _game.Snapshot();
+
+            // 4) Replication ops (currently: positions each tick; migrate to true deltas later)
+            SampleEntityPos[] entities = snapshot.Entities;
+            int i = 0;
+            while (i < entities.Length)
+            {
+                SampleEntityPos e = entities[i];
+                _replication.Record(RepOp.PositionAt(e.EntityId, e.X, e.Y));
+                i++;
+            }
+
+            RepOp[] ops = _replication.EndTickAndFlush();
+
+            // 5) World hash AFTER applying tick
+            uint worldHash = Sim.Game.WorldHash.Compute(_game);
+
+            return new TickFrame(
+                tick: _currentTick,
                 serverTimeMs: _lastServerTimeMs,
-                snapshot: _game.Snapshot(),
-                reliableOps: []);
+                stateHash: worldHash,
+                ops: ops,
+                snapshot: snapshot);
         }
 
         public void EnqueueCommands(

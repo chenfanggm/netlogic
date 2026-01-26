@@ -19,13 +19,13 @@ namespace Program
         TickRunner runner,
         IInputPump input,
         IOutputPump output,
-        LatestValue<EngineTickResult> latest)
+        LatestValue<TickFrame> latest)
     {
         private readonly IGameEngine _engine = engine ?? throw new ArgumentNullException(nameof(engine));
         private readonly TickRunner _runner = runner ?? throw new ArgumentNullException(nameof(runner));
         private readonly IInputPump _input = input ?? throw new ArgumentNullException(nameof(input));
         private readonly IOutputPump _output = output ?? throw new ArgumentNullException(nameof(output));
-        private readonly LatestValue<EngineTickResult> _latest = latest ?? throw new ArgumentNullException(nameof(latest));
+        private readonly LatestValue<TickFrame> _latest = latest ?? throw new ArgumentNullException(nameof(latest));
 
         public void Run(CancellationToken token)
         {
@@ -36,7 +36,7 @@ namespace Program
                 onTick: ctx =>
                 {
                     // The engine owns authoritative tick advancement.
-                    EngineTickResult tickResult = _engine.TickOnce(ctx);
+                    TickFrame tickResult = _engine.TickOnce(ctx);
                     _latest.Publish(tickResult);
                 },
                 token: token))

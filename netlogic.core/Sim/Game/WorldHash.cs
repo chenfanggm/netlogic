@@ -1,30 +1,23 @@
-using System;
-using System.Collections.Generic;
-using Sim.Game;
-
-namespace Net
+namespace Sim.Game
 {
-    public static class StateHash
+    /// <summary>
+    /// Deterministic hash of authoritative game state.
+    /// Used for desync detection and replay verification.
+    /// Keep stable across versions if you want backward-compatible replays.
+    /// </summary>
+    public static class WorldHash
     {
         // FNV-1a 32-bit
-        public static uint ComputeWorldHash(Game world)
-        {
-            return WorldHash.Compute(world);
-        }
-
-        public static uint ComputeEntitiesHash(EntityState[] entities)
+        public static uint Compute(Game world)
         {
             uint h = 2166136261u;
 
-            int i = 0;
-            while (i < entities.Length)
+            foreach (Entity e in world.Entities)
             {
-                EntityState e = entities[i];
                 h = Mix(h, (uint)e.Id);
                 h = Mix(h, (uint)e.X);
                 h = Mix(h, (uint)e.Y);
                 h = Mix(h, (uint)e.Hp);
-                i++;
             }
 
             return h;
