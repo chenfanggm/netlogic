@@ -23,16 +23,16 @@ namespace Sim
     {
         public World ReadOnlyWorld => _world;
 
-        public int CurrentServerTick => _currentTick;
+        public int CurrentTick => _currentTick;
 
-        public long ServerTimeMs => _lastServerTimeMs;
+        public double ServerTimeMs => _lastServerTimeMs;
 
         private int _currentTick;
-        private long _lastServerTimeMs;
+        private double _lastServerTimeMs;
 
         private readonly World _world;
         private readonly CommandSystem<EngineCommandType> _commandSystem;
-        private readonly ICommandSink<EngineCommandType>[] _systems;
+        private readonly ICommandSink<EngineCommandType>[] _commandSinks;
 
         public GameEngine(World initialWorld)
         {
@@ -42,59 +42,18 @@ namespace Sim
             // GameFlowSystem first: flow transitions happen before gameplay systems.
             GameFlowSystem flow = new GameFlowSystem();
             MovementSystem movement = new MovementSystem();
-            _systems = [
+            _commandSinks = [
                 flow,
                 movement
             ];
             _commandSystem = new CommandSystem<EngineCommandType>(
-                _systems,
+                _commandSinks,
                 maxFutureTicks: 2,
                 maxPastTicks: 2,
                 maxStoredTicks: 16);
 
             _currentTick = 0;
             _lastServerTimeMs = 0;
-        }
-
-        public void EnqueueCommands(
-            int connId,
-            int requestedClientTick,
-            uint clientCmdSeq,
-            List<EngineCommand<EngineCommandType>> commands)
-        {
-            if (commands == null || commands.Count == 0)
-                return;
-
-            int nowTick = CurrentServerTick;
-
-            _commandSystem.Enqueue(
-                connId: connId,
-                clientRequestedTick: requestedClientTick,
-                clientCmdSeq: clientCmdSeq,
-                commands: commands,
-                currentServerTick: nowTick);
-        }
-
-        /// <summary>
-        /// Enqueue server-generated commands for a given tick.
-        /// connId is always 0 for server-generated commands.
-        /// </summary>
-        public void EnqueueServerCommands(
-            List<EngineCommand<EngineCommandType>> commands, int requestedTick = -1)
-        {
-            if (commands == null || commands.Count == 0)
-                return;
-
-            int nowTick = CurrentServerTick;
-            if (requestedTick == -1)
-                requestedTick = nowTick + 1;
-
-            _commandSystem.Enqueue(
-                connId: 0,
-                clientRequestedTick: requestedTick,
-                clientCmdSeq: 0,
-                commands: commands,
-                currentServerTick: nowTick);
         }
 
         /// <summary>
@@ -113,10 +72,48 @@ namespace Sim
             _world.Advance(1);
 
             return new EngineTickResult(
-                serverTick: tick,
-                serverTimeMs: ctx.ServerTimeMs,
+                serverTick: _currentTick,
+                serverTimeMs: _lastServerTimeMs,
                 snapshot: _world.BuildSnapshot(),
                 reliableOps: []);
+        }
+
+        public void EnqueueCommands(
+            int connId,
+            int requestedClientTick,
+            uint clientCmdSeq,
+            List<EngineCommand<EngineCommandType>> commands)
+        {
+            if (commands == null || commands.Count == 0)
+                return;
+
+            _commandSystem.Enqueue(
+                connId: connId,
+                clientRequestedTick: requestedClientTick,
+                clientCmdSeq: clientCmdSeq,
+                commands: commands,
+                currentServerTick: CurrentTick);
+        }
+
+        /// <summary>
+        /// Enqueue server-generated commands for a given tick.
+        /// connId is always 0 for server-generated commands.
+        /// </summary>
+        public void EnqueueServerCommands(
+            List<EngineCommand<EngineCommandType>> commands, int requestedTick = -1)
+        {
+            if (commands == null || commands.Count == 0)
+                return;
+
+            if (requestedTick == -1)
+                requestedTick = CurrentTick + 1;
+
+            _commandSystem.Enqueue(
+                connId: 0,
+                clientRequestedTick: requestedTick,
+                clientCmdSeq: 0,
+                commands: commands,
+                currentServerTick: CurrentTick);
         }
     }
 }

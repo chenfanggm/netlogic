@@ -27,7 +27,7 @@ namespace Program
             {
                 // If your CommandSystem expects "requested tick", keep that policy here
                 // (input policy), not in the engine tick loop.
-                int requestedTick = engine.CurrentServerTick + 1;
+                int requestedTick = engine.CurrentTick + 1;
 
                 List<EngineCommand<EngineCommandType>> cmds =
                 [

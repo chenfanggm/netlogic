@@ -8,10 +8,9 @@ namespace Sim
     /// </summary>
     public interface IGameEngine
     {
-        // Cross-thread readable tick.
-        int CurrentServerTick { get; }
+        int CurrentTick { get; }
 
-        long ServerTimeMs { get; }
+        double ServerTimeMs { get; }
 
         void EnqueueCommands(
             int connId,

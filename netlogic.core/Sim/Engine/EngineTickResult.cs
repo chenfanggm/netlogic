@@ -9,7 +9,7 @@ namespace Sim
     public readonly struct EngineTickResult
     {
         public readonly int ServerTick;
-        public readonly long ServerTimeMs;
+        public readonly double ServerTimeMs;
 
         /// <summary>
         /// Continuous snapshot for rendering/interpolation.
@@ -23,7 +23,7 @@ namespace Sim
         /// </summary>
         public readonly EngineOpBatch[] ReliableOps;
 
-        public EngineTickResult(int serverTick, long serverTimeMs, SampleWorldSnapshot snapshot, EngineOpBatch[] reliableOps)
+        public EngineTickResult(int serverTick, double serverTimeMs, SampleWorldSnapshot snapshot, EngineOpBatch[] reliableOps)
         {
             ServerTick = serverTick;
             ServerTimeMs = serverTimeMs;

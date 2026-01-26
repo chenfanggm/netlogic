@@ -31,7 +31,7 @@ namespace Sim
         private uint _serverSampleSeq;
         private readonly NetDataWriter _opsWriter;
 
-        public int CurrentServerTick => _engine.CurrentServerTick;
+        public int CurrentServerTick => _engine.CurrentTick;
         public int TickRateHz => _tickRateHz;
 
         public GameServer(IServerTransport transport, int tickRateHz, World initialWorld)
@@ -128,7 +128,7 @@ namespace Sim
                         pingId: ping.PingId,
                         clientTimeMsEcho: ping.ClientTimeMs,
                         serverTimeMs: _engine.ServerTimeMs,
-                        serverTick: _engine.CurrentServerTick);
+                        serverTick: _engine.CurrentTick);
 
                     byte[] bytes = MsgCodec.EncodePong(pong);
                     _transport.Send(packet.ConnId, Lane.Reliable, new ArraySegment<byte>(bytes, 0, bytes.Length));
@@ -165,7 +165,7 @@ namespace Sim
 
         private void SendWelcome(int connId)
         {
-            byte[] bytes = MsgCodec.EncodeWelcome(_tickRateHz, _engine.CurrentServerTick);
+            byte[] bytes = MsgCodec.EncodeWelcome(_tickRateHz, _engine.CurrentTick);
             _transport.Send(connId, Lane.Reliable, new ArraySegment<byte>(bytes, 0, bytes.Length));
         }
 
@@ -175,7 +175,7 @@ namespace Sim
             EntityState[] entities = world.ToSnapshot();
             uint hash = StateHash.ComputeEntitiesHash(entities);
 
-            BaselineMsg msg = new BaselineMsg(_engine.CurrentServerTick, hash, entities);
+            BaselineMsg msg = new BaselineMsg(_engine.CurrentTick, hash, entities);
             byte[] bytes = MsgCodec.EncodeBaseline(msg);
 
             _transport.Send(connId, Lane.Reliable, new ArraySegment<byte>(bytes, 0, bytes.Length));
