@@ -27,6 +27,7 @@ namespace Sim
     {
         // scheduledTick -> connId -> bucket
         private readonly Dictionary<int, Dictionary<int, EngineCommandBucket<TCommandType>>> _byTickThenConn = [];
+        private readonly object _sync = new object();
 
         private readonly int _maxFutureTicks;
         private readonly int _maxPastTicks;
@@ -69,10 +70,13 @@ namespace Sim
             // Compute where the server will actually schedule these commands.
             int scheduledTick = ComputeScheduledTick(clientRequestedTick, currentServerTick, maxAcceptedTick);
 
-            EngineCommandBucket<TCommandType> bucket = GetOrCreateBucket(scheduledTick, connId);
+            lock (_sync)
+            {
+                EngineCommandBucket<TCommandType> bucket = GetOrCreateBucket(scheduledTick, connId);
 
-            // MergeReplace enforces "latest intent wins" replacement inside the bucket.
-            bucket.MergeReplace(clientCmdSeq, commands);
+                // MergeReplace enforces "latest intent wins" replacement inside the bucket.
+                bucket.MergeReplace(clientCmdSeq, commands);
+            }
 
             return true;
         }
@@ -82,11 +86,13 @@ namespace Sim
         /// </summary>
         public IEnumerable<int> GetConnIdsByTick(int tick)
         {
-            if (!_byTickThenConn.TryGetValue(tick, out Dictionary<int, EngineCommandBucket<TCommandType>>? byConn) || byConn == null)
-                yield break;
+            lock (_sync)
+            {
+                if (!_byTickThenConn.TryGetValue(tick, out Dictionary<int, EngineCommandBucket<TCommandType>>? byConn) || byConn == null)
+                    return Array.Empty<int>();
 
-            foreach (int connId in byConn.Keys)
-                yield return connId;
+                return new List<int>(byConn.Keys);
+            }
         }
 
         /// <summary>
@@ -97,21 +103,24 @@ namespace Sim
         {
             batch = default;
 
-            if (!_byTickThenConn.TryGetValue(tick, out Dictionary<int, EngineCommandBucket<TCommandType>>? byConn) || byConn == null)
-                return false;
+            lock (_sync)
+            {
+                if (!_byTickThenConn.TryGetValue(tick, out Dictionary<int, EngineCommandBucket<TCommandType>>? byConn) || byConn == null)
+                    return false;
 
-            if (!byConn.TryGetValue(connId, out EngineCommandBucket<TCommandType>? bucket) || bucket == null)
-                return false;
+                if (!byConn.TryGetValue(connId, out EngineCommandBucket<TCommandType>? bucket) || bucket == null)
+                    return false;
 
-            List<EngineCommand<TCommandType>> commands = bucket.MaterializeSorted();
-            batch = new EngineCommandBatch<TCommandType>(tick, bucket.MaxClientCmdSeq, commands);
+                List<EngineCommand<TCommandType>> commands = bucket.MaterializeSorted();
+                batch = new EngineCommandBatch<TCommandType>(tick, bucket.MaxClientCmdSeq, commands);
 
-            // Remove consumed bucket.
-            byConn.Remove(connId);
-            if (byConn.Count == 0)
-                _byTickThenConn.Remove(tick);
+                // Remove consumed bucket.
+                byConn.Remove(connId);
+                if (byConn.Count == 0)
+                    _byTickThenConn.Remove(tick);
 
-            return true;
+                return true;
+            }
         }
 
         /// <summary>
@@ -121,19 +130,22 @@ namespace Sim
         public void DropOldTick(int currentTick)
         {
             int oldestAllowedTick = currentTick - _maxStoredTicks;
-            if (_byTickThenConn.Count == 0)
-                return;
-
-            List<int> toRemove = new List<int>(16);
-
-            foreach (int tick in _byTickThenConn.Keys)
+            lock (_sync)
             {
-                if (tick < oldestAllowedTick)
-                    toRemove.Add(tick);
-            }
+                if (_byTickThenConn.Count == 0)
+                    return;
 
-            for (int i = 0; i < toRemove.Count; i++)
-                _byTickThenConn.Remove(toRemove[i]);
+                List<int> toRemove = new List<int>(16);
+
+                foreach (int tick in _byTickThenConn.Keys)
+                {
+                    if (tick < oldestAllowedTick)
+                        toRemove.Add(tick);
+                }
+
+                for (int i = 0; i < toRemove.Count; i++)
+                    _byTickThenConn.Remove(toRemove[i]);
+            }
         }
 
         private static int ComputeScheduledTick(int requestedClientTick, int currentServerTick, int maxAcceptedTick)
