@@ -19,7 +19,7 @@ namespace Sim
     /// - Input generation policies (InputPump)
     /// - Output formatting/printing (SnapshotFormatter/OutputPump)
     /// </summary>
-    public sealed class ServerEngine : IServerEngine
+    public sealed class GameEngine : IGameEngine
     {
         public World ReadOnlyWorld => _world;
 
@@ -34,7 +34,7 @@ namespace Sim
         private readonly CommandSystem<EngineCommandType> _commandSystem;
         private readonly ICommandSink<EngineCommandType>[] _systems;
 
-        public ServerEngine(World initialWorld)
+        public GameEngine(World initialWorld)
         {
             _world = initialWorld ?? throw new ArgumentNullException(nameof(initialWorld));
 

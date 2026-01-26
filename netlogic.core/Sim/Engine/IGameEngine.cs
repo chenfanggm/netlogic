@@ -6,7 +6,7 @@ namespace Sim
     /// Engine boundary used by outer-ring loops (input/output/host).
     /// Note: only a single thread should call TickOnce (the engine thread).
     /// </summary>
-    public interface IServerEngine
+    public interface IGameEngine
     {
         // Cross-thread readable tick.
         int CurrentServerTick { get; }

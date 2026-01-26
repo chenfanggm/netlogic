@@ -15,24 +15,23 @@ namespace Program
             World world = new World();
             world.CreateEntityAt(entityId: entityId, x: 0, y: 0);
 
-            IServerEngine engine = new ServerEngine(world);
+            IGameEngine engine = new GameEngine(world);
 
             // 2) Build outer-ring components (IO around the engine)
-            using CancellationTokenSource cts = new CancellationTokenSource();
-            if (maxRunningDuration.HasValue)
-                cts.CancelAfter(maxRunningDuration.Value);
-
-            LatestValue<EngineTickResult> latest = new LatestValue<EngineTickResult>();
             TickRunner runner = new TickRunner(tickRateHz);
-
             IInputPump input = new MoveRightInputPump(connId, entityId, period: TimeSpan.FromMilliseconds(250));
             IOutputPump output = new ConsoleSnapshotOutput(
                 entityId,
                 period: TimeSpan.FromMilliseconds(500),
                 formatter: new SnapshotFormatter(new EntityPositionReader()));
+            LatestValue<EngineTickResult> latest = new LatestValue<EngineTickResult>();
 
             // 3) Host owns threads + lifecycle
             EngineHost host = new EngineHost(engine, runner, input, output, latest);
+
+            using CancellationTokenSource cts = new CancellationTokenSource();
+            if (maxRunningDuration.HasValue)
+                cts.CancelAfter(maxRunningDuration.Value);
             host.Run(cts.Token);
         }
     }

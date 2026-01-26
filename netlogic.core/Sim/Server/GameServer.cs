@@ -18,7 +18,7 @@ namespace Sim
     public sealed class GameServer
     {
         private readonly IServerTransport _transport;
-        private readonly ServerEngine _engine;
+        private readonly GameEngine _engine;
         private readonly int _tickRateHz;
 
         private readonly ClientOpsMsgToClientCommandConverter _converter;
@@ -41,7 +41,7 @@ namespace Sim
                 throw new ArgumentOutOfRangeException(nameof(tickRateHz));
 
             _tickRateHz = tickRateHz;
-            _engine = new ServerEngine(initialWorld ?? throw new ArgumentNullException(nameof(initialWorld)));
+            _engine = new GameEngine(initialWorld ?? throw new ArgumentNullException(nameof(initialWorld)));
 
             _converter = new ClientOpsMsgToClientCommandConverter(initialCapacity: 32);
 

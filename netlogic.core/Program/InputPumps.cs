@@ -5,7 +5,7 @@ namespace Program
 {
     public interface IInputPump
     {
-        void Run(IServerEngine engine, CancellationToken token);
+        void Run(IGameEngine engine, CancellationToken token);
     }
 
     /// <summary>
@@ -26,7 +26,7 @@ namespace Program
             _period = period;
         }
 
-        public void Run(IServerEngine engine, CancellationToken token)
+        public void Run(IGameEngine engine, CancellationToken token)
         {
             uint seq = 0;
 

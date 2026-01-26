@@ -16,14 +16,14 @@ namespace Program
     /// </summary>
     public sealed class EngineHost
     {
-        private readonly IServerEngine _engine;
+        private readonly IGameEngine _engine;
         private readonly TickRunner _runner;
         private readonly IInputPump _input;
         private readonly IOutputPump _output;
         private readonly LatestValue<EngineTickResult> _latest;
 
         public EngineHost(
-            IServerEngine engine,
+            IGameEngine engine,
             TickRunner runner,
             IInputPump input,
             IOutputPump output,
@@ -38,7 +38,7 @@ namespace Program
 
         public void Run(CancellationToken token)
         {
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            using CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(token);
             CancellationToken ct = linkedCts.Token;
 
             Thread engineThread = new Thread(() => EngineLoop(ct))
