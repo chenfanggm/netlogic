@@ -17,7 +17,7 @@ namespace Sim.Game.Flow
 
         public bool CanCook()
         {
-            return _world.FlowState == GameFlowState.InRound
+            return _world.FlowManager.State == GameFlowState.InRound
                    && _world.Round.State == RoundState.Prepare
                    && !_world.Round.IsRunLost
                    && !_world.Round.IsRoundWon;
@@ -75,7 +75,7 @@ namespace Sim.Game.Flow
         /// </summary>
         public bool ApplyContinue()
         {
-            if (_world.FlowState != GameFlowState.InRound)
+            if (_world.FlowManager.State != GameFlowState.InRound)
                 return false;
 
             if (_world.Round.State != RoundState.OutcomeReady)

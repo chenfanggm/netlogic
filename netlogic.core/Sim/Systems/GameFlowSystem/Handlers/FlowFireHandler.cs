@@ -17,7 +17,7 @@ namespace Sim.Command
                 return;
 
             // Single entry point: the flow controller validates + applies.
-            world.Flow.ApplyPlayerIntentFromCommand(command.Intent, command.Param0);
+            world.GameFlow.ApplyPlayerIntentFromCommand(command.Intent, command.Param0);
         }
     }
 }

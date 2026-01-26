@@ -12,13 +12,13 @@ namespace Sim.Game.Flow
             _world = world ?? throw new ArgumentNullException(nameof(world));
 
             _sm = new StateMachine<GameFlowState, GameFlowIntent>(
-                stateAccessor: () => _world.FlowState,
-                stateMutator: s => _world.SetFlowStateInternal(s));
+                stateAccessor: () => _world.FlowManager.State,
+                stateMutator: s => _world.FlowManager.SetStateInternal(s));
 
             Configure(_sm);
         }
 
-        public GameFlowState State => _world.FlowState;
+        public GameFlowState State => _world.FlowManager.State;
 
         internal void ApplyPlayerIntentFromCommand(GameFlowIntent intent, int param0)
         {
@@ -43,7 +43,7 @@ namespace Sim.Game.Flow
 
             // Handle intents that are "local" to round without necessarily changing GameFlowState.
             // This keeps top-level flow stable and round loop clean.
-            if (_world.FlowState == GameFlowState.InRound)
+            if (_world.FlowManager.State == GameFlowState.InRound)
             {
                 if (intent == GameFlowIntent.ClickCook)
                 {
