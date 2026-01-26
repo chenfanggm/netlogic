@@ -59,9 +59,9 @@ namespace Sim
             ProcessPackets();
         }
 
-        public void TickOnce()
+        public void TickOnce(TickContext ctx)
         {
-            EngineTickResult tick = _engine.TickOnce();
+            EngineTickResult tick = _engine.TickOnce(ctx);
 
             // Adapter-owned hashing (engine does not hash).
             World world = _engine.ReadOnlyWorld;

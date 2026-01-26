@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Threading;
 using Game;
 using Sim.Commanding;
 using Sim.Systems;
@@ -6,23 +9,40 @@ namespace Sim
 {
     /// <summary>
     /// Pure authoritative simulation core.
-    /// Owns World and is the ONLY authority allowed to mutate it.
+    /// Responsibilities:
+    /// - Own World mutation
+    /// - Own authoritative tick counter
+    /// - Execute systems in stable order
+    /// - Produce snapshots
+    ///
+    /// Non-responsibilities:
+    /// - Threading, sleeping, realtime scheduling (TickRunner/Host)
+    /// - Input generation policies (InputPump)
+    /// - Output formatting/printing (SnapshotFormatter/OutputPump)
     /// </summary>
-    public sealed class ServerEngine
+    public sealed class ServerEngine : IServerEngine
     {
-        public int CurrentServerTick => _ticker.CurrentTick;
-        public int TickRateHz => _ticker.TickRateHz;
-        public long ServerTimeMs => _ticker.ServerTimeMs;
+        public int TickRateHz { get; }
         public World ReadOnlyWorld => _world;
 
-        private readonly TickTicker _ticker;
+        // Cross-thread readable tick (Input thread reads it, Engine thread writes it).
+        public int CurrentServerTick => Volatile.Read(ref _currentTick);
+
+        public long ServerTimeMs => Volatile.Read(ref _lastServerTimeMs);
+
+        private int _currentTick;
+        private long _lastServerTimeMs;
+
         private readonly World _world;
         private readonly CommandSystem<EngineCommandType> _commandSystem;
         private readonly ICommandSink<EngineCommandType>[] _systems;
 
         public ServerEngine(int tickRateHz, World initialWorld)
         {
-            _ticker = new TickTicker(tickRateHz);
+            if (tickRateHz <= 0)
+                throw new ArgumentOutOfRangeException(nameof(tickRateHz));
+
+            TickRateHz = tickRateHz;
             _world = initialWorld ?? throw new ArgumentNullException(nameof(initialWorld));
 
             // Stable system execution order matters for determinism.
@@ -38,6 +58,9 @@ namespace Sim
                 maxFutureTicks: 2,
                 maxPastTicks: 2,
                 maxStoredTicks: 16);
+
+            _currentTick = 0;
+            _lastServerTimeMs = 0;
         }
 
         public void EnqueueCommands(
@@ -49,15 +72,17 @@ namespace Sim
             if (commands == null || commands.Count == 0)
                 return;
 
+            int nowTick = CurrentServerTick;
+
             _commandSystem.Enqueue(
                 connId: connId,
                 clientRequestedTick: requestedClientTick,
                 clientCmdSeq: clientCmdSeq,
                 commands: commands,
-                currentServerTick: _ticker.CurrentTick);
+                currentServerTick: nowTick);
         }
 
-         /// <summary>
+        /// <summary>
         /// Enqueue server-generated commands for a given tick.
         /// connId is always 0 for server-generated commands.
         /// </summary>
@@ -67,20 +92,26 @@ namespace Sim
             if (commands == null || commands.Count == 0)
                 return;
 
+            int nowTick = CurrentServerTick;
             if (requestedTick == -1)
-                requestedTick = _ticker.CurrentTick + 1;
+                requestedTick = nowTick + 1;
 
             _commandSystem.Enqueue(
                 connId: 0,
                 clientRequestedTick: requestedTick,
                 clientCmdSeq: 0,
                 commands: commands,
-                currentServerTick: _ticker.CurrentTick);
+                currentServerTick: nowTick);
         }
 
-        public EngineTickResult TickOnce()
+        /// <summary>
+        /// Execute exactly one authoritative tick.
+        /// TickContext is provided by the runner (rate/time), but authoritative tick is owned by engine.
+        /// </summary>
+        public EngineTickResult TickOnce(TickContext ctx)
         {
-            int tick = _ticker.Advance(1);
+            int tick = Interlocked.Increment(ref _currentTick);
+            Volatile.Write(ref _lastServerTimeMs, ctx.ServerTimeMs);
 
             // 1) Execute systems in stable order
             _commandSystem.Execute(tick, _world);
@@ -90,7 +121,7 @@ namespace Sim
 
             return new EngineTickResult(
                 serverTick: tick,
-                serverTimeMs: _ticker.ServerTimeMs,
+                serverTimeMs: ctx.ServerTimeMs,
                 snapshot: _world.BuildSnapshot(),
                 reliableOps: []);
         }

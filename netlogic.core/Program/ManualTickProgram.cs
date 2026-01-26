@@ -1,4 +1,5 @@
-﻿using Game;
+using System.Diagnostics;
+using Game;
 using Net;
 using Sim;
 
@@ -27,6 +28,8 @@ namespace Program
             client.Start();
             client.Connect(host: "127.0.0.1", port);
 
+            Stopwatch time = Stopwatch.StartNew();
+
             for (int i = 0; i < totalTicks; i++)
             {
                 // Poll network
@@ -40,7 +43,12 @@ namespace Program
                 }
 
                 // Advance server tick
-                server.TickOnce();
+                TickContext ctx = new TickContext(
+                    tick: i + 1,
+                    tickRateHz: tickRateHz,
+                    tickDurationMs: 1000.0 / tickRateHz,
+                    serverTimeMs: time.ElapsedMilliseconds);
+                server.TickOnce(ctx);
 
                 // Poll again to receive updates
                 server.Poll();

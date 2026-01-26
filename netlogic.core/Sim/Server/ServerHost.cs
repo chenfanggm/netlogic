@@ -15,7 +15,7 @@ namespace Sim
     {
         private readonly IServerTransport _transport;
         private readonly GameServer _server;
-        private readonly FixedTickRunner _runner;
+        private readonly TickRunner _runner;
 
         private bool _running;
 
@@ -23,7 +23,7 @@ namespace Sim
         {
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
             _server = new GameServer(_transport, tickRateHz, world);
-            _runner = new FixedTickRunner(tickRateHz, maxTicksPerUpdate: 4);
+            _runner = new TickRunner(tickRateHz);
 
             _running = false;
         }
@@ -36,15 +36,16 @@ namespace Sim
 
         public void Run(CancellationToken token)
         {
-            while (!token.IsCancellationRequested && _running)
-            {
-                _runner.Step(
-                    pollAction: _server.Poll,
-                    tickAction: _server.TickOnce);
+            if (!_running)
+                return;
 
-                // Light sleep so we don't pin a CPU core in console mode
-                Thread.Sleep(1);
-            }
+            _runner.Run(
+                onTick: ctx =>
+                {
+                    _server.Poll();
+                    _server.TickOnce(ctx);
+                },
+                token: token);
         }
 
         public void Dispose()
@@ -52,5 +53,6 @@ namespace Sim
             _transport.Dispose();
             _running = false;
         }
+
     }
 }

@@ -8,7 +8,7 @@ namespace Sim
     {
         private readonly IClientTransport _transport;
         private readonly GameClient _client;
-        private readonly FixedTickRunner _runner;
+        private readonly TickRunner _runner;
 
         private int _clientTick;
         private bool _running;
@@ -19,7 +19,7 @@ namespace Sim
         {
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
             _client = new GameClient(_transport, tickRateHz);
-            _runner = new FixedTickRunner(tickRateHz, maxTicksPerUpdate: 4);
+            _runner = new TickRunner(tickRateHz);
 
             _clientTick = 0;
             _running = false;
@@ -38,26 +38,17 @@ namespace Sim
 
         public void Run(CancellationToken token)
         {
-            while (!token.IsCancellationRequested && _running)
-            {
-                _runner.Step(
-                    pollAction: PollOnly,
-                    tickAction: TickOnce);
+            if (!_running)
+                return;
 
-                Thread.Sleep(1);
-            }
-        }
-
-        private void PollOnly()
-        {
-            _client.Poll(_clientTick);
-        }
-
-        private void TickOnce()
-        {
-            // ClientTick advances at same nominal tick rate for scheduling inputs
-            _clientTick++;
-            _client.Poll(_clientTick);
+            _runner.Run(
+                onTick: _ =>
+                {
+                    // ClientTick advances at same nominal tick rate for scheduling inputs
+                    _clientTick++;
+                    _client.Poll(_clientTick);
+                },
+                token: token);
         }
 
         public void Dispose()
