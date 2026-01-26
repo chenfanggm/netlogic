@@ -72,7 +72,7 @@ namespace Sim.Engine
             return new EngineTickResult(
                 serverTick: _currentTick,
                 serverTimeMs: _lastServerTimeMs,
-                snapshot: _game.BuildSnapshot(),
+                snapshot: _game.Snapshot(),
                 reliableOps: []);
         }
 

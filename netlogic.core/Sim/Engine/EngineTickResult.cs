@@ -15,7 +15,7 @@ namespace Sim.Engine
         /// Continuous snapshot for rendering/interpolation.
         /// Adapter typically encodes this into Sample lane (latest-wins).
         /// </summary>
-        public readonly SampleWorldSnapshot Snapshot;
+        public readonly GameSnapshot Snapshot;
 
         /// <summary>
         /// Discrete ops (domain-level) that must be delivered reliably.
@@ -23,7 +23,7 @@ namespace Sim.Engine
         /// </summary>
         public readonly EngineOpBatch[] ReliableOps;
 
-        public EngineTickResult(int serverTick, double serverTimeMs, SampleWorldSnapshot snapshot, EngineOpBatch[] reliableOps)
+        public EngineTickResult(int serverTick, double serverTimeMs, GameSnapshot snapshot, EngineOpBatch[] reliableOps)
         {
             ServerTick = serverTick;
             ServerTimeMs = serverTimeMs;

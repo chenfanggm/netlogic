@@ -10,7 +10,7 @@ namespace Program
 
     public interface IEntityPositionReader
     {
-        bool TryGetEntityPos(SampleWorldSnapshot snap, int entityId, out int x, out int y);
+        bool TryGetEntityPos(GameSnapshot snap, int entityId, out int x, out int y);
     }
 
     /// <summary>
@@ -23,7 +23,7 @@ namespace Program
 
         public string Format(EngineTickResult r, int entityId)
         {
-            SampleWorldSnapshot? snap = r.Snapshot;
+            GameSnapshot? snap = r.Snapshot;
             if (snap == null)
                 return $"Tick={r.ServerTick} TimeMs={r.ServerTimeMs} Snapshot=<null>";
 
@@ -50,7 +50,7 @@ namespace Program
     /// </summary>
     public sealed class EntityPositionReader : IEntityPositionReader
     {
-        public bool TryGetEntityPos(SampleWorldSnapshot snap, int entityId, out int x, out int y)
+        public bool TryGetEntityPos(GameSnapshot snap, int entityId, out int x, out int y)
         {
             SampleEntityPos[]? arr = snap.Entities;
             if (arr == null || arr.Length == 0)

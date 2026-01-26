@@ -96,38 +96,14 @@ namespace Sim.Game
                 lastCookMetTarget: Round.LastCookMetTarget);
         }
 
-        public SampleWorldSnapshot BuildSnapshot()
+        public GameSnapshot Snapshot()
         {
             List<SampleEntityPos> list = new List<SampleEntityPos>(128);
             foreach (Entity e in Entities)
                 list.Add(new SampleEntityPos(e.Id, e.X, e.Y));
 
             FlowSnapshot flow = BuildFlowSnapshot();
-            return new SampleWorldSnapshot(flow, list.ToArray());
-        }
-    }
-
-    public sealed class Entity
-    {
-        public int Id { get; }
-        public int X { get; set; }
-        public int Y { get; set; }
-        public int Hp { get; private set; }
-
-        public Entity(int id, int x, int y)
-        {
-            Id = id;
-            X = x;
-            Y = y;
-            Hp = 100;
-        }
-
-        public void MoveBy(int dx, int dy) => X += dx;
-
-        public void Damage(int amount)
-        {
-            Hp -= amount;
-            if (Hp < 0) Hp = 0;
+            return new GameSnapshot(flow, list.ToArray());
         }
     }
 }
