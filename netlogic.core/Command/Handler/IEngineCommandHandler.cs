@@ -11,13 +11,13 @@ namespace Sim.Command
         /// Process a single command and potentially mutate the world.
         /// ConnId is available on command.ConnId.
         /// </summary>
-        void Handle(Game.TheGame world, EngineCommand<TCommandType> command);
+        void Handle(Game.Game world, EngineCommand<TCommandType> command);
     }
 
     public interface IEngineCommandHandler<TCommand, TCommandType> : IEngineCommandHandler<TCommandType>
         where TCommand : EngineCommand<TCommandType>
         where TCommandType : struct, Enum
     {
-        void Handle(Game.TheGame world, TCommand command);
+        void Handle(Game.Game world, TCommand command);
     }
 }

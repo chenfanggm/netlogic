@@ -59,7 +59,7 @@ namespace Sim.Command
         /// <summary>
         /// Execute sinks in stable order.
         /// </summary>
-        public void Execute(int tick, Game.TheGame world)
+        public void Execute(int tick, Game.Game world)
         {
             // 1) Dispatch inputs for this tick into sink inboxes (with phases)
             Dispatch(tick);

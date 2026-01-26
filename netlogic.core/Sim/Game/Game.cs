@@ -9,7 +9,7 @@ namespace Sim.Game
     /// <summary>
     /// Game world that manages entities and provides deterministic simulation state.
     /// </summary>
-    public sealed class TheGame
+    public sealed class Game
     {
         private int _nextEntityId = 1;
         private readonly Dictionary<int, Entity> _entities = new Dictionary<int, Entity>(128);
@@ -37,7 +37,7 @@ namespace Sim.Game
         // Lifecycle tracking (deterministic, internal)
         private GameFlowState _prevFlowState = (GameFlowState)255;
 
-        public TheGame()
+        public Game()
         {
             Flow = new GameFlowController(this);
             RoundFlow = new RoundFlowController(this);

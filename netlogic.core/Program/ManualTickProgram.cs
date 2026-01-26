@@ -18,7 +18,7 @@ namespace Program
             IServerTransport serverTransport = factory.CreateServerTransport();
             IClientTransport clientTransport = factory.CreateClientTransport();
 
-            TheGame world = new TheGame();
+            Game world = new Game();
             world.CreateEntityAt(entityId: 1, x: 0, y: 0);
 
             int port = 9050;

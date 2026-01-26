@@ -6,9 +6,9 @@ namespace Sim.Game.Flow
     /// </summary>
     public sealed class RoundFlowController
     {
-        private readonly TheGame _world;
+        private readonly Game _world;
 
-        public RoundFlowController(TheGame world)
+        public RoundFlowController(Game world)
         {
             _world = world ?? throw new ArgumentNullException(nameof(world));
         }

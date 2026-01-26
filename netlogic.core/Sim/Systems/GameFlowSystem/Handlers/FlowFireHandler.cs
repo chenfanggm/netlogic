@@ -11,7 +11,7 @@ namespace Sim.Command
         {
         }
 
-        public override void Handle(Game.TheGame world, FlowIntentEngineCommand command)
+        public override void Handle(Game.Game world, FlowIntentEngineCommand command)
         {
             if (command.Intent == GameFlowIntent.None)
                 return;

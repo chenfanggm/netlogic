@@ -62,7 +62,7 @@ namespace Sim.Command
         /// <summary>
         /// Called by ServerEngine in stable order each tick.
         /// </summary>
-        public void Execute(Game.TheGame world)
+        public void Execute(Game.Game world)
         {
             for (int i = 0; i < _inbox.Count; i++)
             {
@@ -82,7 +82,7 @@ namespace Sim.Command
         /// If you want per-system additional logic before/after handler execute, do it here.
         /// Most systems can simply rely on command-driven execution.
         /// </summary>
-        protected virtual void ExecuteAfterCommands(Game.TheGame world) { }
+        protected virtual void ExecuteAfterCommands(Game.Game world) { }
 
         protected static IEngineCommandHandler<TCommandType>[] DiscoverHandlersForSystem(Type systemType)
         {

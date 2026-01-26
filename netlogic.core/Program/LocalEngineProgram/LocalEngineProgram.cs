@@ -13,7 +13,7 @@ namespace Program
             const int connId = 1;
 
             // 1) Build authoritative world + engine (no transport)
-            TheGame game = new TheGame();
+            Game game = new Game();
             game.CreateEntityAt(entityId: entityId, x: 0, y: 0);
 
             IGameEngine engine = new GameEngine(game);

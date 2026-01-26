@@ -11,7 +11,7 @@ namespace Sim.Command
         {
         }
 
-        public override void Handle(Game.TheGame world, MoveByEngineCommand command)
+        public override void Handle(Game.Game world, MoveByEngineCommand command)
         {
             world.TryMoveEntityBy(command.EntityId, command.Dx, command.Dy);
         }

@@ -20,6 +20,6 @@ namespace Sim.Command
         void InboxCommand(EngineCommand<TCommandType> command);
 
         /// <summary>Called by ServerEngine in stable order.</summary>
-        void Execute(Game.TheGame world);
+        void Execute(Game.Game world);
     }
 }

@@ -18,7 +18,7 @@ namespace Sim.Server
 
         private bool _running;
 
-        public ServerHost(IServerTransport transport, int tickRateHz, TheGame game)
+        public ServerHost(IServerTransport transport, int tickRateHz, Game.Game game)
         {
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
             _server = new GameServer(_transport, tickRateHz, game);

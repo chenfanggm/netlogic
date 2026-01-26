@@ -4,10 +4,10 @@ namespace Sim.Game.Flow
 {
     public sealed class GameFlowController
     {
-        private readonly TheGame _world;
+        private readonly Game _world;
         private readonly StateMachine<GameFlowState, GameFlowIntent> _sm;
 
-        public GameFlowController(TheGame world)
+        public GameFlowController(Game world)
         {
             _world = world ?? throw new ArgumentNullException(nameof(world));
 

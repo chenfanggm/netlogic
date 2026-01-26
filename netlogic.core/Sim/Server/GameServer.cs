@@ -39,7 +39,7 @@ namespace Sim.Server
         public int CurrentServerTick => _engine.CurrentTick;
         public int TickRateHz => _tickRateHz;
 
-        public GameServer(IServerTransport transport, int tickRateHz, TheGame initialGame)
+        public GameServer(IServerTransport transport, int tickRateHz, Game.Game initialGame)
         {
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
             if (tickRateHz <= 0)
@@ -75,7 +75,7 @@ namespace Sim.Server
             EngineTickResult tick = _engine.TickOnce(ctx);
 
             // Adapter-owned hashing (engine does not hash).
-            Game.TheGame world = _engine.ReadOnlyWorld;
+            Game.Game world = _engine.ReadOnlyWorld;
             uint worldHash = StateHash.ComputeWorldHash(world);
 
             // Baseline cadence is adapter-owned.
@@ -176,7 +176,7 @@ namespace Sim.Server
 
         private void SendBaseline(int connId)
         {
-            Game.TheGame world = _engine.ReadOnlyWorld;
+            Game.Game world = _engine.ReadOnlyWorld;
             EntityState[] entities = world.ToSnapshot();
             uint hash = StateHash.ComputeEntitiesHash(entities);
 

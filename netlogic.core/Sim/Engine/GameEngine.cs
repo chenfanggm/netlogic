@@ -19,7 +19,7 @@ namespace Sim.Engine
     /// </summary>
     public sealed class GameEngine : IGameEngine
     {
-        public TheGame ReadOnlyWorld => _game;
+        public Game.Game ReadOnlyWorld => _game;
 
         public int CurrentTick => _currentTick;
 
@@ -28,11 +28,11 @@ namespace Sim.Engine
         private int _currentTick;
         private double _lastServerTimeMs;
 
-        private readonly TheGame _game;
+        private readonly Game.Game _game;
         private readonly CommandSystem<EngineCommandType> _commandSystem;
         private readonly ICommandSink<EngineCommandType>[] _commandSinks;
 
-        public GameEngine(TheGame initialGame)
+        public GameEngine(Game.Game initialGame)
         {
             _game = initialGame ?? throw new ArgumentNullException(nameof(initialGame));
 

@@ -7,7 +7,7 @@ namespace Net
     public static class StateHash
     {
         // FNV-1a 32-bit
-        public static uint ComputeWorldHash(TheGame world)
+        public static uint ComputeWorldHash(Game world)
         {
             uint h = 2166136261u;
 

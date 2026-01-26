@@ -10,7 +10,7 @@ namespace Sim.Engine
     /// </summary>
     public interface IGameEngine
     {
-        TheGame ReadOnlyWorld { get; }
+        Game.Game ReadOnlyWorld { get; }
 
         int CurrentTick { get; }
 
