@@ -18,14 +18,9 @@ namespace Program
     /// Pure formatting (no IO).
     /// Keeps printing policy separate from the harness loop.
     /// </summary>
-    public sealed class SnapshotFormatter : ISnapshotFormatter
+    public sealed class SnapshotFormatter(IEntityPositionReader pos) : ISnapshotFormatter
     {
-        private readonly IEntityPositionReader _pos;
-
-        public SnapshotFormatter(IEntityPositionReader pos)
-        {
-            _pos = pos ?? throw new ArgumentNullException(nameof(pos));
-        }
+        private readonly IEntityPositionReader _pos = pos ?? throw new ArgumentNullException(nameof(pos));
 
         public string Format(EngineTickResult r, int entityId)
         {

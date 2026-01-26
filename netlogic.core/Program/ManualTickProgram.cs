@@ -30,6 +30,8 @@ namespace Program
 
             Stopwatch time = Stopwatch.StartNew();
 
+            double lastTickAtMs = time.Elapsed.TotalMilliseconds;
+
             for (int i = 0; i < totalTicks; i++)
             {
                 // Poll network
@@ -43,11 +45,16 @@ namespace Program
                 }
 
                 // Advance server tick
+                double nowMs = time.Elapsed.TotalMilliseconds;
+                double elapsedSinceLastTickMs = nowMs - lastTickAtMs;
+                long serverTimeMs = (long)nowMs;
+                lastTickAtMs = nowMs;
+
                 TickContext ctx = new TickContext(
-                    tick: i + 1,
-                    tickRateHz: tickRateHz,
-                    tickDurationMs: 1000.0 / tickRateHz,
-                    serverTimeMs: time.ElapsedMilliseconds);
+                    tickRateHz,
+                    1000.0 / tickRateHz,
+                    serverTimeMs,
+                    elapsedSinceLastTickMs);
                 server.TickOnce(ctx);
 
                 // Poll again to receive updates

@@ -13,18 +13,11 @@ namespace Program
     /// Responsibility boundary:
     /// - Produces commands only (does not tick the engine, does not print).
     /// </summary>
-    public sealed class MoveRightInputPump : IInputPump
+    public sealed class MoveRightInputPump(int connId, int entityId, TimeSpan period) : IInputPump
     {
-        private readonly int _connId;
-        private readonly int _entityId;
-        private readonly TimeSpan _period;
-
-        public MoveRightInputPump(int connId, int entityId, TimeSpan period)
-        {
-            _connId = connId;
-            _entityId = entityId;
-            _period = period;
-        }
+        private readonly int _connId = connId;
+        private readonly int _entityId = entityId;
+        private readonly TimeSpan _period = period;
 
         public void Run(IGameEngine engine, CancellationToken token)
         {
