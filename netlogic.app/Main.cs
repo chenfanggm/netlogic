@@ -12,7 +12,7 @@ namespace App
             switch (program)
             {
                 case 1:
-                    AutoEngineTickProgram.Run(maxRunningDuration: TimeSpan.FromSeconds(6));
+                    LocalEngineProgram.Run(maxRunningDuration: TimeSpan.FromSeconds(6));
                     break;
                 case 2:
                     AutoTickProgram.Run(maxRunningDuration: TimeSpan.FromSeconds(6));

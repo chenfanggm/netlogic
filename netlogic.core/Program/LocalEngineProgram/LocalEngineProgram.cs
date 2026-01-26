@@ -3,7 +3,7 @@ using Sim;
 
 namespace Program
 {
-    public static class AutoEngineTickProgram
+    public static class LocalEngineProgram
     {
         public static void Run(TimeSpan? maxRunningDuration = null)
         {
@@ -27,7 +27,7 @@ namespace Program
             LatestValue<EngineTickResult> latest = new LatestValue<EngineTickResult>();
 
             // 3) Host owns threads + lifecycle
-            EngineHost host = new EngineHost(engine, runner, input, output, latest);
+            LocalEngineHost host = new LocalEngineHost(engine, runner, input, output, latest);
 
             using CancellationTokenSource cts = new CancellationTokenSource();
             if (maxRunningDuration.HasValue)

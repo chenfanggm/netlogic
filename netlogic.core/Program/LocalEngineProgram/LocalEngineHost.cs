@@ -14,7 +14,7 @@ namespace Program
     /// - Only the engine thread calls engine.TickOnce().
     /// - Input/output threads may read engine.CurrentServerTick / snapshots via LatestValue.
     /// </summary>
-    public sealed class EngineHost
+    public sealed class LocalEngineHost
     {
         private readonly IGameEngine _engine;
         private readonly TickRunner _runner;
@@ -22,7 +22,7 @@ namespace Program
         private readonly IOutputPump _output;
         private readonly LatestValue<EngineTickResult> _latest;
 
-        public EngineHost(
+        public LocalEngineHost(
             IGameEngine engine,
             TickRunner runner,
             IInputPump input,
