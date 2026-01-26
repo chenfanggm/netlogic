@@ -8,8 +8,6 @@ namespace Sim
     /// </summary>
     public interface IServerEngine
     {
-        int TickRateHz { get; }
-
         // Cross-thread readable tick.
         int CurrentServerTick { get; }
 

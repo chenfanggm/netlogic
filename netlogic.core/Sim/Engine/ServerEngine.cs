@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using Game;
 using Sim.Commanding;
 using Sim.Systems;
@@ -22,13 +21,11 @@ namespace Sim
     /// </summary>
     public sealed class ServerEngine : IServerEngine
     {
-        public int TickRateHz { get; }
         public World ReadOnlyWorld => _world;
 
-        // Cross-thread readable tick (Input thread reads it, Engine thread writes it).
-        public int CurrentServerTick => Volatile.Read(ref _currentTick);
+        public int CurrentServerTick => _currentTick;
 
-        public long ServerTimeMs => Volatile.Read(ref _lastServerTimeMs);
+        public long ServerTimeMs => _lastServerTimeMs;
 
         private int _currentTick;
         private long _lastServerTimeMs;
@@ -37,12 +34,8 @@ namespace Sim
         private readonly CommandSystem<EngineCommandType> _commandSystem;
         private readonly ICommandSink<EngineCommandType>[] _systems;
 
-        public ServerEngine(int tickRateHz, World initialWorld)
+        public ServerEngine(World initialWorld)
         {
-            if (tickRateHz <= 0)
-                throw new ArgumentOutOfRangeException(nameof(tickRateHz));
-
-            TickRateHz = tickRateHz;
             _world = initialWorld ?? throw new ArgumentNullException(nameof(initialWorld));
 
             // Stable system execution order matters for determinism.
@@ -110,8 +103,8 @@ namespace Sim
         /// </summary>
         public EngineTickResult TickOnce(TickContext ctx)
         {
-            int tick = Interlocked.Increment(ref _currentTick);
-            Volatile.Write(ref _lastServerTimeMs, ctx.ServerTimeMs);
+            int tick = ++_currentTick;
+            _lastServerTimeMs = ctx.ServerTimeMs;
 
             // 1) Execute systems in stable order
             _commandSystem.Execute(tick, _world);

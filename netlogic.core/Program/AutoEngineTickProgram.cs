@@ -15,7 +15,7 @@ namespace Program
             World world = new World();
             world.CreateEntityAt(entityId: entityId, x: 0, y: 0);
 
-            IServerEngine engine = new ServerEngine(tickRateHz, world);
+            IServerEngine engine = new ServerEngine(world);
 
             // 2) Build outer-ring components (IO around the engine)
             using CancellationTokenSource cts = new CancellationTokenSource();

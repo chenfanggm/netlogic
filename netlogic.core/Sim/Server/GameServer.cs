@@ -1,3 +1,4 @@
+using System;
 using Game;
 using LiteNetLib.Utils;
 using Net;
@@ -18,6 +19,7 @@ namespace Sim
     {
         private readonly IServerTransport _transport;
         private readonly ServerEngine _engine;
+        private readonly int _tickRateHz;
 
         private readonly ClientOpsMsgToClientCommandConverter _converter;
         private readonly List<int> _clients;
@@ -30,12 +32,16 @@ namespace Sim
         private readonly NetDataWriter _opsWriter;
 
         public int CurrentServerTick => _engine.CurrentServerTick;
-        public int TickRateHz => _engine.TickRateHz;
+        public int TickRateHz => _tickRateHz;
 
         public GameServer(IServerTransport transport, int tickRateHz, World initialWorld)
         {
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
-            _engine = new ServerEngine(tickRateHz, initialWorld ?? throw new ArgumentNullException(nameof(initialWorld)));
+            if (tickRateHz <= 0)
+                throw new ArgumentOutOfRangeException(nameof(tickRateHz));
+
+            _tickRateHz = tickRateHz;
+            _engine = new ServerEngine(initialWorld ?? throw new ArgumentNullException(nameof(initialWorld)));
 
             _converter = new ClientOpsMsgToClientCommandConverter(initialCapacity: 32);
 
@@ -159,7 +165,7 @@ namespace Sim
 
         private void SendWelcome(int connId)
         {
-            byte[] bytes = MsgCodec.EncodeWelcome(_engine.TickRateHz, _engine.CurrentServerTick);
+            byte[] bytes = MsgCodec.EncodeWelcome(_tickRateHz, _engine.CurrentServerTick);
             _transport.Send(connId, Lane.Reliable, new ArraySegment<byte>(bytes, 0, bytes.Length));
         }
 
