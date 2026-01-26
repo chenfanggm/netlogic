@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Net;
 
-namespace Sim
+namespace Sim.Client
 {
     /// <summary>
     /// Interpolates entity positions between two snapshots for smooth client-side rendering.

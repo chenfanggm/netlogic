@@ -1,5 +1,6 @@
-using Game;
-using Sim;
+using Sim.Game;
+using Sim.Engine;
+using Sim.Time;
 
 namespace Program
 {
@@ -12,10 +13,10 @@ namespace Program
             const int connId = 1;
 
             // 1) Build authoritative world + engine (no transport)
-            World world = new World();
-            world.CreateEntityAt(entityId: entityId, x: 0, y: 0);
+            TheGame game = new TheGame();
+            game.CreateEntityAt(entityId: entityId, x: 0, y: 0);
 
-            IGameEngine engine = new GameEngine(world);
+            IGameEngine engine = new GameEngine(game);
 
             // 2) Build outer-ring components (IO around the engine)
             TickRunner runner = new TickRunner(tickRateHz);

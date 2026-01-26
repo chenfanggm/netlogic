@@ -1,6 +1,6 @@
 using System;
 
-namespace Sim
+namespace Sim.Engine
 {
     public static class CommandValidationConfig
     {

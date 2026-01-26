@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
-
-namespace Sim
+namespace Sim.Command
 {
     /// <summary>
     /// Bundles a scheduled tick, client command sequence, and command list for processing.

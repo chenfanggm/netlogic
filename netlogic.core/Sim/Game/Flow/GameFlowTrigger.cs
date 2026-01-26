@@ -1,4 +1,4 @@
-namespace Game
+namespace Sim.Game.Flow
 {
     /// <summary>
     /// Player intents that can change game flow.

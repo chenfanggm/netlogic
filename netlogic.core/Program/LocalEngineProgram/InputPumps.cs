@@ -1,5 +1,7 @@
-using Sim;
-using Game;
+using Sim.Game;
+using Sim.Engine;
+using Sim.Command;
+using Sim.System;
 
 namespace Program
 {

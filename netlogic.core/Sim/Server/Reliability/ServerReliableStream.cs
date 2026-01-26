@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Net;
 
-namespace Sim
+namespace Sim.Server.Reliability
 {
     /// <summary>
     /// Per-client reliable stream:

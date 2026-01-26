@@ -2,7 +2,7 @@ using System;
 using LiteNetLib.Utils;
 using Net;
 
-namespace Sim
+namespace Sim.Client.Command
 {
     public static class ClientCommandCodec
     {

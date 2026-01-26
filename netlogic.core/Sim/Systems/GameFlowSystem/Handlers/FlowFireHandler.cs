@@ -1,6 +1,8 @@
-using Game;
+using Sim.Game;
+using Sim.Game.Flow;
+using Sim.System;
 
-namespace Sim.Systems
+namespace Sim.Command
 {
     [EngineCommandHandler(typeof(GameFlowSystem))]
     internal sealed class FlowIntentHandler : EngineCommandHandlerBase<FlowIntentEngineCommand, EngineCommandType>
@@ -9,7 +11,7 @@ namespace Sim.Systems
         {
         }
 
-        public override void Handle(World world, FlowIntentEngineCommand command)
+        public override void Handle(Game.TheGame world, FlowIntentEngineCommand command)
         {
             if (command.Intent == GameFlowIntent.None)
                 return;

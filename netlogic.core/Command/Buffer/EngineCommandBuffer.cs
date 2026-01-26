@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Sim
+namespace Sim.Command
 {
     /// <summary>
     /// Buffers authoritative EngineCommands by (scheduledTick, connId).

@@ -1,9 +1,8 @@
-using System;
-using System.Threading;
-using Game;
 using Net;
+using Sim.Game;
+using Sim.Time;
 
-namespace Sim
+namespace Sim.Server
 {
     /// <summary>
     /// Real-time server host:
@@ -19,10 +18,10 @@ namespace Sim
 
         private bool _running;
 
-        public ServerHost(IServerTransport transport, int tickRateHz, World world)
+        public ServerHost(IServerTransport transport, int tickRateHz, TheGame game)
         {
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
-            _server = new GameServer(_transport, tickRateHz, world);
+            _server = new GameServer(_transport, tickRateHz, game);
             _runner = new TickRunner(tickRateHz);
 
             _running = false;

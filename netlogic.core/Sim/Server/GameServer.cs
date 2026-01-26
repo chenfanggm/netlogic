@@ -1,9 +1,14 @@
-using System;
-using Game;
+using Sim.Game;
+using Sim.Engine;
 using LiteNetLib.Utils;
 using Net;
+using Sim.Client.Commands;
+using Sim.Server.Reliability;
+using Sim.Client.Command;
+using Sim.Command;
+using Sim.Time;
 
-namespace Sim
+namespace Sim.Server
 {
     /// <summary>
     /// Thin network adapter:
@@ -34,14 +39,14 @@ namespace Sim
         public int CurrentServerTick => _engine.CurrentTick;
         public int TickRateHz => _tickRateHz;
 
-        public GameServer(IServerTransport transport, int tickRateHz, World initialWorld)
+        public GameServer(IServerTransport transport, int tickRateHz, TheGame initialGame)
         {
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
             if (tickRateHz <= 0)
                 throw new ArgumentOutOfRangeException(nameof(tickRateHz));
 
             _tickRateHz = tickRateHz;
-            _engine = new GameEngine(initialWorld ?? throw new ArgumentNullException(nameof(initialWorld)));
+            _engine = new GameEngine(initialGame ?? throw new ArgumentNullException(nameof(initialGame)));
 
             _converter = new ClientOpsMsgToClientCommandConverter(initialCapacity: 32);
 
@@ -70,7 +75,7 @@ namespace Sim
             EngineTickResult tick = _engine.TickOnce(ctx);
 
             // Adapter-owned hashing (engine does not hash).
-            World world = _engine.ReadOnlyWorld;
+            Game.TheGame world = _engine.ReadOnlyWorld;
             uint worldHash = StateHash.ComputeWorldHash(world);
 
             // Baseline cadence is adapter-owned.
@@ -171,7 +176,7 @@ namespace Sim
 
         private void SendBaseline(int connId)
         {
-            World world = _engine.ReadOnlyWorld;
+            Game.TheGame world = _engine.ReadOnlyWorld;
             EntityState[] entities = world.ToSnapshot();
             uint hash = StateHash.ComputeEntitiesHash(entities);
 

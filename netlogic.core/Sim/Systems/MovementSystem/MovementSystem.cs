@@ -1,8 +1,8 @@
 // FILE: netlogic.core/Sim/Systems/MovementSystem.cs
 // MovementSystem auto-discovers handlers in the same assembly.
-using Game;
+using Sim.Game;
 
-namespace Sim.Systems
+namespace Sim.Command
 {
     public sealed class MovementSystem : CommandSinkBase<EngineCommandType>
     {

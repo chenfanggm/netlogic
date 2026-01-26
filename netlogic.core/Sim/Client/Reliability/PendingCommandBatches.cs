@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using Net;
 
-namespace Sim
+namespace Sim.Client.Reliability
 {
     /// <summary>
     /// Tracks unacknowledged command batches and manages resend logic for reliable delivery.

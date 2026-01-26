@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using LiteNetLib.Utils;
 using Net;
 
-namespace Sim
+namespace Sim.Client.Command
 {
     public sealed class ClientOpsMsgToClientCommandConverter
     {

@@ -1,6 +1,6 @@
 using System;
 
-namespace Sim
+namespace Sim.Time
 {
     /// <summary>
     /// Immutable per-tick context created by the TickRunner and consumed by the engine/systems.

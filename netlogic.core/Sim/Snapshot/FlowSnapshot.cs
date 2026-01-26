@@ -1,5 +1,6 @@
+using Sim.Game.Flow;
 
-namespace Game
+namespace Sim.Snapshot
 {
     /// <summary>
     /// Compact authoritative snapshot of game flow + run/level/round runtime.

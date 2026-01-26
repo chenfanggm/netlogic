@@ -1,4 +1,4 @@
-namespace Game
+namespace Sim.Game.Flow
 {
     /// <summary>
     /// Top-level game flow states for Coquus.

@@ -1,4 +1,4 @@
-namespace Game.Runtime
+namespace Sim.Game.Runtime
 {
     /// <summary>
     /// Tiny deterministic RNG suitable for server simulation.

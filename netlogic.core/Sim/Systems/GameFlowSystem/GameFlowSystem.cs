@@ -1,9 +1,9 @@
 // FILE: netlogic.core/Sim/Systems/GameFlowSystem/GameFlowSystem.cs
 // GameFlowSystem auto-discovers handlers in the same assembly.
 
-using Game;
+using Sim.Game;
 
-namespace Sim.Systems
+namespace Sim.Command
 {
     public sealed class GameFlowSystem : CommandSinkBase<EngineCommandType>
     {

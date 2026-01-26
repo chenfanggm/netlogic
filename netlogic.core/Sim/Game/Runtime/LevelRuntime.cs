@@ -1,4 +1,4 @@
-namespace Game
+namespace Sim.Game.Runtime
 {
     /// <summary>
     /// Authoritative level-wide state. Each level has 3 rounds/customers.

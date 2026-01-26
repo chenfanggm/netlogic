@@ -1,6 +1,6 @@
 using System;
 
-namespace Sim
+namespace Sim.Client
 {
     /// <summary>
     /// Adaptive input delay controller that adjusts based on RTT measurements.

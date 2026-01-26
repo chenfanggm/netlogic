@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Net;
 
-namespace Sim
+namespace Sim.Server.State
 {
     /// <summary>
     /// Tracks last sent entity state per client and builds delta updates containing only changes.

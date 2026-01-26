@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace Sim
+namespace Sim.Time
 {
     /// <summary>
     /// Realtime scheduling loop driver.

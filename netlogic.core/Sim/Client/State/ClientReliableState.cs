@@ -1,6 +1,6 @@
 using System;
 
-namespace Sim
+namespace Sim.Client.State
 {
     public sealed class ClientReliableState
     {

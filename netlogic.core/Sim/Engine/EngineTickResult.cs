@@ -1,6 +1,6 @@
-using Game;
+using Sim.Snapshot;
 
-namespace Sim
+namespace Sim.Engine
 {
     /// <summary>
     /// Authoritative engine output for a single fixed server tick.

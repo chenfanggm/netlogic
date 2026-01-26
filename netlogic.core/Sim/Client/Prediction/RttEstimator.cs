@@ -1,4 +1,4 @@
-namespace Sim
+namespace Sim.Client
 {
     /// <summary>
     /// RTT estimator using exponential weighted moving average (EWMA).

@@ -1,8 +1,7 @@
-using System;
-using System.Threading;
 using Net;
+using Sim.Time;
 
-namespace Sim
+namespace Sim.Client
 {
     public sealed class ClientHost : IDisposable
     {

@@ -1,9 +1,8 @@
-﻿using System;
-using System.Diagnostics;
-using System.Threading;
-using Game;
+﻿using System.Diagnostics;
+using Sim.Game;
 using Net;
-using Sim;
+using Sim.Server;
+using Sim.Client;
 
 namespace Program
 {
@@ -21,8 +20,8 @@ namespace Program
             IServerTransport serverTransport = factory.CreateServerTransport();
             IClientTransport clientTransport = factory.CreateClientTransport();
 
-            World world = new World();
-            world.CreateEntityAt(entityId: 1, x: 0, y: 0);
+            TheGame game = new TheGame();
+            game.CreateEntityAt(entityId: 1, x: 0, y: 0);
 
             int port = 9050;
             int tickRateHz = 20;
@@ -37,7 +36,7 @@ namespace Program
 
             try
             {
-                using ServerHost serverHost = new ServerHost(serverTransport, tickRateHz, world);
+                using ServerHost serverHost = new ServerHost(serverTransport, tickRateHz, game);
                 serverHost.Start(port);
 
                 using ClientHost clientHost = new ClientHost(clientTransport, tickRateHz);

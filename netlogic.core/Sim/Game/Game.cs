@@ -1,13 +1,15 @@
-using Game.Runtime;
+using Sim.Game.Runtime;
+using Sim.Game.Flow;
+using Sim.Snapshot;
+using Sim.Engine;
 using Net;
-using Sim;
 
-namespace Game
+namespace Sim.Game
 {
     /// <summary>
     /// Game world that manages entities and provides deterministic simulation state.
     /// </summary>
-    public sealed class World
+    public sealed class TheGame
     {
         private int _nextEntityId = 1;
         private readonly Dictionary<int, Entity> _entities = new Dictionary<int, Entity>(128);
@@ -35,7 +37,7 @@ namespace Game
         // Lifecycle tracking (deterministic, internal)
         private GameFlowState _prevFlowState = (GameFlowState)255;
 
-        public World()
+        public TheGame()
         {
             Flow = new GameFlowController(this);
             RoundFlow = new RoundFlowController(this);

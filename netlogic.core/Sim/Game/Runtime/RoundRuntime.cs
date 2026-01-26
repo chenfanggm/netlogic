@@ -1,4 +1,6 @@
-namespace Game
+using Sim.Game.Flow;
+
+namespace Sim.Game.Runtime
 {
     /// <summary>
     /// Authoritative round runtime state (resets each round).

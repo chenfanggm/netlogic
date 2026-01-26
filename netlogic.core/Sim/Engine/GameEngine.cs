@@ -1,10 +1,8 @@
-using System;
-using System.Collections.Generic;
-using Game;
-using Sim.Commanding;
-using Sim.Systems;
+using Sim.Command;
+using Sim.Game;
+using Sim.Time;
 
-namespace Sim
+namespace Sim.Engine
 {
     /// <summary>
     /// Pure authoritative simulation core.
@@ -21,7 +19,7 @@ namespace Sim
     /// </summary>
     public sealed class GameEngine : IGameEngine
     {
-        public World ReadOnlyWorld => _world;
+        public TheGame ReadOnlyWorld => _game;
 
         public int CurrentTick => _currentTick;
 
@@ -30,13 +28,13 @@ namespace Sim
         private int _currentTick;
         private double _lastServerTimeMs;
 
-        private readonly World _world;
+        private readonly TheGame _game;
         private readonly CommandSystem<EngineCommandType> _commandSystem;
         private readonly ICommandSink<EngineCommandType>[] _commandSinks;
 
-        public GameEngine(World initialWorld)
+        public GameEngine(TheGame initialGame)
         {
-            _world = initialWorld ?? throw new ArgumentNullException(nameof(initialWorld));
+            _game = initialGame ?? throw new ArgumentNullException(nameof(initialGame));
 
             // Stable system execution order matters for determinism.
             // GameFlowSystem first: flow transitions happen before gameplay systems.
@@ -66,15 +64,15 @@ namespace Sim
             _lastServerTimeMs = ctx.ServerTimeMs;
 
             // 1) Execute systems in stable order
-            _commandSystem.Execute(tick, _world);
+            _commandSystem.Execute(tick, _game);
 
-            // 2) World fixed step
-            _world.Advance(1);
+            // 2) Game fixed step
+            _game.Advance(1);
 
             return new EngineTickResult(
                 serverTick: _currentTick,
                 serverTimeMs: _lastServerTimeMs,
-                snapshot: _world.BuildSnapshot(),
+                snapshot: _game.BuildSnapshot(),
                 reliableOps: []);
         }
 

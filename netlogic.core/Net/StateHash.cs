@@ -1,13 +1,13 @@
 using System;
 using System.Collections.Generic;
-using Game;
+using Sim.Game;
 
 namespace Net
 {
     public static class StateHash
     {
         // FNV-1a 32-bit
-        public static uint ComputeWorldHash(World world)
+        public static uint ComputeWorldHash(TheGame world)
         {
             uint h = 2166136261u;
 

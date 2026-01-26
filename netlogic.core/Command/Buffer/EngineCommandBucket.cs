@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Sim
+namespace Sim.Command
 {
     /// <summary>
     /// Stores replace-merged commands for a single tick/connection and materializes

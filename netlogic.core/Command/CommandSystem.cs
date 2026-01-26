@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
-using Game;
+using Sim.Game;
 
-namespace Sim.Commanding
+
+namespace Sim.Command
 {
     /// <summary>
     /// Central command scheduling and dispatch.
@@ -58,7 +59,7 @@ namespace Sim.Commanding
         /// <summary>
         /// Execute sinks in stable order.
         /// </summary>
-        public void Execute(int tick, World world)
+        public void Execute(int tick, Game.TheGame world)
         {
             // 1) Dispatch inputs for this tick into sink inboxes (with phases)
             Dispatch(tick);

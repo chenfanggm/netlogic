@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Sim.Commanding
+namespace Sim.Command
 {
     /// <summary>
     /// A gameplay system that can receive routed engine commands for a tick.
@@ -20,6 +20,6 @@ namespace Sim.Commanding
         void InboxCommand(EngineCommand<TCommandType> command);
 
         /// <summary>Called by ServerEngine in stable order.</summary>
-        void Execute(Game.World world);
+        void Execute(Game.TheGame world);
     }
 }

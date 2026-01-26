@@ -1,7 +1,9 @@
 using System.Diagnostics;
-using Game;
+using Sim.Game;
 using Net;
-using Sim;
+using Sim.Server;
+using Sim.Client;
+using Sim.Time;
 
 namespace Program
 {
@@ -16,7 +18,7 @@ namespace Program
             IServerTransport serverTransport = factory.CreateServerTransport();
             IClientTransport clientTransport = factory.CreateClientTransport();
 
-            World world = new World();
+            TheGame world = new TheGame();
             world.CreateEntityAt(entityId: 1, x: 0, y: 0);
 
             int port = 9050;
@@ -51,10 +53,8 @@ namespace Program
                 lastTickAtMs = nowMs;
 
                 TickContext ctx = new TickContext(
-                    tickRateHz,
-                    1000.0 / tickRateHz,
-                    serverTimeMs,
-                    elapsedSinceLastTickMs);
+                    serverTimeMs: serverTimeMs,
+                    elapsedMsSinceLastTick: elapsedSinceLastTickMs);
                 server.TickOnce(ctx);
 
                 // Poll again to receive updates

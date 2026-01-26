@@ -1,7 +1,7 @@
 using System;
 using System.Diagnostics;
 
-namespace Sim
+namespace Sim.Client
 {
     /// <summary>
     /// Client-side time synchronization that estimates server tick using local clock and received snapshots.

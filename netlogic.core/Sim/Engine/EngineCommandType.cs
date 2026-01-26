@@ -1,4 +1,4 @@
-namespace Game
+namespace Sim.Game
 {
     public enum EngineCommandType : byte
     {

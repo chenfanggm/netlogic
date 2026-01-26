@@ -1,6 +1,8 @@
-using Game;
+using Sim.Game;
+using Sim.Game.Flow;
+using Sim.Command;
 
-namespace Sim
+namespace Sim.System
 {
     /// <summary>
     /// Player intent command for game flow.

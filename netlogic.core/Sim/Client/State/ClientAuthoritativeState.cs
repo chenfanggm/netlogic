@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Net;
 
-namespace Sim
+namespace Sim.Client.State
 {
     /// <summary>
     /// Maintains authoritative entity state on client by applying full snapshots and delta updates.

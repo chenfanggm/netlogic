@@ -1,6 +1,8 @@
-using System.Collections.Generic;
+using Sim.Game;
+using Sim.Command;
+using Sim.Time;
 
-namespace Sim
+namespace Sim.Engine
 {
     /// <summary>
     /// Engine boundary used by outer-ring loops (input/output/host).
@@ -8,6 +10,8 @@ namespace Sim
     /// </summary>
     public interface IGameEngine
     {
+        TheGame ReadOnlyWorld { get; }
+
         int CurrentTick { get; }
 
         double ServerTimeMs { get; }
@@ -16,10 +20,10 @@ namespace Sim
             int connId,
             int requestedClientTick,
             uint clientCmdSeq,
-            List<EngineCommand<Game.EngineCommandType>> commands);
+            List<EngineCommand<EngineCommandType>> commands);
 
         void EnqueueServerCommands(
-            List<EngineCommand<Game.EngineCommandType>> commands, int requestedTick = -1);
+            List<EngineCommand<EngineCommandType>> commands, int requestedTick = -1);
 
         EngineTickResult TickOnce(TickContext ctx);
     }

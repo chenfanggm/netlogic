@@ -1,6 +1,6 @@
 using System;
 
-namespace Sim
+namespace Sim.Client.Command
 {
     public enum ClientCommandType : byte
     {

@@ -1,6 +1,6 @@
 using System;
 
-namespace Sim
+namespace Sim.Command
 {
     /// <summary>
     /// Base class for all commands that can be enqueued into <see cref="GameEngine"/>.

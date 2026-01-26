@@ -1,4 +1,4 @@
-namespace Game
+namespace Sim.Game.Flow
 {
     /// <summary>
     /// Pure round flow rules. Reads/writes World.Round runtime state.
@@ -6,9 +6,9 @@ namespace Game
     /// </summary>
     public sealed class RoundFlowController
     {
-        private readonly World _world;
+        private readonly TheGame _world;
 
-        public RoundFlowController(World world)
+        public RoundFlowController(TheGame world)
         {
             _world = world ?? throw new ArgumentNullException(nameof(world));
         }

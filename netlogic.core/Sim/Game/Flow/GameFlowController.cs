@@ -1,13 +1,13 @@
 using Stateless;
 
-namespace Game
+namespace Sim.Game.Flow
 {
     public sealed class GameFlowController
     {
-        private readonly World _world;
+        private readonly TheGame _world;
         private readonly StateMachine<GameFlowState, GameFlowIntent> _sm;
 
-        public GameFlowController(World world)
+        public GameFlowController(TheGame world)
         {
             _world = world ?? throw new ArgumentNullException(nameof(world));
 

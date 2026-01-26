@@ -2,8 +2,9 @@
 // Base class that provides safe casting + typed Enqueue.
 
 using System;
+using Sim.Command;
 
-namespace Sim.Systems
+namespace Sim.Command
 {
     public abstract class EngineCommandHandlerBase<TCommand, TCommandType>(TCommandType commandType)
         : IEngineCommandHandler<TCommand, TCommandType>
@@ -12,7 +13,7 @@ namespace Sim.Systems
     {
         public TCommandType CommandType { get; } = commandType;
 
-        public void Handle(Game.World world, EngineCommand<TCommandType> command)
+        public void Handle(Game.TheGame world, EngineCommand<TCommandType> command)
         {
             if (command is TCommand typed)
                 Handle(world, typed);
@@ -20,6 +21,6 @@ namespace Sim.Systems
                 throw new InvalidOperationException($"Command {command.Type} is not of type {typeof(TCommand).Name}");
         }
 
-        public abstract void Handle(Game.World world, TCommand command);
+        public abstract void Handle(Game.TheGame world, TCommand command);
     }
 }

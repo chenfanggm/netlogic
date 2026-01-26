@@ -1,7 +1,8 @@
 // FILE: netlogic.core/Sim/Systems/MovementSystem/Handlers/MoveByHandler.cs
-using Game;
+using Sim.Game;
+using Sim.System;
 
-namespace Sim.Systems
+namespace Sim.Command
 {
     [EngineCommandHandler(typeof(MovementSystem))]
     internal sealed class MoveByHandler : EngineCommandHandlerBase<MoveByEngineCommand, EngineCommandType>
@@ -10,7 +11,7 @@ namespace Sim.Systems
         {
         }
 
-        public override void Handle(World world, MoveByEngineCommand command)
+        public override void Handle(Game.TheGame world, MoveByEngineCommand command)
         {
             world.TryMoveEntityBy(command.EntityId, command.Dx, command.Dy);
         }

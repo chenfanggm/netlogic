@@ -162,7 +162,7 @@ namespace Net
     {
         public uint PingId;
         public long ClientTimeMsEcho;
-        public long ServerTimeMs;
+        public double ServerTimeMs;
         public int ServerTick;
 
         public PongMsg()
@@ -174,7 +174,7 @@ namespace Net
         }
 
         [MemoryPackConstructor]
-        public PongMsg(uint pingId, long clientTimeMsEcho, long serverTimeMs, int serverTick)
+        public PongMsg(uint pingId, long clientTimeMsEcho, double serverTimeMs, int serverTick)
         {
             PingId = pingId;
             ClientTimeMsEcho = clientTimeMsEcho;

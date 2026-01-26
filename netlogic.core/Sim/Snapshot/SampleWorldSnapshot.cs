@@ -1,6 +1,6 @@
-using Sim;
+using Sim.Engine;
 
-namespace Game
+namespace Sim.Snapshot
 {
     /// <summary>
     /// Sample snapshot payload sent each server tick (or at sampling frequency).

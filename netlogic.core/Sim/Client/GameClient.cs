@@ -1,10 +1,10 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using Net;
 using LiteNetLib.Utils;
+using Sim.Client.Command;
+using Sim.Client.State;
 
-namespace Sim
+namespace Sim.Client
 {
     /// <summary>
     /// Transport-agnostic game client:

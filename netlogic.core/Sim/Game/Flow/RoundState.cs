@@ -1,4 +1,4 @@
-namespace Game
+namespace Sim.Game.Flow
 {
     /// <summary>
     /// Server-authoritative round phase.

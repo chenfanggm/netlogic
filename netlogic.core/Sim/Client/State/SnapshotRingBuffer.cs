@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Net;
 
-namespace Sim
+namespace Sim.Client.State
 {
     /// <summary>
     /// Ring buffer that stores snapshots by tick and provides interpolation pairs for smooth rendering.

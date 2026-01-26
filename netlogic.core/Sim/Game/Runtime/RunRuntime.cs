@@ -1,6 +1,5 @@
-using Game.Runtime;
 
-namespace Game
+namespace Sim.Game.Runtime
 {
     /// <summary>
     /// Authoritative run-wide persistent state.
