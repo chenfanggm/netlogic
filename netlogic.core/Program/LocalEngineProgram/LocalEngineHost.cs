@@ -14,34 +14,32 @@ namespace Program
     /// - Only the engine thread calls engine.TickOnce().
     /// - Input/output threads may read engine.CurrentServerTick / snapshots via LatestValue.
     /// </summary>
-    public sealed class LocalEngineHost
+    public sealed class LocalEngineHost(
+        IGameEngine engine,
+        TickRunner runner,
+        IInputPump input,
+        IOutputPump output,
+        LatestValue<EngineTickResult> latest)
     {
-        private readonly IGameEngine _engine;
-        private readonly TickRunner _runner;
-        private readonly IInputPump _input;
-        private readonly IOutputPump _output;
-        private readonly LatestValue<EngineTickResult> _latest;
-
-        public LocalEngineHost(
-            IGameEngine engine,
-            TickRunner runner,
-            IInputPump input,
-            IOutputPump output,
-            LatestValue<EngineTickResult> latest)
-        {
-            _engine = engine ?? throw new ArgumentNullException(nameof(engine));
-            _runner = runner ?? throw new ArgumentNullException(nameof(runner));
-            _input = input ?? throw new ArgumentNullException(nameof(input));
-            _output = output ?? throw new ArgumentNullException(nameof(output));
-            _latest = latest ?? throw new ArgumentNullException(nameof(latest));
-        }
+        private readonly IGameEngine _engine = engine ?? throw new ArgumentNullException(nameof(engine));
+        private readonly TickRunner _runner = runner ?? throw new ArgumentNullException(nameof(runner));
+        private readonly IInputPump _input = input ?? throw new ArgumentNullException(nameof(input));
+        private readonly IOutputPump _output = output ?? throw new ArgumentNullException(nameof(output));
+        private readonly LatestValue<EngineTickResult> _latest = latest ?? throw new ArgumentNullException(nameof(latest));
 
         public void Run(CancellationToken token)
         {
             using CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(token);
             CancellationToken ct = linkedCts.Token;
 
-            Thread engineThread = new Thread(() => EngineLoop(ct))
+            Thread engineThread = new Thread(() => _runner.Run(
+                onTick: ctx =>
+                {
+                    // The engine owns authoritative tick advancement.
+                    EngineTickResult r = _engine.TickOnce(ctx);
+                    _latest.Publish(r);
+                },
+                token: token))
             {
                 IsBackground = true,
                 Name = "Harness.EngineTick"
@@ -76,18 +74,6 @@ namespace Program
                 inputThread.Join();
                 outputThread.Join();
             }
-        }
-
-        private void EngineLoop(CancellationToken token)
-        {
-            _runner.Run(
-                onTick: ctx =>
-                {
-                    // The engine owns authoritative tick advancement.
-                    EngineTickResult r = _engine.TickOnce(ctx);
-                    _latest.Publish(r);
-                },
-                token: token);
         }
     }
 }
