@@ -98,7 +98,8 @@ namespace Sim.Game.Flow
               .Permit(GameFlowIntent.ReturnToMenu, GameFlowState.MainMenu);
 
             sm.Configure(GameFlowState.MainMenu)
-              .Permit(GameFlowIntent.ClickNewGame, GameFlowState.RunSetup);
+              .Permit(GameFlowIntent.ClickNewGame, GameFlowState.RunSetup)
+              .Permit(GameFlowIntent.ReturnToMenu, GameFlowState.Exit);
 
             sm.Configure(GameFlowState.RunSetup)
               .PermitReentry(GameFlowIntent.SelectChefHat)

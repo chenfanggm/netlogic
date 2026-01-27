@@ -74,6 +74,7 @@ namespace Program
             GameFlowState lastClientFlowState = (GameFlowState)255;
             bool exitingInRound = false;
             long exitMenuAtMs = -1;
+            long exitAfterVictoryAtMs = -1;
             long lastPrintAtMs = 0;
             long lastResyncAtMs = 0;
 
@@ -101,6 +102,7 @@ namespace Program
 
                     GameFlowState clientFlow = (GameFlowState)client.Model.Flow.FlowState;
                     bool leftInRound = (lastClientFlowState == GameFlowState.InRound) && (clientFlow != GameFlowState.InRound);
+                    bool enteredMainMenuAfterVictory = (lastClientFlowState == GameFlowState.RunVictory) && (clientFlow == GameFlowState.MainMenu);
 
                     flowScript.Step(
                         clientFlow,
@@ -138,7 +140,7 @@ namespace Program
                             Console.WriteLine($"[ClientModel] InRound Entity {playerEntityId} pos=({e.X},{e.Y})");
                     }
 
-                    if (leftInRound && clientFlow != GameFlowState.MainMenu)
+                    if (leftInRound && clientFlow != GameFlowState.MainMenu && clientFlow != GameFlowState.RunVictory)
                     {
                         exitingInRound = true;
                         List<EngineCommand<EngineCommandType>> cmds =
@@ -160,6 +162,28 @@ namespace Program
                         else if ((long)ctx.ServerTimeMs >= exitMenuAtMs)
                             cts.Cancel();
                     }
+
+                    if (enteredMainMenuAfterVictory)
+                        exitAfterVictoryAtMs = (long)ctx.ServerTimeMs + 1000;
+
+                    if (exitAfterVictoryAtMs > 0 && (long)ctx.ServerTimeMs >= exitAfterVictoryAtMs)
+                    {
+                        List<EngineCommand<EngineCommandType>> cmds =
+                        [
+                            new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)
+                        ];
+
+                        engine.EnqueueCommands(
+                            connId: connId,
+                            requestedClientTick: engine.CurrentTick + 1,
+                            clientCmdSeq: clientCmdSeq++,
+                            commands: cmds);
+
+                        exitAfterVictoryAtMs = -1;
+                    }
+
+                    if (clientFlow == GameFlowState.Exit)
+                        cts.Cancel();
 
                     if (clientFlow != lastClientFlowState || ctx.ServerTimeMs - lastPrintAtMs >= 500)
                     {

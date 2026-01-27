@@ -15,6 +15,7 @@ namespace Program.FlowScript
         private bool _waitingForContinue;
         private bool _selectedHat;
         private bool _wasInRound;
+        private bool _completedRun;
 
         public void Reset()
         {
@@ -37,6 +38,9 @@ namespace Program.FlowScript
             Action<GameFlowIntent, int> fireIntent,
             Action move)
         {
+            if (_completedRun && flowState == GameFlowState.MainMenu)
+                return;
+
             switch (flowState)
             {
                 case GameFlowState.InRound:
@@ -112,7 +116,9 @@ namespace Program.FlowScript
                 }
 
                 case GameFlowState.RunVictory:
-                    fireIntent(GameFlowIntent.ReturnToMenu, 0);
+                    if (!_completedRun)
+                        fireIntent(GameFlowIntent.ReturnToMenu, 0);
+                    _completedRun = true;
                     Reset();
                     break;
 
