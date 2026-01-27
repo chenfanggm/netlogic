@@ -36,6 +36,8 @@ namespace Sim.Server
 
         private uint _serverUnreliableSeq;
         private readonly NetDataWriter _opsWriter;
+        private readonly global::System.Buffers.ArrayBufferWriter<byte> _packetWriter =
+            new global::System.Buffers.ArrayBufferWriter<byte>(2048);
 
         private readonly ServerNetMetrics _netMetrics = new ServerNetMetrics();
 
@@ -253,8 +255,8 @@ namespace Sim.Server
             if (!_reliableStreams.TryGetValue(connId, out ServerReliableStream? stream) || stream == null)
                 return;
 
-            foreach (byte[] packetBytes in stream.GetUnackedPackets())
-                SendPacket(connId, Lane.Reliable, packetBytes);
+            foreach (ArraySegment<byte> seg in stream.GetUnackedPacketSegments())
+                SendPacket(connId, Lane.Reliable, seg);
         }
 
         // -------------------------
@@ -267,7 +269,7 @@ namespace Sim.Server
             if (ops.Length == 0)
                 return;
 
-            EncodeReliableRepOpsToWire(ops, out ushort opCount, out byte[] opsPayload);
+            EncodeReliableRepOpsToWire(ops, out ushort opCount);
 
             if (opCount == 0)
                 return;
@@ -279,13 +281,23 @@ namespace Sim.Server
                 int connId = _clients[k];
                 if (_reliableStreams.TryGetValue(connId, out ServerReliableStream? stream) && stream != null)
                 {
-                    stream.AddOpsForTick(frameTick, opCount, opsPayload);
+                    byte[] opsPayload = Net.PooledBytes.RentCopy(_opsWriter, out int opsLen);
+                    try
+                    {
+                        stream.AddOpsForTick(frameTick, opCount, opsPayload, opsLen);
+                    }
+                    catch
+                    {
+                        if (!ReferenceEquals(opsPayload, Array.Empty<byte>()))
+                            global::System.Buffers.ArrayPool<byte>.Shared.Return(opsPayload, clearArray: false);
+                        throw;
+                    }
                 }
                 k++;
             }
         }
 
-        private void EncodeReliableRepOpsToWire(ReadOnlySpan<RepOp> ops, out ushort opCount, out byte[] payload)
+        private void EncodeReliableRepOpsToWire(ReadOnlySpan<RepOp> ops, out ushort opCount)
         {
             _opsWriter.Reset();
             opCount = 0;
@@ -336,7 +348,6 @@ namespace Sim.Server
                 }
             }
 
-            payload = (opCount == 0) ? Array.Empty<byte>() : _opsWriter.CopyData();
         }
 
         private void FlushReliableStreams(int serverTick, uint worldHash)
@@ -348,9 +359,9 @@ namespace Sim.Server
 
                 if (_reliableStreams.TryGetValue(connId, out ServerReliableStream? stream) && stream != null)
                 {
-                    byte[] packetBytes = stream.FlushToPacketIfAny(serverTick, worldHash);
-                    if (packetBytes != null)
-                        SendPacket(connId, Lane.Reliable, packetBytes);
+                    ArraySegment<byte> seg = stream.FlushToPacketIfAny(serverTick, worldHash);
+                    if (seg.Array != null && seg.Count > 0)
+                        SendPacket(connId, Lane.Reliable, seg);
                 }
 
                 k++;
@@ -393,13 +404,13 @@ namespace Sim.Server
                 opCount,
                 opsBytes);
 
-            byte[] packetBytes = MsgCodec.EncodeServerOps(Lane.Unreliable, msg);
+            ArraySegment<byte> packetSeg = MsgCodecFast.EncodeServerOpsToBuffer(_packetWriter, msg);
 
             int k = 0;
             while (k < _clients.Count)
             {
                 int connId = _clients[k];
-                SendPacket(connId, Lane.Unreliable, packetBytes);
+                SendPacket(connId, Lane.Unreliable, packetSeg);
                 k++;
             }
         }
@@ -478,6 +489,19 @@ namespace Sim.Server
                 _netMetrics.RecordReliableBytes(payload.Length);
             else
                 _netMetrics.RecordUnreliableBytes(payload.Length);
+        }
+
+        private void SendPacket(int connId, Lane lane, ArraySegment<byte> payload)
+        {
+            if (payload.Array == null || payload.Count <= 0)
+                return;
+
+            _transport.Send(connId, lane, payload);
+
+            if (lane == Lane.Reliable)
+                _netMetrics.RecordReliableBytes(payload.Count);
+            else
+                _netMetrics.RecordUnreliableBytes(payload.Count);
         }
 
         private void DisconnectClient(int connId, string reason)
