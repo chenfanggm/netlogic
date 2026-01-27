@@ -1,5 +1,6 @@
 using System;
 using MemoryPack;
+using Net.WireState;
 
 namespace Net
 {
@@ -140,18 +141,22 @@ namespace Net
         public ushort ProtocolVersion;
         public ushort HashScopeId;
         public byte HashPhase;
+        public ushort BaselineSchemaId;
         public int ServerTick;
         public uint StateHash;
-        public EntityState[] Entities;
+        public WireFlowState Flow;
+        public WireEntityState[] Entities;
 
         public BaselineMsg()
         {
             ProtocolVersion = Net.ProtocolVersion.Current;
             HashScopeId = HashContract.ScopeId;
             HashPhase = (byte)HashContract.Phase;
+            BaselineSchemaId = StateSchema.BaselineSchemaId;
             ServerTick = 0;
             StateHash = 0;
-            Entities = Array.Empty<EntityState>();
+            Flow = default;
+            Entities = Array.Empty<WireEntityState>();
         }
 
         [MemoryPackConstructor]
@@ -159,16 +164,20 @@ namespace Net
             ushort protocolVersion,
             ushort hashScopeId,
             byte hashPhase,
+            ushort baselineSchemaId,
             int serverTick,
             uint stateHash,
-            EntityState[] entities)
+            WireFlowState flow,
+            WireEntityState[] entities)
         {
             ProtocolVersion = protocolVersion;
             HashScopeId = hashScopeId;
             HashPhase = hashPhase;
+            BaselineSchemaId = baselineSchemaId;
             ServerTick = serverTick;
             StateHash = stateHash;
-            Entities = entities ?? Array.Empty<EntityState>();
+            Flow = flow;
+            Entities = entities ?? Array.Empty<WireEntityState>();
         }
     }
 
@@ -351,6 +360,14 @@ namespace Net
                 Console.WriteLine(
                     $"[Net] Hash contract mismatch on Baseline. Client scope/phase={HashContract.ScopeId}/{(byte)HashContract.Phase} " +
                     $"Server scope/phase={msg.HashScopeId}/{msg.HashPhase}");
+                msg = null!;
+                return false;
+            }
+
+            if (msg.BaselineSchemaId != StateSchema.BaselineSchemaId)
+            {
+                Console.WriteLine(
+                    $"[Net] Baseline schema mismatch. Client={StateSchema.BaselineSchemaId} Server={msg.BaselineSchemaId}");
                 msg = null!;
                 return false;
             }

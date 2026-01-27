@@ -2,6 +2,7 @@ using Sim.Game;
 using Sim.Engine;
 using LiteNetLib.Utils;
 using Net;
+using Net.WireState;
 using Client2.Protocol;
 using Sim.Server.Reliability;
 using Sim.Command;
@@ -195,15 +196,19 @@ namespace Sim.Server
         {
             Game.Game world = _engine.ReadOnlyWorld;
             EntityState[] entities = world.ToSnapshot();
+            WireEntityState[] wireEntities = MapWireEntities(entities);
+            WireFlowState wireFlow = MapWireFlow(world.BuildFlowSnapshot());
             uint hash = StateHash.ComputeWorldHash(world);
 
             BaselineMsg msg = new BaselineMsg(
                 ProtocolVersion.Current,
                 HashContract.ScopeId,
                 (byte)HashContract.Phase,
+                StateSchema.BaselineSchemaId,
                 _engine.CurrentTick,
                 hash,
-                entities);
+                wireFlow,
+                wireEntities);
             byte[] bytes = MsgCodec.EncodeBaseline(msg);
 
             _transport.Send(connId, Lane.Reliable, new ArraySegment<byte>(bytes, 0, bytes.Length));
@@ -385,6 +390,34 @@ namespace Sim.Server
             _clientSet.Remove(connId);
             _clients.Remove(connId);
             _reliableStreams.Remove(connId);
+        }
+
+        private static WireEntityState[] MapWireEntities(EntityState[] entities)
+        {
+            WireEntityState[] wire = new WireEntityState[entities.Length];
+            for (int i = 0; i < entities.Length; i++)
+            {
+                EntityState e = entities[i];
+                wire[i] = new WireEntityState(e.Id, e.X, e.Y, e.Hp);
+            }
+
+            return wire;
+        }
+
+        private static WireFlowState MapWireFlow(Sim.Snapshot.FlowSnapshot flow)
+        {
+            return new WireFlowState(
+                (int)flow.FlowState,
+                flow.LevelIndex,
+                flow.RoundIndex,
+                flow.SelectedChefHatId,
+                flow.TargetScore,
+                flow.CumulativeScore,
+                flow.CookAttemptsUsed,
+                (int)flow.RoundState,
+                flow.CookResultSeq,
+                flow.LastCookScoreDelta,
+                flow.LastCookMetTarget);
         }
     }
 }

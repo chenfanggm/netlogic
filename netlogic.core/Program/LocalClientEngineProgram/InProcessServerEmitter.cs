@@ -1,5 +1,6 @@
 using LiteNetLib.Utils;
 using Net;
+using Net.WireState;
 using Sim.Engine;
 using Sim.Game;
 using Sim.Snapshot;
@@ -29,14 +30,18 @@ namespace Program
         public BaselineMsg BuildBaseline(int serverTick, Game world)
         {
             EntityState[] entities = BuildEntityStates(world);
+            WireEntityState[] wireEntities = MapWireEntities(entities);
+            WireFlowState wireFlow = MapWireFlow(world.BuildFlowSnapshot());
 
             return new BaselineMsg(
                 ProtocolVersion.Current,
                 HashContract.ScopeId,
                 (byte)HashContract.Phase,
+                StateSchema.BaselineSchemaId,
                 serverTick,
                 StateHash.ComputeWorldHash(world),
-                entities);
+                wireFlow,
+                wireEntities);
         }
 
         public BaselineMsg BuildBaselineFromSnapshot(int serverTick, uint stateHash, GameSnapshot snapshot)
@@ -52,13 +57,18 @@ namespace Program
                 i++;
             }
 
+            WireEntityState[] wireEntities = MapWireEntities(entities);
+            WireFlowState wireFlow = MapWireFlow(snapshot.Flow);
+
             return new BaselineMsg(
                 ProtocolVersion.Current,
                 HashContract.ScopeId,
                 (byte)HashContract.Phase,
+                StateSchema.BaselineSchemaId,
                 serverTick,
                 stateHash,
-                entities);
+                wireFlow,
+                wireEntities);
         }
 
         public ServerOpsMsg BuildSampleOpsFromSnapshot(int serverTick, Game world)
@@ -233,6 +243,34 @@ namespace Program
         private static EntityState[] BuildEntityStates(Game world)
         {
             return world.ToSnapshot();
+        }
+
+        private static WireEntityState[] MapWireEntities(EntityState[] entities)
+        {
+            WireEntityState[] wire = new WireEntityState[entities.Length];
+            for (int i = 0; i < entities.Length; i++)
+            {
+                EntityState e = entities[i];
+                wire[i] = new WireEntityState(e.Id, e.X, e.Y, e.Hp);
+            }
+
+            return wire;
+        }
+
+        private static WireFlowState MapWireFlow(FlowSnapshot flow)
+        {
+            return new WireFlowState(
+                (int)flow.FlowState,
+                flow.LevelIndex,
+                flow.RoundIndex,
+                flow.SelectedChefHatId,
+                flow.TargetScore,
+                flow.CumulativeScore,
+                flow.CookAttemptsUsed,
+                (int)flow.RoundState,
+                flow.CookResultSeq,
+                flow.LastCookScoreDelta,
+                flow.LastCookMetTarget);
         }
     }
 }

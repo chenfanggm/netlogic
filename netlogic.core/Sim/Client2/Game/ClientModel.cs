@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Client2.Protocol;
 using Net;
+using Net.WireState;
 using Sim.Snapshot;
 
 namespace Client2.Game
@@ -30,8 +31,8 @@ namespace Client2.Game
             _entities.Clear();
             for (int i = 0; i < baseline.Entities.Length; i++)
             {
-                EntityState e = baseline.Entities[i];
-                _entities[e.Id] = e;
+                WireEntityState e = baseline.Entities[i];
+                _entities[e.Id] = new EntityState(e.Id, e.X, e.Y, e.Hp);
             }
 
             LastServerTick = baseline.ServerTick;
