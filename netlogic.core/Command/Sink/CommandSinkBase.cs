@@ -1,6 +1,5 @@
 // FILE: netlogic.core/Sim/Systems/SystemBase.cs
 // Base system with handler registry and tick-local inbox.
-using System.Reflection;
 
 namespace Sim.Command
 {
@@ -84,59 +83,10 @@ namespace Sim.Command
         /// </summary>
         protected virtual void ExecuteAfterCommands(Game.Game world) { }
 
+        [Obsolete("Reflection-based handler discovery is disabled. Use EngineCommandHandlerRegistry and explicit registration.", error: true)]
         protected static IEngineCommandHandler<TCommandType>[] DiscoverHandlersForSystem(Type systemType)
         {
-            ArgumentNullException.ThrowIfNull(systemType);
-
-            List<IEngineCommandHandler<TCommandType>> list = new List<IEngineCommandHandler<TCommandType>>(16);
-
-            Type handlerInterface = typeof(IEngineCommandHandler<TCommandType>);
-
-            Type[] types;
-            try
-            {
-                types = Assembly.GetExecutingAssembly().GetTypes();
-            }
-            catch (ReflectionTypeLoadException ex)
-            {
-                types = ex.Types.Where(t => t != null).ToArray()!;
-            }
-
-            for (int i = 0; i < types.Length; i++)
-            {
-                Type? type = types[i];
-                if (type == null) continue;
-
-                if (!type.IsClass || type.IsAbstract) continue;
-                if (!handlerInterface.IsAssignableFrom(type)) continue;
-
-                object[] attrs = type.GetCustomAttributes(typeof(EngineCommandHandlerAttribute), inherit: false);
-                bool belongs = false;
-                for (int a = 0; a < attrs.Length; a++)
-                {
-                    EngineCommandHandlerAttribute attr = (EngineCommandHandlerAttribute)attrs[a];
-                    if (attr.SystemType == systemType)
-                    {
-                        belongs = true;
-                        break;
-                    }
-                }
-                if (!belongs) continue;
-
-                if (type.GetConstructor(Type.EmptyTypes) == null)
-                {
-                    throw new InvalidOperationException(
-                        $"Handler {type.FullName} is marked for {systemType.Name} but has no parameterless constructor.");
-                }
-
-                IEngineCommandHandler<TCommandType> instance =
-                    (IEngineCommandHandler<TCommandType>)Activator.CreateInstance(type)!;
-                list.Add(instance);
-            }
-
-            list.Sort((x, y) => Comparer<TCommandType>.Default.Compare(x.CommandType, y.CommandType));
-
-            return [.. list];
+            throw new NotSupportedException("Reflection-based handler discovery is disabled. Use EngineCommandHandlerRegistry.");
         }
     }
 }
