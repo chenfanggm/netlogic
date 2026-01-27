@@ -37,6 +37,18 @@ namespace Sim.Server
         private uint _serverUnreliableSeq;
         private readonly NetDataWriter _opsWriter;
 
+        private readonly ServerNetMetrics _netMetrics = new ServerNetMetrics();
+
+        // Baseline policy
+        private readonly int _baselineEveryTicks = 60;
+        private readonly int _baselineCooldownTicks = 10;
+        private readonly Dictionary<int, int> _nextPeriodicBaselineTick = new();
+        private readonly Dictionary<int, int> _nextAllowedTriggeredBaselineTick = new();
+
+        // Optional: print metrics periodically
+        private int _nextMetricsPrintTick = 0;
+        private readonly int _metricsPrintEveryTicks = 120;
+
 
         public int CurrentServerTick => _engine.CurrentTick;
         public int TickRateHz => _tickRateHz;
@@ -78,6 +90,7 @@ namespace Sim.Server
         public void TickOnce(TickContext ctx)
         {
             _lastServerTimeMs = ctx.ServerTimeMs;
+            _netMetrics.Tick(ctx.ServerTimeMs);
             using TickFrame frame = _engine.TickOnce(ctx);
 
             // Hash is produced by the engine as part of the canonical Frame.
@@ -85,9 +98,8 @@ namespace Sim.Server
 
             using RepOpPartitioner.PartitionedOps part = RepOpPartitioner.Partition(frame.Ops.Span);
 
-            // Baseline cadence is adapter-owned.
-            if ((frame.Tick % Protocol.BaselineIntervalTicks) == 0)
-                SendBaselineToAll();
+            RunPeriodicBaselines(CurrentServerTick);
+            MaybePrintNetMetrics(CurrentServerTick);
 
             // Reliable lane: only reliable RepOps (e.g., FlowFire) are encoded here.
             ConsumeReliableOps(frame.Tick, part.Reliable);
@@ -116,6 +128,9 @@ namespace Sim.Server
                 SendWelcome(connId);
                 SendBaseline(connId);
                 ReplayReliableStream(connId);
+
+                _nextPeriodicBaselineTick[connId] = CurrentServerTick + _baselineEveryTicks;
+                _nextAllowedTriggeredBaselineTick[connId] = CurrentServerTick;
             }
         }
 
@@ -139,6 +154,8 @@ namespace Sim.Server
                     SendWelcome(packet.ConnId);
                     SendBaseline(packet.ConnId);
                     ReplayReliableStream(packet.ConnId);
+                    _nextPeriodicBaselineTick[packet.ConnId] = CurrentServerTick + _baselineEveryTicks;
+                    _nextAllowedTriggeredBaselineTick[packet.ConnId] = CurrentServerTick;
                     continue;
                 }
 
@@ -151,7 +168,7 @@ namespace Sim.Server
                         serverTick: _engine.CurrentTick);
 
                     byte[] bytes = MsgCodec.EncodePong(pong);
-                    _transport.Send(packet.ConnId, Lane.Reliable, new ArraySegment<byte>(bytes, 0, bytes.Length));
+                    SendPacket(packet.ConnId, Lane.Reliable, bytes);
                     continue;
                 }
 
@@ -193,7 +210,7 @@ namespace Sim.Server
         private void SendWelcome(int connId)
         {
             byte[] bytes = MsgCodec.EncodeWelcome(_tickRateHz, _engine.CurrentTick, _lastServerTimeMs);
-            _transport.Send(connId, Lane.Reliable, new ArraySegment<byte>(bytes, 0, bytes.Length));
+            SendPacket(connId, Lane.Reliable, bytes);
         }
 
         public NetHealthStats GetNetHealthStats()
@@ -215,7 +232,10 @@ namespace Sim.Server
             BaselineMsg msg = BaselineBuilder.Build(snap, _engine.CurrentTick, hash);
             byte[] bytes = MsgCodec.EncodeBaseline(msg);
 
-            _transport.Send(connId, Lane.Reliable, new ArraySegment<byte>(bytes, 0, bytes.Length));
+            SendPacket(connId, Lane.Reliable, bytes);
+            _netMetrics.RecordBaselineSent();
+            _nextPeriodicBaselineTick[connId] = CurrentServerTick + _baselineEveryTicks;
+            _nextAllowedTriggeredBaselineTick[connId] = CurrentServerTick + _baselineCooldownTicks;
         }
 
         private void SendBaselineToAll()
@@ -234,7 +254,7 @@ namespace Sim.Server
                 return;
 
             foreach (byte[] packetBytes in stream.GetUnackedPackets())
-                _transport.Send(connId, Lane.Reliable, new ArraySegment<byte>(packetBytes, 0, packetBytes.Length));
+                SendPacket(connId, Lane.Reliable, packetBytes);
         }
 
         // -------------------------
@@ -330,7 +350,7 @@ namespace Sim.Server
                 {
                     byte[] packetBytes = stream.FlushToPacketIfAny(serverTick, worldHash);
                     if (packetBytes != null)
-                        _transport.Send(connId, Lane.Reliable, new ArraySegment<byte>(packetBytes, 0, packetBytes.Length));
+                        SendPacket(connId, Lane.Reliable, packetBytes);
                 }
 
                 k++;
@@ -379,9 +399,85 @@ namespace Sim.Server
             while (k < _clients.Count)
             {
                 int connId = _clients[k];
-                _transport.Send(connId, Lane.Unreliable, new ArraySegment<byte>(packetBytes, 0, packetBytes.Length));
+                SendPacket(connId, Lane.Unreliable, packetBytes);
                 k++;
             }
+        }
+
+        public void RequestBaseline(int connId, string reason)
+        {
+            int now = CurrentServerTick;
+
+            if (!_nextAllowedTriggeredBaselineTick.TryGetValue(connId, out int allowedAt))
+                allowedAt = now;
+
+            if (now < allowedAt)
+                return;
+
+            Console.WriteLine($"[Net] Baseline requested conn={connId} tick={now} reason={reason}");
+
+            SendBaseline(connId);
+            ReplayReliableStream(connId);
+
+            _nextAllowedTriggeredBaselineTick[connId] = now + _baselineCooldownTicks;
+        }
+
+        private void RunPeriodicBaselines(int nowTick)
+        {
+            if (_baselineEveryTicks <= 0)
+                return;
+
+            List<int> keys = new List<int>(_nextPeriodicBaselineTick.Keys);
+            int i = 0;
+            while (i < keys.Count)
+            {
+                int connId = keys[i];
+                if (_nextPeriodicBaselineTick.TryGetValue(connId, out int dueTick) && nowTick >= dueTick)
+                    SendBaseline(connId);
+                i++;
+            }
+        }
+
+        private void MaybePrintNetMetrics(int nowTick)
+        {
+            if (nowTick < _nextMetricsPrintTick)
+                return;
+
+            _nextMetricsPrintTick = nowTick + _metricsPrintEveryTicks;
+
+            ServerNetMetrics.Snapshot snap = _netMetrics.GetSnapshot();
+            CommandIngressStats stats = GetCommandIngressStats();
+
+            Console.WriteLine(
+                $"[NetStats] tick={nowTick} " +
+                $"relBps(avg60s)={snap.AvgReliableBytesPerSec:0.0} " +
+                $"unrelBps(avg60s)={snap.AvgUnreliableBytesPerSec:0.0} " +
+                $"baselines(last60s)={snap.BaselinesTotalLast60s} min/s={snap.BaselinesMinPerSec} max/s={snap.BaselinesMaxPerSec} " +
+                $"cmd.drop_old={stats.DroppedTooOld} cmd.snap_late={stats.SnappedLate} cmd.clamp_future={stats.ClampedFuture}");
+        }
+
+        private CommandIngressStats GetCommandIngressStats()
+        {
+            _engine.GetCommandBufferStats(
+                out long droppedTooOld,
+                out long snappedLate,
+                out long clampedFuture,
+                out _);
+
+            return new CommandIngressStats(droppedTooOld, snappedLate, clampedFuture);
+        }
+
+        private void SendPacket(int connId, Lane lane, byte[] payload)
+        {
+            if (payload == null)
+                return;
+
+            _transport.Send(connId, lane, new ArraySegment<byte>(payload, 0, payload.Length));
+
+            if (lane == Lane.Reliable)
+                _netMetrics.RecordReliableBytes(payload.Length);
+            else
+                _netMetrics.RecordUnreliableBytes(payload.Length);
         }
 
         private void DisconnectClient(int connId, string reason)
@@ -391,6 +487,8 @@ namespace Sim.Server
             _clientSet.Remove(connId);
             _clients.Remove(connId);
             _reliableStreams.Remove(connId);
+            _nextPeriodicBaselineTick.Remove(connId);
+            _nextAllowedTriggeredBaselineTick.Remove(connId);
         }
 
     }
