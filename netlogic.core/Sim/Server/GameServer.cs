@@ -27,6 +27,7 @@ namespace Sim.Server
 
         private readonly ClientOpsMsgToClientCommandConverter _converter;
         private readonly List<int> _clients;
+        private readonly HashSet<int> _clientSet;
         private readonly Dictionary<int, ServerReliableStream> _reliableStreams;
 
         private const int ReliableMaxOpsBytesPerTick = 8 * 1024;
@@ -53,6 +54,7 @@ namespace Sim.Server
             _converter = new ClientOpsMsgToClientCommandConverter(initialCapacity: 32);
 
             _clients = new List<int>(32);
+            _clientSet = new HashSet<int>();
             _reliableStreams = new Dictionary<int, ServerReliableStream>(32);
 
             _serverSampleSeq = 1;
@@ -77,7 +79,7 @@ namespace Sim.Server
 
         public void TickOnce(TickContext ctx)
         {
-            TickFrame frame = _engine.TickOnce(ctx);
+            using TickFrame frame = _engine.TickOnce(ctx);
 
             // Hash is produced by the engine as part of the canonical Frame.
             uint worldHash = frame.StateHash;
@@ -107,7 +109,7 @@ namespace Sim.Server
         {
             while (_transport.TryDequeueConnected(out int connId))
             {
-                if (!_clients.Contains(connId))
+                if (_clientSet.Add(connId))
                     _clients.Add(connId);
 
                 if (!_reliableStreams.ContainsKey(connId))
@@ -221,12 +223,13 @@ namespace Sim.Server
 
         private void SendFlowSnapshotIfChanged(in TickFrame frame)
         {
-            if (frame.Ops != null)
+            if (frame.Ops.Count > 0)
             {
+                ReadOnlySpan<RepOp> ops = frame.Ops.Span;
                 int i = 0;
-                while (i < frame.Ops.Length)
+                while (i < ops.Length)
                 {
-                    if (frame.Ops[i].Type == RepOpType.FlowSnapshot)
+                    if (ops[i].Type == RepOpType.FlowSnapshot)
                         return;
                     i++;
                 }
@@ -237,21 +240,8 @@ namespace Sim.Server
 
             Sim.Snapshot.FlowSnapshot flow = frame.Snapshot.Flow;
 
-            if (_hasLastFlowSnap
-                && _lastFlowSnap.FlowState == flow.FlowState
-                && _lastFlowSnap.LevelIndex == flow.LevelIndex
-                && _lastFlowSnap.RoundIndex == flow.RoundIndex
-                && _lastFlowSnap.SelectedChefHatId == flow.SelectedChefHatId
-                && _lastFlowSnap.TargetScore == flow.TargetScore
-                && _lastFlowSnap.CumulativeScore == flow.CumulativeScore
-                && _lastFlowSnap.CookAttemptsUsed == flow.CookAttemptsUsed
-                && _lastFlowSnap.RoundState == flow.RoundState
-                && _lastFlowSnap.CookResultSeq == flow.CookResultSeq
-                && _lastFlowSnap.LastCookScoreDelta == flow.LastCookScoreDelta
-                && _lastFlowSnap.LastCookMetTarget == flow.LastCookMetTarget)
-            {
+            if (_hasLastFlowSnap && _lastFlowSnap == flow)
                 return;
-            }
 
             _hasLastFlowSnap = true;
             _lastFlowSnap = flow;
@@ -298,10 +288,10 @@ namespace Sim.Server
         {
             // Only a subset of RepOps should be delivered reliably.
             // In this demo, we treat FlowFire as reliable and everything else as Sample.
-            if (frame.Ops == null || frame.Ops.Length == 0)
+            if (frame.Ops.Count == 0)
                 return;
 
-            EncodeReliableRepOpsToWire(frame.Ops, out ushort opCount, out byte[] opsPayload);
+            EncodeReliableRepOpsToWire(frame.Ops.Span, out ushort opCount, out byte[] opsPayload);
 
             if (opCount == 0)
                 return;
@@ -319,12 +309,12 @@ namespace Sim.Server
             }
         }
 
-        private void EncodeReliableRepOpsToWire(RepOp[] ops, out ushort opCount, out byte[] payload)
+        private void EncodeReliableRepOpsToWire(ReadOnlySpan<RepOp> ops, out ushort opCount, out byte[] payload)
         {
             _opsWriter.Reset();
             opCount = 0;
 
-            if (ops != null)
+            if (ops.Length > 0)
             {
                 int i = 0;
                 while (i < ops.Length)
@@ -400,7 +390,7 @@ namespace Sim.Server
             _opsWriter.Reset();
             ushort opCount = 0;
 
-            RepOp[] ops = frame.Ops;
+            ReadOnlySpan<RepOp> ops = frame.Ops.Span;
 
             int i = 0;
             while (i < ops.Length)

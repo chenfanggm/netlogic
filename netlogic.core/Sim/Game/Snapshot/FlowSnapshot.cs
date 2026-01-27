@@ -1,3 +1,4 @@
+using System;
 using Sim.Game.Flow;
 
 namespace Sim.Snapshot
@@ -6,7 +7,7 @@ namespace Sim.Snapshot
     /// Compact authoritative snapshot of game flow + run/level/round runtime.
     /// Designed for client UI and deterministic replay checks.
     /// </summary>
-    public readonly struct FlowSnapshot
+    public readonly struct FlowSnapshot : IEquatable<FlowSnapshot>
     {
         public readonly GameFlowState FlowState;
 
@@ -59,5 +60,42 @@ namespace Sim.Snapshot
             LastCookScoreDelta = lastCookScoreDelta;
             LastCookMetTarget = lastCookMetTarget;
         }
+
+        public bool Equals(FlowSnapshot other)
+        {
+            return FlowState == other.FlowState
+                && LevelIndex == other.LevelIndex
+                && RoundIndex == other.RoundIndex
+                && SelectedChefHatId == other.SelectedChefHatId
+                && TargetScore == other.TargetScore
+                && CumulativeScore == other.CumulativeScore
+                && CookAttemptsUsed == other.CookAttemptsUsed
+                && RoundState == other.RoundState
+                && CookResultSeq == other.CookResultSeq
+                && LastCookScoreDelta == other.LastCookScoreDelta
+                && LastCookMetTarget == other.LastCookMetTarget;
+        }
+
+        public override bool Equals(object? obj) => obj is FlowSnapshot other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            HashCode hash = new HashCode();
+            hash.Add(FlowState);
+            hash.Add(LevelIndex);
+            hash.Add(RoundIndex);
+            hash.Add(SelectedChefHatId);
+            hash.Add(TargetScore);
+            hash.Add(CumulativeScore);
+            hash.Add(CookAttemptsUsed);
+            hash.Add(RoundState);
+            hash.Add(CookResultSeq);
+            hash.Add(LastCookScoreDelta);
+            hash.Add(LastCookMetTarget);
+            return hash.ToHashCode();
+        }
+
+        public static bool operator ==(FlowSnapshot left, FlowSnapshot right) => left.Equals(right);
+        public static bool operator !=(FlowSnapshot left, FlowSnapshot right) => !left.Equals(right);
     }
 }

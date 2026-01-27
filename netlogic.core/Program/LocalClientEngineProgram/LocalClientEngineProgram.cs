@@ -54,7 +54,7 @@ namespace Program
 
             // Run one tick to produce the snapshot
             TickContext bootstrapCtx = new TickContext(serverTimeMs: 0, elapsedMsSinceLastTick: 0);
-            TickFrame bootstrapFrame = engine.TickOnce(bootstrapCtx);
+            using TickFrame bootstrapFrame = engine.TickOnce(bootstrapCtx);
 
             if (bootstrapFrame.Snapshot == null)
                 throw new Exception("Expected snapshot on bootstrap tick, but got null.");
@@ -93,7 +93,7 @@ namespace Program
                     }
 
                     // Tick engine
-                    TickFrame frame = engine.TickOnce(ctx);
+                    using TickFrame frame = engine.TickOnce(ctx);
 
                     // Build snapshot for this tick and deliver to client
                     ServerSnapshot snapshot = BuildSnapshot(engine, frame);

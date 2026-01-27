@@ -32,19 +32,26 @@ namespace Sim.Command
 
         public List<EngineCommand<TCommandType>> MaterializeSorted()
         {
-            List<KeyValuePair<(TCommandType Type, int ReplaceKey), EngineCommand<TCommandType>>> items = [.. _map];
+            if (_map.Count == 0)
+                return new List<EngineCommand<TCommandType>>(0);
 
-            items.Sort((a, b) =>
+            // Sort keys deterministically without allocating a KeyValuePair list.
+            var keys = new (TCommandType Type, int ReplaceKey)[_map.Count];
+            int n = 0;
+            foreach (var kv in _map)
+                keys[n++] = kv.Key;
+
+            Array.Sort(keys, (a, b) =>
             {
-                int typeCompare = Comparer<TCommandType>.Default.Compare(a.Key.Type, b.Key.Type);
+                int typeCompare = Comparer<TCommandType>.Default.Compare(a.Type, b.Type);
                 if (typeCompare != 0)
                     return typeCompare;
-                return a.Key.ReplaceKey.CompareTo(b.Key.ReplaceKey);
+                return a.ReplaceKey.CompareTo(b.ReplaceKey);
             });
 
-            List<EngineCommand<TCommandType>> list = new List<EngineCommand<TCommandType>>(items.Count);
-            for (int i = 0; i < items.Count; i++)
-                list.Add(items[i].Value);
+            var list = new List<EngineCommand<TCommandType>>(keys.Length);
+            for (int i = 0; i < keys.Length; i++)
+                list.Add(_map[keys[i]]);
 
             return list;
         }

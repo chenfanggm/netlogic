@@ -73,9 +73,6 @@ namespace Sim.Command
 
         private void Dispatch(int tick)
         {
-            // BUGFIX: Ensure deterministic connId iteration order.
-            // If GetConnIdsByTick returns a HashSet/Dictionary-backed enumeration,
-            // foreach order is not guaranteed across runs/platforms.
             List<int> connIds = [.. _buffer.GetConnIdsByTick(tick)];
             connIds.Sort();
 
@@ -87,38 +84,40 @@ namespace Sim.Command
                     if (cmds == null || cmds.Count == 0)
                         continue;
 
-                    // Phase 0: priority == 0 (typically: FlowState transitions)
-                    DispatchPhase(cmds, desiredPriority: 0);
+                    // One-pass stable dispatch:
+                    // - Priority 0 inboxed immediately
+                    // - Non-zero queued and inboxed after (preserves phase semantics)
+                    List<EngineCommand<TCommandType>>? nonZero = null;
 
-                    // Phase 1+: everything else
-                    DispatchNonZero(cmds);
+                    for (int i = 0; i < cmds.Count; i++)
+                    {
+                        EngineCommand<TCommandType> cmd = cmds[i];
+                        int prio = _priorityOfType(cmd.Type);
+
+                        if (!_routes.TryGetValue(cmd.Type, out ICommandSink<TCommandType>? sink) || sink == null)
+                            continue;
+
+                        if (prio == 0)
+                        {
+                            sink.InboxCommand(cmd);
+                        }
+                        else
+                        {
+                            nonZero ??= new List<EngineCommand<TCommandType>>(8);
+                            nonZero.Add(cmd);
+                        }
+                    }
+
+                    if (nonZero != null)
+                    {
+                        for (int i = 0; i < nonZero.Count; i++)
+                        {
+                            EngineCommand<TCommandType> cmd = nonZero[i];
+                            if (_routes.TryGetValue(cmd.Type, out ICommandSink<TCommandType>? sink) && sink != null)
+                                sink.InboxCommand(cmd);
+                        }
+                    }
                 }
-            }
-        }
-
-        private void DispatchPhase(List<EngineCommand<TCommandType>> cmds, int desiredPriority)
-        {
-            for (int i = 0; i < cmds.Count; i++)
-            {
-                EngineCommand<TCommandType> cmd = cmds[i];
-                if (_priorityOfType(cmd.Type) != desiredPriority)
-                    continue;
-
-                if (_routes.TryGetValue(cmd.Type, out ICommandSink<TCommandType>? sink) && sink != null)
-                    sink.InboxCommand(cmd);
-            }
-        }
-
-        private void DispatchNonZero(List<EngineCommand<TCommandType>> cmds)
-        {
-            for (int i = 0; i < cmds.Count; i++)
-            {
-                EngineCommand<TCommandType> cmd = cmds[i];
-                if (_priorityOfType(cmd.Type) == 0)
-                    continue;
-
-                if (_routes.TryGetValue(cmd.Type, out ICommandSink<TCommandType>? sink) && sink != null)
-                    sink.InboxCommand(cmd);
             }
         }
 

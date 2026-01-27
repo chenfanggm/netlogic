@@ -108,7 +108,7 @@ namespace Sim.Engine
             EmitFlowIfChanged(flowSnapshot);
 
             // 5) Finalize
-            RepOp[] ops = _replication.EndTickAndFlush();
+            RepOpBatch ops = _replication.EndTickAndFlush();
 
             // Clear transient hook
             _game.SetReplicator(null);
@@ -131,21 +131,8 @@ namespace Sim.Engine
 
         private void EmitFlowIfChanged(in FlowSnapshot flow)
         {
-            if (_hasLastFlowSnap
-                && _lastFlowSnap.FlowState == flow.FlowState
-                && _lastFlowSnap.LevelIndex == flow.LevelIndex
-                && _lastFlowSnap.RoundIndex == flow.RoundIndex
-                && _lastFlowSnap.SelectedChefHatId == flow.SelectedChefHatId
-                && _lastFlowSnap.TargetScore == flow.TargetScore
-                && _lastFlowSnap.CumulativeScore == flow.CumulativeScore
-                && _lastFlowSnap.CookAttemptsUsed == flow.CookAttemptsUsed
-                && _lastFlowSnap.RoundState == flow.RoundState
-                && _lastFlowSnap.CookResultSeq == flow.CookResultSeq
-                && _lastFlowSnap.LastCookScoreDelta == flow.LastCookScoreDelta
-                && _lastFlowSnap.LastCookMetTarget == flow.LastCookMetTarget)
-            {
+            if (_hasLastFlowSnap && _lastFlowSnap == flow)
                 return;
-            }
 
             _hasLastFlowSnap = true;
             _lastFlowSnap = flow;

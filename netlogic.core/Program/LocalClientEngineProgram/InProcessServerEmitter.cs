@@ -76,7 +76,7 @@ namespace Program
                 opsPayload: payload);
         }
 
-        public ServerOpsMsg BuildSampleOpsFromRepOps(int serverTick, uint stateHash, RepOp[] ops)
+        public ServerOpsMsg BuildSampleOpsFromRepOps(int serverTick, uint stateHash, ReadOnlySpan<RepOp> ops)
         {
             _w.Reset();
             ushort opCount = 0;

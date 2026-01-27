@@ -86,34 +86,34 @@ namespace Program.FlowScript
                     break;
 
                 case GameFlowState.InRound:
-                {
-                    if (_enteredInRoundAtMs < 0)
-                        _enteredInRoundAtMs = nowMs;
-
-                    if (_lastMoveAtMs < 0 || nowMs - _lastMoveAtMs >= 200)
                     {
-                        _lastMoveAtMs = nowMs;
-                        move();
-                    }
+                        if (_enteredInRoundAtMs < 0)
+                            _enteredInRoundAtMs = nowMs;
 
-                    // After 1 second in-round, cook + continue in cycles to exit round.
-                    if (nowMs - _enteredInRoundAtMs >= 1000)
-                    {
-                        if (_waitingForContinue)
+                        if (_lastMoveAtMs < 0 || nowMs - _lastMoveAtMs >= 200)
                         {
-                            _waitingForContinue = false;
-                            fireIntent(GameFlowIntent.ClickContinue, 0);
-                            _cookCyclesCompleted++;
+                            _lastMoveAtMs = nowMs;
+                            move();
                         }
-                        else if (_cookCyclesCompleted < 3)
-                        {
-                            fireIntent(GameFlowIntent.ClickCook, 0);
-                            _waitingForContinue = true;
-                        }
-                    }
 
-                    break;
-                }
+                        // After 1 second in-round, cook + continue in cycles to exit round.
+                        if (nowMs - _enteredInRoundAtMs >= 4000)
+                        {
+                            if (_waitingForContinue)
+                            {
+                                _waitingForContinue = false;
+                                fireIntent(GameFlowIntent.ClickContinue, 0);
+                                _cookCyclesCompleted++;
+                            }
+                            else if (_cookCyclesCompleted < 3)
+                            {
+                                fireIntent(GameFlowIntent.ClickCook, 0);
+                                _waitingForContinue = true;
+                            }
+                        }
+
+                        break;
+                    }
 
                 case GameFlowState.RunVictory:
                     if (!_completedRun)

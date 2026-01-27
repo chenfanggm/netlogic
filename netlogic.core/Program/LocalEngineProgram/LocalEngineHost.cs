@@ -36,8 +36,9 @@ namespace Program
                 onTick: ctx =>
                 {
                     // The engine owns authoritative tick advancement.
-                    TickFrame tickResult = _engine.TickOnce(ctx);
-                    _latest.Publish(tickResult);
+                    using TickFrame frame = _engine.TickOnce(ctx);
+                    TickFrame owned = frame.WithOwnedOps();
+                    _latest.Publish(owned);
                 },
                 token: token))
             {
