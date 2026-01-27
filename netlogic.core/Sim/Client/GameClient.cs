@@ -21,6 +21,9 @@ namespace Sim.Client
         private readonly SnapshotRingBuffer _snapshots;
         private readonly RenderInterpolator _interpolator;
 
+        private readonly ClientAuthoritativeState _sampleAuth;
+        private readonly ClientFlowViewState _flow;
+
         private readonly Stopwatch _clientTime;
         private readonly RttEstimator _rtt;
         private readonly InputDelayController _delay;
@@ -48,6 +51,9 @@ namespace Sim.Client
 
             _snapshots = new SnapshotRingBuffer(capacity: 256);
             _interpolator = new RenderInterpolator();
+
+            _sampleAuth = new ClientAuthoritativeState();
+            _flow = new ClientFlowViewState();
 
             _clientTime = Stopwatch.StartNew();
             _rtt = new RttEstimator();
@@ -203,7 +209,9 @@ namespace Sim.Client
             // Full authoritative reset: clear interpolation and seed with baseline
             _snapshots.Clear();
 
+            // Seed sample auth state from baseline
             SnapshotMsg snap = new SnapshotMsg(msg.ServerTick, msg.Entities);
+            _sampleAuth.ApplyFullSnapshot(snap);
             _snapshots.Add(snap);
 
             _lastSampleServerTick = msg.ServerTick;
@@ -217,9 +225,50 @@ namespace Sim.Client
 
             _lastAppliedReliableSeq = msg.ServerSeq;
 
-            // Parse reliable ops here (container ops/events)
-            // Currently empty hook.
-            // If you add ops: decode with NetDataReader and op-length skipping exactly like sample parsing.
+            // Parse reliable ops (FlowSnapshot)
+            NetDataReader r = new NetDataReader(msg.OpsPayload, 0, msg.OpsPayload.Length);
+
+            int i = 0;
+            while (i < msg.OpCount)
+            {
+                OpType opType = OpsReader.ReadOpType(r);
+                ushort opLen = OpsReader.ReadOpLen(r);
+
+                if (opType == OpType.FlowSnapshot)
+                {
+                    byte flowState = r.GetByte();
+                    byte roundState = r.GetByte();
+                    byte lastMetTarget = r.GetByte();
+                    byte cookAttemptsUsed = r.GetByte();
+
+                    int levelIndex = r.GetInt();
+                    int roundIndex = r.GetInt();
+                    int selectedChefHatId = r.GetInt();
+                    int targetScore = r.GetInt();
+                    int cumulativeScore = r.GetInt();
+                    int cookResultSeq = r.GetInt();
+                    int lastCookScoreDelta = r.GetInt();
+
+                    _flow.ApplyFlowSnapshot(
+                        flowState,
+                        roundState,
+                        lastMetTarget,
+                        cookAttemptsUsed,
+                        levelIndex,
+                        roundIndex,
+                        selectedChefHatId,
+                        targetScore,
+                        cumulativeScore,
+                        cookResultSeq,
+                        lastCookScoreDelta);
+                }
+                else
+                {
+                    OpsReader.SkipBytes(r, opLen);
+                }
+
+                i++;
+            }
 
             // Send ack back to server (reliable lane)
             ClientAckMsg ack = new ClientAckMsg(_lastAppliedReliableSeq);
@@ -241,9 +290,8 @@ namespace Sim.Client
 
             _lastSampleServerTick = msg.ServerTick;
 
+            // Apply PositionAt deltas to sample auth state
             NetDataReader r = new NetDataReader(msg.OpsPayload, 0, msg.OpsPayload.Length);
-
-            EntityState[] entities = new EntityState[msg.OpCount];
 
             int i = 0;
             while (i < msg.OpCount)
@@ -256,7 +304,7 @@ namespace Sim.Client
                     int id = r.GetInt();
                     int x = r.GetInt();
                     int y = r.GetInt();
-                    entities[i] = new EntityState(id, x, y, 0);
+                    _sampleAuth.ApplyPositionAt(id, x, y);
                 }
                 else
                 {
@@ -266,6 +314,8 @@ namespace Sim.Client
                 i++;
             }
 
+            // Materialize full snapshot from sample auth state for interpolation
+            EntityState[] entities = _sampleAuth.ToEntityArrayUnordered();
             SnapshotMsg snap = new SnapshotMsg(msg.ServerTick, entities);
             _snapshots.Add(snap);
         }

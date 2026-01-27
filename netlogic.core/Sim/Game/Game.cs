@@ -21,6 +21,16 @@ namespace Sim.Game
         // ------------------------------------------------------------------
         internal EntityManager EntityManager { get; } = new EntityManager();
 
+        // ------------------------------------------------------------------
+        // Transient per-tick output hook (set by engine)
+        // ------------------------------------------------------------------
+        internal IWorldReplicator? Replicator { get; private set; }
+
+        internal void SetReplicator(IWorldReplicator? replicator)
+        {
+            Replicator = replicator;
+        }
+
 
         // ------------------------------------------------------------------
         // Authoritative flow state + runtime state containers
@@ -58,8 +68,14 @@ namespace Sim.Game
 
         public EntityState[] ToSnapshot() => EntityManager.ToSnapshot();
 
-        public bool TryMoveEntityBy(int entityId, int dx, int dy) =>
-            EntityManager.TryMoveEntityBy(entityId, dx, dy);
+        public bool TryMoveEntityBy(int entityId, int dx, int dy)
+        {
+            bool ok = EntityManager.TryMoveEntityBy(entityId, dx, dy, out int newX, out int newY);
+            if (ok && Replicator != null)
+                Replicator.Record(Sim.Engine.RepOp.PositionAt(entityId, newX, newY));
+
+            return ok;
+        }
 
         // Compatibility methods for existing ServerSim code
         public Entity Spawn(int x, int y) => CreateEntityAt(x, y);

@@ -52,7 +52,11 @@ namespace Sim.Client.Command
                     reader.GetByte();
                     reader.GetByte();
 
-                    list.Add(ClientCommand.FlowFire(trigger));
+                    int param0 = 0;
+                    if (opLen >= 8)
+                        param0 = reader.GetInt();
+
+                    list.Add(ClientCommand.FlowFire(trigger, param0));
                 }
                 else
                 {

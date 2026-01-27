@@ -35,6 +35,10 @@ namespace Sim.Engine
 
         private readonly IReplicationRecorder _replication;
 
+        // Flow replication (emit only on change)
+        private FlowSnapshot _lastFlowSnap;
+        private bool _hasLastFlowSnap;
+
         public GameEngine(Game.Game initialGame)
         {
             _game = initialGame ?? throw new ArgumentNullException(nameof(initialGame));
@@ -43,11 +47,12 @@ namespace Sim.Engine
             // GameFlowSystem first: flow transitions happen before gameplay systems.
             GameFlowSystem flow = new GameFlowSystem();
             MovementSystem movement = new MovementSystem();
-            _commandSinks = [
+
+            _commandSinks =
+            [
                 flow,
                 movement
             ];
-            _replication = new ReplicationRecorder(initialCapacity: 256);
 
             _commandSystem = new CommandSystem<EngineCommandType>(
                 _commandSinks,
@@ -55,13 +60,17 @@ namespace Sim.Engine
                 maxPastTicks: 2,
                 maxStoredTicks: 16);
 
+            _replication = new ReplicationRecorder(initialCapacity: 256);
+
             _currentTick = 0;
             _lastServerTimeMs = 0;
+
+            _lastFlowSnap = default;
+            _hasLastFlowSnap = false;
         }
 
         /// <summary>
         /// Execute exactly one authoritative tick.
-        /// TickContext is provided by the runner (rate/time), but authoritative tick is owned by engine.
         /// </summary>
         public TickFrame TickOnce(TickContext ctx)
         {
@@ -70,36 +79,71 @@ namespace Sim.Engine
 
             _replication.BeginTick(tick);
 
+            // Provide transient replication hook to systems for this tick.
+            _game.SetReplicator(new WorldReplicator(_replication));
+
             // 1) Execute systems in stable order
             _commandSystem.Execute(tick, _game);
 
-            // 2) Game fixed step
+            // 2) Game fixed step (lifecycle + deterministic per-tick logic)
             _game.Advance(1);
 
             // 3) Snapshot (can be made periodic/on-demand later)
             GameSnapshot snapshot = _game.Snapshot();
 
-            // 4) Replication ops (currently: positions each tick; migrate to true deltas later)
-            SampleEntityPos[] entities = snapshot.Entities;
-            int i = 0;
-            while (i < entities.Length)
-            {
-                SampleEntityPos e = entities[i];
-                _replication.Record(RepOp.PositionAt(e.EntityId, e.X, e.Y));
-                i++;
-            }
+            // 4) Flow replication: reliable flow snapshot when changed
+            EmitFlowIfChanged(snapshot.Flow);
 
+            // 5) Finalize
             RepOp[] ops = _replication.EndTickAndFlush();
 
-            // 5) World hash AFTER applying tick
+            // Clear transient hook
+            _game.SetReplicator(null);
+
+            // 6) World hash AFTER applying tick
             uint worldHash = Sim.Game.WorldHash.Compute(_game);
 
             return new TickFrame(
-                tick: _currentTick,
+                tick: tick,
                 serverTimeMs: _lastServerTimeMs,
                 stateHash: worldHash,
                 ops: ops,
                 snapshot: snapshot);
+        }
+
+        private void EmitFlowIfChanged(in FlowSnapshot flow)
+        {
+            if (_hasLastFlowSnap
+                && _lastFlowSnap.FlowState == flow.FlowState
+                && _lastFlowSnap.LevelIndex == flow.LevelIndex
+                && _lastFlowSnap.RoundIndex == flow.RoundIndex
+                && _lastFlowSnap.SelectedChefHatId == flow.SelectedChefHatId
+                && _lastFlowSnap.TargetScore == flow.TargetScore
+                && _lastFlowSnap.CumulativeScore == flow.CumulativeScore
+                && _lastFlowSnap.CookAttemptsUsed == flow.CookAttemptsUsed
+                && _lastFlowSnap.RoundState == flow.RoundState
+                && _lastFlowSnap.CookResultSeq == flow.CookResultSeq
+                && _lastFlowSnap.LastCookScoreDelta == flow.LastCookScoreDelta
+                && _lastFlowSnap.LastCookMetTarget == flow.LastCookMetTarget)
+            {
+                return;
+            }
+
+            _hasLastFlowSnap = true;
+            _lastFlowSnap = flow;
+
+            _replication.Record(RepOp.FlowSnapshot(
+                flowState: (byte)flow.FlowState,
+                roundState: (byte)flow.RoundState,
+                lastCookMetTarget: (byte)(flow.LastCookMetTarget ? 1 : 0),
+                cookAttemptsUsed: (byte)flow.CookAttemptsUsed,
+                levelIndex: flow.LevelIndex,
+                roundIndex: flow.RoundIndex,
+                selectedChefHatId: flow.SelectedChefHatId,
+                targetScore: flow.TargetScore,
+                cumulativeScore: flow.CumulativeScore,
+                cookResultSeq: flow.CookResultSeq,
+                lastCookScoreDelta: flow.LastCookScoreDelta));
         }
 
         public void EnqueueCommands(

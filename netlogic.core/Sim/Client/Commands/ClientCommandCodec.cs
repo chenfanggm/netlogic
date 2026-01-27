@@ -16,7 +16,7 @@ namespace Sim.Client.Command
 
             if (cmd.Type == ClientCommandType.FlowFire)
             {
-                OpsWriter.WriteFlowFire(writer, cmd.Trigger);
+                OpsWriter.WriteFlowFire(writer, cmd.Trigger, cmd.Param0);
                 return;
             }
 

@@ -255,8 +255,31 @@ namespace Sim.Server
                     switch (op.Type)
                     {
                         case RepOpType.FlowFire:
-                            // op.A = trigger (byte stored in int)
-                            OpsWriter.WriteFlowFire(_opsWriter, (byte)op.A);
+                            // op.A = trigger (byte stored in int), op.B = param0
+                            OpsWriter.WriteFlowFire(_opsWriter, (byte)op.A, op.B);
+                            opCount++;
+                            break;
+
+                        case RepOpType.FlowSnapshot:
+                            // Decode packed bytes from op.A
+                            byte flowState = (byte)(op.A & 0xFF);
+                            byte roundState = (byte)((op.A >> 8) & 0xFF);
+                            byte lastCookMetTarget = (byte)((op.A >> 16) & 0xFF);
+                            byte cookAttemptsUsed = (byte)((op.A >> 24) & 0xFF);
+
+                            OpsWriter.WriteFlowSnapshot(
+                                _opsWriter,
+                                flowState,
+                                roundState,
+                                lastCookMetTarget,
+                                cookAttemptsUsed,
+                                op.B,  // levelIndex
+                                op.C,  // roundIndex
+                                op.D,  // selectedChefHatId
+                                op.E,  // targetScore
+                                op.F,  // cumulativeScore
+                                op.G,  // cookResultSeq
+                                op.H); // lastCookScoreDelta
                             opCount++;
                             break;
 
@@ -313,10 +336,9 @@ namespace Sim.Server
                 i++;
             }
 
-            if (opCount == 0)
-                return;
-
-            byte[] opsBytes = _opsWriter.CopyData();
+            // Send heartbeat even when no ops (prevents interpolation gaps)
+            // If opCount == 0, we still send a message with opCount=0 to maintain tick cadence
+            byte[] opsBytes = (opCount == 0) ? Array.Empty<byte>() : _opsWriter.CopyData();
 
             ServerOpsMsg msg = new ServerOpsMsg(
                 serverTick: frame.Tick,

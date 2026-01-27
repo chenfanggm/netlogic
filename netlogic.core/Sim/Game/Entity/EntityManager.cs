@@ -59,14 +59,20 @@ namespace Sim.Game
             return list.ToArray();
         }
 
-        public bool TryMoveEntityBy(int entityId, int dx, int dy)
+        public bool TryMoveEntityBy(int entityId, int dx, int dy, out int newX, out int newY)
         {
             if (!_entities.TryGetValue(entityId, out Entity? entity) || entity == null)
+            {
+                newX = 0;
+                newY = 0;
                 return false;
+            }
 
             entity.X += dx;
             entity.Y += dy;
 
+            newX = entity.X;
+            newY = entity.Y;
             return true;
         }
     }

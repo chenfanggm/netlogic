@@ -9,7 +9,10 @@ namespace Net
         FlowFire = 2,
 
         // Server -> Client (Sample)
-        PositionAt = 50
+        PositionAt = 50,
+
+        // Server -> Client (Reliable)
+        FlowSnapshot = 60
     }
 
     public static class OpsWriter
@@ -24,16 +27,18 @@ namespace Net
             w.Put(dy);
         }
 
-        // Payload: [byte trigger][3 bytes padding]
-        // We keep a fixed op length (4) for simplicity and forward compatibility.
-        public static void WriteFlowFire(NetDataWriter w, byte trigger)
+        public static void WriteFlowFire(NetDataWriter w, byte trigger, int param0)
         {
             w.Put((byte)OpType.FlowFire);
-            w.Put((ushort)4);
+            w.Put((ushort)8);
+
+            // [byte trigger][3 bytes padding][int param0]
             w.Put(trigger);
             w.Put((byte)0);
             w.Put((byte)0);
             w.Put((byte)0);
+
+            w.Put(param0);
         }
 
         public static void WritePositionAt(NetDataWriter w, int entityId, int x, int y)
@@ -43,6 +48,37 @@ namespace Net
             w.Put(entityId);
             w.Put(x);
             w.Put(y);
+        }
+
+        public static void WriteFlowSnapshot(
+            NetDataWriter w,
+            byte flowState,
+            byte roundState,
+            byte lastMetTarget,
+            byte cookAttemptsUsed,
+            int levelIndex,
+            int roundIndex,
+            int selectedChefHatId,
+            int targetScore,
+            int cumulativeScore,
+            int cookResultSeq,
+            int lastCookScoreDelta)
+        {
+            w.Put((byte)OpType.FlowSnapshot);
+            w.Put((ushort)32);
+
+            w.Put(flowState);
+            w.Put(roundState);
+            w.Put(lastMetTarget);
+            w.Put(cookAttemptsUsed);
+
+            w.Put(levelIndex);
+            w.Put(roundIndex);
+            w.Put(selectedChefHatId);
+            w.Put(targetScore);
+            w.Put(cumulativeScore);
+            w.Put(cookResultSeq);
+            w.Put(lastCookScoreDelta);
         }
     }
 

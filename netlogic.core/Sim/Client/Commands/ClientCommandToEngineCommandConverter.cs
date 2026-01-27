@@ -39,7 +39,7 @@ namespace Sim.Client.Commands
                         // Flow intents are authoritative; we accept a byte and cast.
                         // Unknown values are ignored.
                         if (c.Trigger != 0)
-                            list.Add(new FlowIntentEngineCommand((GameFlowIntent)c.Trigger));
+                            list.Add(new FlowIntentEngineCommand((GameFlowIntent)c.Trigger, c.Param0));
                         break;
 
                     case ClientCommandType.None:

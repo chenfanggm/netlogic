@@ -77,5 +77,18 @@ namespace Sim.Client.State
         {
             get { return _entities.Count; }
         }
+
+        public void ApplyPositionAt(int id, int x, int y)
+        {
+            if (_entities.TryGetValue(id, out EntityState existing))
+            {
+                _entities[id] = new EntityState(id, x, y, existing.Hp);
+            }
+            else
+            {
+                // If we haven't seen this id yet, create it with hp=0 (hp not replicated on sample lane here).
+                _entities[id] = new EntityState(id, x, y, 0);
+            }
+        }
     }
 }
