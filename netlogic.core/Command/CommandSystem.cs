@@ -32,7 +32,8 @@ namespace Sim.Command
             Func<TCommandType, int>? priorityOfType = null)
         {
             _sinks = sinks ?? throw new ArgumentNullException(nameof(sinks));
-            _buffer = new EngineCommandBuffer<TCommandType>(maxFutureTicks, maxPastTicks, maxStoredTicks);
+            _buffer = new EngineCommandBuffer<TCommandType>(maxPastTicks, maxFutureTicks);
+            _ = maxStoredTicks;
             _priorityOfType = priorityOfType ?? (_ => 0);
             // Auto-register routes from system declarations
             RegisterRoutes(sinks);
@@ -48,12 +49,12 @@ namespace Sim.Command
             if (commands == null || commands.Count == 0)
                 return;
 
-            _buffer.EnqueueWithValidation(
+            _buffer.EnqueueCommands(
+                currentServerTick: currentServerTick,
                 connId: connId,
-                clientRequestedTick: clientRequestedTick,
+                clientTick: clientRequestedTick,
                 clientCmdSeq: clientCmdSeq,
-                commands: commands,
-                currentServerTick: currentServerTick);
+                commands: commands);
         }
 
         /// <summary>
@@ -66,9 +67,6 @@ namespace Sim.Command
             // 2) Execute sinks in stable order
             for (int i = 0; i < _sinks.Length; i++)
                 _sinks[i].Execute(world);
-            // 3) Cleanup central input buffer
-            _buffer.DropOldTick(tick);
-
         }
 
         private void Dispatch(int tick)
