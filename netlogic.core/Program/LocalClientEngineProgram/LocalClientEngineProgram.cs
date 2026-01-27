@@ -45,7 +45,7 @@ namespace Program
             InProcessServerEmitter emitter = new InProcessServerEmitter();
 
             // Baseline at tick 0
-            var baseline = emitter.BuildBaseline(serverTick: engine.CurrentTick, world: engine.ReadOnlyWorld);
+            BaselineMsg baseline = emitter.BuildBaseline(serverTick: engine.CurrentTick, world: engine.ReadOnlyWorld);
             feed.PushBaseline(baseline);
 
             // ---------------------
@@ -83,14 +83,14 @@ namespace Program
                     }
 
                     // Tick engine
-                    var frame = engine.TickOnce(ctx);
+                    TickFrame frame = engine.TickOnce(ctx);
 
-                    // Build sample ops from snapshot/world and feed them to client
-                    var sampleOps = emitter.BuildSampleOpsFromSnapshot(frame.Tick, engine.ReadOnlyWorld);
+                    // Build sample ops from recorded replication ops and feed them to client
+                    ServerOpsMsg sampleOps = emitter.BuildSampleOpsFromRepOps(frame.Tick, frame.StateHash, frame.Ops);
                     feed.PushOps(sampleOps, Lane.Sample);
 
                     // Build reliable flow snapshot if changed and feed it
-                    if (emitter.TryBuildReliableFlowSnapshot(frame.Tick, engine.ReadOnlyWorld, out var relOps))
+                    if (emitter.TryBuildReliableFlowSnapshot(frame.Tick, engine.ReadOnlyWorld, out ServerOpsMsg relOps))
                         feed.PushOps(relOps, Lane.Reliable);
 
                     // Print every 500ms
@@ -100,7 +100,7 @@ namespace Program
 
                         Console.WriteLine($"[ClientModel] tick={client.Model.LastServerTick} hash={client.Model.LastStateHash}");
 
-                        foreach (var e in client.Model.Entities.Values)
+                        foreach (EntityState e in client.Model.Entities.Values)
                             Console.WriteLine($"  Entity {e.Id} pos=({e.X},{e.Y}) hp={e.Hp}");
 
                         Console.WriteLine(

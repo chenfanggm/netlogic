@@ -1,5 +1,6 @@
 using LiteNetLib.Utils;
 using Net;
+using Sim.Engine;
 using Sim.Game;
 using Sim.Snapshot;
 
@@ -51,6 +52,31 @@ namespace Program
             return new ServerOpsMsg(
                 serverTick: serverTick,
                 stateHash: StateHash.ComputeWorldHash(world),
+                serverSeq: 0, // sample lane ignores serverSeq
+                opCount: opCount,
+                opsPayload: payload);
+        }
+
+        public ServerOpsMsg BuildSampleOpsFromRepOps(int serverTick, uint stateHash, RepOp[] ops)
+        {
+            _w.Reset();
+            ushort opCount = 0;
+
+            for (int i = 0; i < ops.Length; i++)
+            {
+                RepOp op = ops[i];
+                if (op.Type == RepOpType.PositionAt)
+                {
+                    OpsWriter.WritePositionAt(_w, op.A, op.B, op.C);
+                    opCount++;
+                }
+            }
+
+            byte[] payload = (opCount == 0) ? Array.Empty<byte>() : _w.CopyData();
+
+            return new ServerOpsMsg(
+                serverTick: serverTick,
+                stateHash: stateHash,
                 serverSeq: 0, // sample lane ignores serverSeq
                 opCount: opCount,
                 opsPayload: payload);
