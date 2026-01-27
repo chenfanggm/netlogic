@@ -80,18 +80,20 @@ namespace Sim.Server
             // Hash is produced by the engine as part of the canonical Frame.
             uint worldHash = frame.StateHash;
 
+            using RepOpPartitioner.PartitionedOps part = RepOpPartitioner.Partition(frame.Ops.Span);
+
             // Baseline cadence is adapter-owned.
             if ((frame.Tick % Protocol.BaselineIntervalTicks) == 0)
                 SendBaselineToAll();
 
             // Reliable lane: only reliable RepOps (e.g., FlowFire) are encoded here.
-            ConsumeReliableOps(frame);
+            ConsumeReliableOps(frame.Tick, part.Reliable);
 
             // Flush reliable streams (ack/replay lives here).
             FlushReliableStreams(frame.Tick, worldHash);
 
             // Sample lane: positions (latest-wins).
-            SendSampleSnapshotToAll(frame, worldHash);
+            SendSampleSnapshotToAll(frame.Tick, worldHash, part.Sample);
         }
 
         // -------------------------
@@ -225,14 +227,13 @@ namespace Sim.Server
         // Engine -> Reliable (RepOps -> wire ops -> reliable stream)
         // -------------------------
 
-        private void ConsumeReliableOps(in TickFrame frame)
+        private void ConsumeReliableOps(int frameTick, ReadOnlySpan<RepOp> ops)
         {
-            // Only a subset of RepOps should be delivered reliably.
-            // In this demo, we treat FlowFire as reliable and everything else as Sample.
-            if (frame.Ops.Count == 0)
+            // Reliable-only RepOps (already partitioned by policy).
+            if (ops.Length == 0)
                 return;
 
-            EncodeReliableRepOpsToWire(frame.Ops.Span, out ushort opCount, out byte[] opsPayload);
+            EncodeReliableRepOpsToWire(ops, out ushort opCount, out byte[] opsPayload);
 
             if (opCount == 0)
                 return;
@@ -244,7 +245,7 @@ namespace Sim.Server
                 int connId = _clients[k];
                 if (_reliableStreams.TryGetValue(connId, out ServerReliableStream? stream) && stream != null)
                 {
-                    stream.AddOpsForTick(frame.Tick, opCount, opsPayload);
+                    stream.AddOpsForTick(frameTick, opCount, opsPayload);
                 }
                 k++;
             }
@@ -326,12 +327,10 @@ namespace Sim.Server
         // Engine -> Sample (RepOps -> wire ops -> broadcast)
         // -------------------------
 
-        private void SendSampleSnapshotToAll(in TickFrame frame, uint worldHash)
+        private void SendSampleSnapshotToAll(int serverTick, uint worldHash, ReadOnlySpan<RepOp> ops)
         {
             _opsWriter.Reset();
             ushort opCount = 0;
-
-            ReadOnlySpan<RepOp> ops = frame.Ops.Span;
 
             int i = 0;
             while (i < ops.Length)
@@ -354,7 +353,7 @@ namespace Sim.Server
                 ProtocolVersion.Current,
                 HashContract.ScopeId,
                 (byte)HashContract.Phase,
-                frame.Tick,
+                serverTick,
                 _serverSampleSeq++,
                 worldHash,
                 opCount,
