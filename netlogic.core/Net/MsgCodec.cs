@@ -92,6 +92,8 @@ namespace Net
     public sealed partial class ServerOpsMsg
     {
         public ushort ProtocolVersion;
+        public ushort HashScopeId;
+        public byte HashPhase;
         public int ServerTick;
         public uint ServerSeq;
         public uint StateHash;
@@ -101,6 +103,8 @@ namespace Net
         public ServerOpsMsg()
         {
             ProtocolVersion = Net.ProtocolVersion.Current;
+            HashScopeId = HashContract.ScopeId;
+            HashPhase = (byte)HashContract.Phase;
             ServerTick = 0;
             ServerSeq = 0;
             StateHash = 0;
@@ -109,9 +113,19 @@ namespace Net
         }
 
         [MemoryPackConstructor]
-        public ServerOpsMsg(ushort protocolVersion, int serverTick, uint serverSeq, uint stateHash, ushort opCount, byte[] opsPayload)
+        public ServerOpsMsg(
+            ushort protocolVersion,
+            ushort hashScopeId,
+            byte hashPhase,
+            int serverTick,
+            uint serverSeq,
+            uint stateHash,
+            ushort opCount,
+            byte[] opsPayload)
         {
             ProtocolVersion = protocolVersion;
+            HashScopeId = hashScopeId;
+            HashPhase = hashPhase;
             ServerTick = serverTick;
             ServerSeq = serverSeq;
             StateHash = stateHash;
@@ -124,6 +138,8 @@ namespace Net
     public sealed partial class BaselineMsg
     {
         public ushort ProtocolVersion;
+        public ushort HashScopeId;
+        public byte HashPhase;
         public int ServerTick;
         public uint StateHash;
         public EntityState[] Entities;
@@ -131,15 +147,25 @@ namespace Net
         public BaselineMsg()
         {
             ProtocolVersion = Net.ProtocolVersion.Current;
+            HashScopeId = HashContract.ScopeId;
+            HashPhase = (byte)HashContract.Phase;
             ServerTick = 0;
             StateHash = 0;
             Entities = Array.Empty<EntityState>();
         }
 
         [MemoryPackConstructor]
-        public BaselineMsg(ushort protocolVersion, int serverTick, uint stateHash, EntityState[] entities)
+        public BaselineMsg(
+            ushort protocolVersion,
+            ushort hashScopeId,
+            byte hashPhase,
+            int serverTick,
+            uint stateHash,
+            EntityState[] entities)
         {
             ProtocolVersion = protocolVersion;
+            HashScopeId = hashScopeId;
+            HashPhase = hashPhase;
             ServerTick = serverTick;
             StateHash = stateHash;
             Entities = entities ?? Array.Empty<EntityState>();
@@ -289,6 +315,15 @@ namespace Net
                 return false;
             }
 
+            if (msg.HashScopeId != HashContract.ScopeId || msg.HashPhase != (byte)HashContract.Phase)
+            {
+                Console.WriteLine(
+                    $"[Net] Hash contract mismatch on ServerOps. Client scope/phase={HashContract.ScopeId}/{(byte)HashContract.Phase} " +
+                    $"Server scope/phase={msg.HashScopeId}/{msg.HashPhase}");
+                msg = null!;
+                return false;
+            }
+
             return true;
         }
 
@@ -307,6 +342,15 @@ namespace Net
             {
                 Console.WriteLine(
                     $"[Net] Protocol mismatch on Baseline. Client={ProtocolVersion.Current} Server={msg.ProtocolVersion}");
+                msg = null!;
+                return false;
+            }
+
+            if (msg.HashScopeId != HashContract.ScopeId || msg.HashPhase != (byte)HashContract.Phase)
+            {
+                Console.WriteLine(
+                    $"[Net] Hash contract mismatch on Baseline. Client scope/phase={HashContract.ScopeId}/{(byte)HashContract.Phase} " +
+                    $"Server scope/phase={msg.HashScopeId}/{msg.HashPhase}");
                 msg = null!;
                 return false;
             }

@@ -32,6 +32,8 @@ namespace Program
 
             return new BaselineMsg(
                 ProtocolVersion.Current,
+                HashContract.ScopeId,
+                (byte)HashContract.Phase,
                 serverTick,
                 StateHash.ComputeWorldHash(world),
                 entities);
@@ -52,6 +54,8 @@ namespace Program
 
             return new BaselineMsg(
                 ProtocolVersion.Current,
+                HashContract.ScopeId,
+                (byte)HashContract.Phase,
                 serverTick,
                 stateHash,
                 entities);
@@ -72,6 +76,8 @@ namespace Program
 
             return new ServerOpsMsg(
                 ProtocolVersion.Current,
+                HashContract.ScopeId,
+                (byte)HashContract.Phase,
                 serverTick,
                 0, // sample lane ignores serverSeq
                 StateHash.ComputeWorldHash(world),
@@ -98,6 +104,8 @@ namespace Program
 
             return new ServerOpsMsg(
                 ProtocolVersion.Current,
+                HashContract.ScopeId,
+                (byte)HashContract.Phase,
                 serverTick,
                 0, // sample lane ignores serverSeq
                 stateHash,
@@ -150,6 +158,8 @@ namespace Program
 
             msg = new ServerOpsMsg(
                 ProtocolVersion.Current,
+                HashContract.ScopeId,
+                (byte)HashContract.Phase,
                 serverTick,
                 _reliableSeq,
                 stateHash,
@@ -209,6 +219,8 @@ namespace Program
 
             msg = new ServerOpsMsg(
                 ProtocolVersion.Current,
+                HashContract.ScopeId,
+                (byte)HashContract.Phase,
                 serverTick,
                 _reliableSeq,
                 StateHash.ComputeWorldHash(world),

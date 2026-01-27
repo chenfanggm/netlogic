@@ -103,6 +103,8 @@ namespace Sim.Server.Reliability
 
             ServerOpsMsg msg = new ServerOpsMsg(
                 ProtocolVersion.Current,
+                HashContract.ScopeId,
+                (byte)HashContract.Phase,
                 serverTick,
                 NextSeq++,
                 stateHash,

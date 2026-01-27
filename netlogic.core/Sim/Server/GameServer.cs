@@ -195,9 +195,15 @@ namespace Sim.Server
         {
             Game.Game world = _engine.ReadOnlyWorld;
             EntityState[] entities = world.ToSnapshot();
-            uint hash = StateHash.ComputeEntitiesHash(entities);
+            uint hash = StateHash.ComputeWorldHash(world);
 
-            BaselineMsg msg = new BaselineMsg(ProtocolVersion.Current, _engine.CurrentTick, hash, entities);
+            BaselineMsg msg = new BaselineMsg(
+                ProtocolVersion.Current,
+                HashContract.ScopeId,
+                (byte)HashContract.Phase,
+                _engine.CurrentTick,
+                hash,
+                entities);
             byte[] bytes = MsgCodec.EncodeBaseline(msg);
 
             _transport.Send(connId, Lane.Reliable, new ArraySegment<byte>(bytes, 0, bytes.Length));
@@ -353,6 +359,8 @@ namespace Sim.Server
 
             ServerOpsMsg msg = new ServerOpsMsg(
                 ProtocolVersion.Current,
+                HashContract.ScopeId,
+                (byte)HashContract.Phase,
                 frame.Tick,
                 _serverSampleSeq++,
                 worldHash,
