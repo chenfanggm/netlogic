@@ -1,3 +1,6 @@
+using Sim.Hashing;
+using Sim.Snapshot;
+
 namespace Sim.Game
 {
     /// <summary>
@@ -7,27 +10,39 @@ namespace Sim.Game
     /// </summary>
     public static class WorldHash
     {
-        // FNV-1a 32-bit
+        /// <summary>
+        /// Computes a deterministic hash of ALL authoritative state that matters for future simulation.
+        /// This should change if and only if the authoritative state differs.
+        /// </summary>
         public static uint Compute(Game world)
         {
-            uint h = 2166136261u;
+            Fnv1a32 h = Fnv1a32.Start();
 
+            // 1) Flow / run state (authoritative, affects progression and future sim)
+            FlowSnapshot flow = world.BuildFlowSnapshot();
+
+            h.Add((int)flow.FlowState);
+            h.Add(flow.LevelIndex);
+            h.Add(flow.RoundIndex);
+            h.Add(flow.SelectedChefHatId);
+            h.Add(flow.TargetScore);
+            h.Add(flow.CumulativeScore);
+            h.Add(flow.CookAttemptsUsed);
+            h.Add((int)flow.RoundState);
+            h.Add(flow.CookResultSeq);
+            h.Add(flow.LastCookScoreDelta);
+            h.Add(flow.LastCookMetTarget);
+
+            // 2) Entities (must be stable iteration order; Step 2 guarantees this)
             foreach (Entity e in world.Entities)
             {
-                h = Mix(h, (uint)e.Id);
-                h = Mix(h, (uint)e.X);
-                h = Mix(h, (uint)e.Y);
-                h = Mix(h, (uint)e.Hp);
+                h.Add(e.Id);
+                h.Add(e.X);
+                h.Add(e.Y);
+                h.Add(e.Hp);
             }
 
-            return h;
-        }
-
-        private static uint Mix(uint h, uint v)
-        {
-            h ^= v;
-            h *= 16777619u;
-            return h;
+            return h.Finish();
         }
     }
 }
