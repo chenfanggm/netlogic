@@ -13,7 +13,7 @@ namespace Client2.Game
     {
         public ClientModel Model { get; } = new ClientModel();
 
-        private readonly NetworkClient2 _net;
+        private readonly NetworkClient2? _net;
 
         private int _lastAppliedSampleTick;
         private uint _lastAppliedReliableSeq;
@@ -33,9 +33,22 @@ namespace Client2.Game
             _clientOpsWriter = new NetDataWriter();
         }
 
-        public void Start() => _net.Start();
-        public void Connect(string host, int port) => _net.Connect(host, port);
-        public void Poll() => _net.Poll();
+        public GameClient2(Client2.Net.InProcessNetFeed feed)
+        {
+            if (feed == null) throw new ArgumentNullException(nameof(feed));
+
+            feed.BaselineReceived += OnBaseline;
+            feed.ServerOpsReceived += OnServerOps;
+
+            _lastAppliedSampleTick = -1;
+            _lastAppliedReliableSeq = 0;
+
+            _clientOpsWriter = new NetDataWriter();
+        }
+
+        public void Start() => EnsureNet().Start();
+        public void Connect(string host, int port) => EnsureNet().Connect(host, port);
+        public void Poll() => EnsureNet().Poll();
 
         // -------------------------
         // Input sending API (example)
@@ -58,7 +71,7 @@ namespace Client2.Game
                 opsPayload: opsBytes);
 
             byte[] packet = MsgCodec.EncodeClientOps(msg);
-            _net.Send(Lane.Reliable, new ArraySegment<byte>(packet, 0, packet.Length));
+            EnsureNet().Send(Lane.Reliable, new ArraySegment<byte>(packet, 0, packet.Length));
         }
 
         public void SendFlowFire(int targetServerTick, uint clientCmdSeq, byte trigger, int param0)
@@ -78,7 +91,7 @@ namespace Client2.Game
                 opsPayload: opsBytes);
 
             byte[] packet = MsgCodec.EncodeClientOps(msg);
-            _net.Send(Lane.Reliable, new ArraySegment<byte>(packet, 0, packet.Length));
+            EnsureNet().Send(Lane.Reliable, new ArraySegment<byte>(packet, 0, packet.Length));
         }
 
         // -------------------------
@@ -182,7 +195,15 @@ namespace Client2.Game
             // Ack reliable seq back to server
             ClientAckMsg ack = new ClientAckMsg(_lastAppliedReliableSeq);
             byte[] packet = MsgCodec.EncodeClientAck(ack);
-            _net.Send(Lane.Reliable, new ArraySegment<byte>(packet, 0, packet.Length));
+            if (_net != null)
+                _net.Send(Lane.Reliable, new ArraySegment<byte>(packet, 0, packet.Length));
+        }
+
+        private NetworkClient2 EnsureNet()
+        {
+            if (_net == null)
+                throw new InvalidOperationException("Network client not configured for this GameClient2 instance.");
+            return _net;
         }
     }
 }
