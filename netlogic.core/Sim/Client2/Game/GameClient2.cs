@@ -1,7 +1,6 @@
 using System;
 using Client2.Net;
-using LiteNetLib.Utils;
-using Net;
+using Client2.Protocol;
 
 namespace Client2.Game
 {
@@ -15,175 +14,39 @@ namespace Client2.Game
 
         private readonly NetworkClient2 _net;
 
-        private int _lastAppliedSampleTick;
-        private uint _lastAppliedReliableSeq;
-
-        private readonly NetDataWriter _clientOpsWriter;
 
         public GameClient2(NetworkClient2 net)
         {
             _net = net ?? throw new ArgumentNullException(nameof(net));
 
-            _net.BaselineReceived += OnBaseline;
-            _net.ServerOpsReceived += OnServerOps;
-
-            _lastAppliedSampleTick = -1;
-            _lastAppliedReliableSeq = 0;
-
-            _clientOpsWriter = new NetDataWriter();
+            _net.OnServerSnapshot += OnServerSnapshot;
         }
 
-        public void Start() => _net.Start();
-        public void Connect(string host, int port) => _net.Connect(host, port);
         public void Poll() => _net.Poll();
 
         // -------------------------
         // Input sending API (example)
         // -------------------------
 
-        public void SendMoveBy(int targetServerTick, uint clientCmdSeq, int entityId, int dx, int dy)
+        public void SendMoveBy(int entityId, int dx, int dy)
         {
-            _clientOpsWriter.Reset();
-            ushort opCount = 0;
-
-            OpsWriter.WriteMoveBy(_clientOpsWriter, entityId, dx, dy);
-            opCount++;
-
-            byte[] opsBytes = _clientOpsWriter.CopyData();
-
-            ClientOpsMsg msg = new ClientOpsMsg(
-                clientTick: targetServerTick,
-                clientCmdSeq: clientCmdSeq,
-                opCount: opCount,
-                opsPayload: opsBytes);
-
-            byte[] packet = MsgCodec.EncodeClientOps(msg);
-            _net.Send(Lane.Reliable, new ArraySegment<byte>(packet, 0, packet.Length));
+            ClientCommand cmd = ClientCommand.MoveBy(entityId, dx, dy);
+            _net.SendClientCommand(cmd);
         }
 
-        public void SendFlowFire(int targetServerTick, uint clientCmdSeq, byte trigger, int param0)
+        public void SendFlowFire(byte trigger, int param0)
         {
-            _clientOpsWriter.Reset();
-            ushort opCount = 0;
-
-            OpsWriter.WriteFlowFire(_clientOpsWriter, trigger, param0);
-            opCount++;
-
-            byte[] opsBytes = _clientOpsWriter.CopyData();
-
-            ClientOpsMsg msg = new ClientOpsMsg(
-                clientTick: targetServerTick,
-                clientCmdSeq: clientCmdSeq,
-                opCount: opCount,
-                opsPayload: opsBytes);
-
-            byte[] packet = MsgCodec.EncodeClientOps(msg);
-            _net.Send(Lane.Reliable, new ArraySegment<byte>(packet, 0, packet.Length));
+            ClientCommand cmd = ClientCommand.FlowFire(trigger, param0);
+            _net.SendClientCommand(cmd);
         }
 
         // -------------------------
         // Receive/apply
         // -------------------------
 
-        private void OnBaseline(BaselineMsg baseline)
+        private void OnServerSnapshot(ServerSnapshot snapshot)
         {
-            Model.ResetFromBaseline(baseline);
-            _lastAppliedSampleTick = baseline.ServerTick;
-            _lastAppliedReliableSeq = 0;
-        }
-
-        private void OnServerOps(ServerOpsMsg msg, Lane lane)
-        {
-            if (lane == Lane.Sample)
-                ApplySampleOps(msg);
-            else
-                ApplyReliableOps(msg);
-        }
-
-        private void ApplySampleOps(ServerOpsMsg msg)
-        {
-            if (msg.ServerTick <= _lastAppliedSampleTick)
-                return;
-
-            _lastAppliedSampleTick = msg.ServerTick;
-
-            NetDataReader r = new NetDataReader(msg.OpsPayload, 0, msg.OpsPayload.Length);
-
-            int i = 0;
-            while (i < msg.OpCount)
-            {
-                OpType opType = OpsReader.ReadOpType(r);
-                ushort opLen = OpsReader.ReadOpLen(r);
-
-                if (opType == OpType.PositionAt)
-                {
-                    int id = r.GetInt();
-                    int x = r.GetInt();
-                    int y = r.GetInt();
-                    Model.ApplyPositionAt(id, x, y);
-                }
-                else
-                {
-                    OpsReader.SkipBytes(r, opLen);
-                }
-
-                i++;
-            }
-
-            Model.LastServerTick = msg.ServerTick;
-            Model.LastStateHash = msg.StateHash;
-        }
-
-        private void ApplyReliableOps(ServerOpsMsg msg)
-        {
-            // Idempotency guard
-            if (msg.ServerSeq <= _lastAppliedReliableSeq)
-                return;
-
-            _lastAppliedReliableSeq = msg.ServerSeq;
-
-            NetDataReader r = new NetDataReader(msg.OpsPayload, 0, msg.OpsPayload.Length);
-
-            int i = 0;
-            while (i < msg.OpCount)
-            {
-                OpType opType = OpsReader.ReadOpType(r);
-                ushort opLen = OpsReader.ReadOpLen(r);
-
-                if (opType == OpType.FlowSnapshot)
-                {
-                    byte flowState = r.GetByte();
-                    byte roundState = r.GetByte();
-                    byte lastMetTarget = r.GetByte();
-                    byte attemptsUsed = r.GetByte();
-
-                    int levelIndex = r.GetInt();
-                    int roundIndex = r.GetInt();
-                    int selectedHat = r.GetInt();
-
-                    int targetScore = r.GetInt();
-                    int cumulativeScore = r.GetInt();
-
-                    int cookSeq = r.GetInt();
-                    int lastDelta = r.GetInt();
-
-                    Model.Flow.ApplyFlowSnapshot(
-                        flowState, roundState, lastMetTarget, attemptsUsed,
-                        levelIndex, roundIndex, selectedHat,
-                        targetScore, cumulativeScore, cookSeq, lastDelta);
-                }
-                else
-                {
-                    OpsReader.SkipBytes(r, opLen);
-                }
-
-                i++;
-            }
-
-            // Ack reliable seq back to server
-            ClientAckMsg ack = new ClientAckMsg(_lastAppliedReliableSeq);
-            byte[] packet = MsgCodec.EncodeClientAck(ack);
-            _net.Send(Lane.Reliable, new ArraySegment<byte>(packet, 0, packet.Length));
+            Model.ApplySnapshot(snapshot);
         }
     }
 }

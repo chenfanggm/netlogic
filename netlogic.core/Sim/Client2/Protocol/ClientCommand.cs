@@ -7,18 +7,18 @@ namespace Client2.Protocol
         FlowFire = 2
     }
 
-    public readonly struct ClientCommand
+    public sealed class ClientCommand
     {
-        public readonly ClientCommandType Type;
+        public ClientCommandType Type;
 
         // MoveBy
-        public readonly int EntityId;
-        public readonly int Dx;
-        public readonly int Dy;
+        public int EntityId;
+        public int Dx;
+        public int Dy;
 
         // FlowFire
-        public readonly byte Trigger;
-        public readonly int Param0;
+        public byte Trigger;
+        public int Param0;
 
         private ClientCommand(ClientCommandType type, int entityId, int dx, int dy, byte trigger, int param0)
         {

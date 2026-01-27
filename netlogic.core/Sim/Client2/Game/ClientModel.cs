@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using Client2.Protocol;
 using Net;
+using Sim.Snapshot;
 
 namespace Client2.Game
 {
@@ -32,6 +34,21 @@ namespace Client2.Game
             LastStateHash = baseline.StateHash;
         }
 
+        public void ApplySnapshot(ServerSnapshot snapshot)
+        {
+            _entities.Clear();
+            for (int i = 0; i < snapshot.Entities.Length; i++)
+            {
+                EntityState e = snapshot.Entities[i];
+                _entities[e.Id] = e;
+            }
+
+            Flow.ApplyFlowSnapshot(snapshot.Flow);
+
+            LastServerTick = snapshot.ServerTick;
+            LastStateHash = snapshot.StateHash;
+        }
+
         public void ApplyPositionAt(int id, int x, int y)
         {
             if (_entities.TryGetValue(id, out EntityState existing))
@@ -56,32 +73,21 @@ namespace Client2.Game
             public int CookResultSeq { get; internal set; }
             public int LastCookScoreDelta { get; internal set; }
 
-            internal void ApplyFlowSnapshot(
-                byte flowState,
-                byte roundState,
-                byte lastMetTarget,
-                byte cookAttemptsUsed,
-                int levelIndex,
-                int roundIndex,
-                int selectedChefHatId,
-                int targetScore,
-                int cumulativeScore,
-                int cookResultSeq,
-                int lastCookScoreDelta)
+            internal void ApplyFlowSnapshot(FlowSnapshot flow)
             {
-                FlowState = flowState;
-                RoundState = roundState;
-                LastCookMetTarget = lastMetTarget != 0;
-                CookAttemptsUsed = cookAttemptsUsed;
+                FlowState = (byte)flow.FlowState;
+                RoundState = (byte)flow.RoundState;
+                LastCookMetTarget = flow.LastCookMetTarget;
+                CookAttemptsUsed = flow.CookAttemptsUsed;
 
-                LevelIndex = levelIndex;
-                RoundIndex = roundIndex;
-                SelectedChefHatId = selectedChefHatId;
+                LevelIndex = flow.LevelIndex;
+                RoundIndex = flow.RoundIndex;
+                SelectedChefHatId = flow.SelectedChefHatId;
 
-                TargetScore = targetScore;
-                CumulativeScore = cumulativeScore;
-                CookResultSeq = cookResultSeq;
-                LastCookScoreDelta = lastCookScoreDelta;
+                TargetScore = flow.TargetScore;
+                CumulativeScore = flow.CumulativeScore;
+                CookResultSeq = flow.CookResultSeq;
+                LastCookScoreDelta = flow.LastCookScoreDelta;
             }
         }
     }

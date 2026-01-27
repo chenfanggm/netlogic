@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Client2.Game;
 using Client2.Net;
+using Client2.Protocol;
 using Net;
 using Program.FlowScript;
 using Sim.Command;
@@ -43,13 +44,10 @@ namespace Program
             // ---------------------
             // Create in-process feed + client
             // ---------------------
-            InProcessClientTransport transport = new InProcessClientTransport(connId: connId);
-            NetworkClient2 net = new NetworkClient2(transport, tickRateHz);
+            Client2.Net.InProcessNetFeed feed = new Client2.Net.InProcessNetFeed();
+            Client2.Net.InProcessClientTransport transport = new Client2.Net.InProcessClientTransport(feed);
+            NetworkClient2 net = new NetworkClient2(transport);
             GameClient2 client = new GameClient2(net);
-            client.Start();
-            client.Connect(host: "local", port: 0);
-
-            InProcessServerEmitter emitter = new InProcessServerEmitter();
 
             // Force a snapshot for baseline seed
             engine.RequestSnapshot();
@@ -61,20 +59,9 @@ namespace Program
             if (bootstrapFrame.Snapshot == null)
                 throw new Exception("Expected snapshot on bootstrap tick, but got null.");
 
-            // Build baseline from snapshot instead of world iteration (future-proof)
-            BaselineMsg baseline = emitter.BuildBaselineFromSnapshot(
-                serverTick: bootstrapFrame.Tick,
-                stateHash: bootstrapFrame.StateHash,
-                snapshot: bootstrapFrame.Snapshot!);
-            byte[] baselineBytes = MsgCodec.EncodeBaseline(baseline);
-            transport.Enqueue(Lane.Reliable, baselineBytes);
-
-            if (emitter.TryBuildReliableFlowSnapshot(bootstrapFrame.Tick, engine.ReadOnlyWorld, out ServerOpsMsg bootstrapReliable))
-            {
-                byte[] bootstrapRelBytes = MsgCodec.EncodeServerOps(Lane.Reliable, bootstrapReliable);
-                transport.Enqueue(Lane.Reliable, bootstrapRelBytes);
-            }
-
+            // Build initial snapshot and deliver to client
+            ServerSnapshot bootstrapSnapshot = BuildSnapshot(engine, bootstrapFrame);
+            feed.SendFromServer(bootstrapSnapshot);
             client.Poll();
 
             // ---------------------
@@ -107,35 +94,9 @@ namespace Program
                     // Tick engine
                     TickFrame frame = engine.TickOnce(ctx);
 
-                    // If snapshot emitted this tick, treat it as resync baseline
-                    if (frame.Snapshot != null)
-                    {
-                        BaselineMsg resyncBaseline = emitter.BuildBaselineFromSnapshot(
-                            serverTick: frame.Tick,
-                            stateHash: frame.StateHash,
-                            snapshot: frame.Snapshot!);
-                        byte[] resyncBytes = MsgCodec.EncodeBaseline(resyncBaseline);
-                        transport.Enqueue(Lane.Reliable, resyncBytes);
-
-                        if (emitter.TryBuildReliableFlowSnapshot(frame.Tick, engine.ReadOnlyWorld, out ServerOpsMsg rel0))
-                        {
-                            byte[] rel0Bytes = MsgCodec.EncodeServerOps(Lane.Reliable, rel0);
-                            transport.Enqueue(Lane.Reliable, rel0Bytes);
-                        }
-                    }
-
-                    // Build sample ops from recorded replication ops and feed them to client
-                    ServerOpsMsg sampleOps = emitter.BuildSampleOpsFromRepOps(frame.Tick, frame.StateHash, frame.Ops);
-                    byte[] sampleBytes = MsgCodec.EncodeServerOps(Lane.Sample, sampleOps);
-                    transport.Enqueue(Lane.Sample, sampleBytes);
-
-                    // Build reliable flow snapshot (on change) and feed it to client
-                    if (emitter.TryBuildReliableFlowSnapshot(frame.Tick, engine.ReadOnlyWorld, out ServerOpsMsg relOps))
-                    {
-                        byte[] relBytes = MsgCodec.EncodeServerOps(Lane.Reliable, relOps);
-                        transport.Enqueue(Lane.Reliable, relBytes);
-                    }
-
+                    // Build snapshot for this tick and deliver to client
+                    ServerSnapshot snapshot = BuildSnapshot(engine, frame);
+                    feed.SendFromServer(snapshot);
                     client.Poll();
 
                     GameFlowState clientFlow = (GameFlowState)client.Model.Flow.FlowState;
@@ -211,56 +172,17 @@ namespace Program
                 },
                 token: cts.Token);
         }
-    }
-    internal sealed class InProcessClientTransport : IClientTransport
-    {
-        private readonly Queue<NetPacket> _incoming = new Queue<NetPacket>();
-        private readonly int _connId;
-        private bool _connected;
 
-        public InProcessClientTransport(int connId)
+        private static ServerSnapshot BuildSnapshot(GameEngine engine, TickFrame frame)
         {
-            _connId = connId;
-            _connected = true;
-        }
-
-        public bool IsConnected => _connected;
-
-        public void Start() { }
-
-        public void Connect(string host, int port)
-        {
-            _connected = true;
-        }
-
-        public void Poll() { }
-
-        public bool TryReceive(out NetPacket packet)
-        {
-            if (_incoming.Count > 0)
+            Game world = engine.ReadOnlyWorld;
+            return new ServerSnapshot
             {
-                packet = _incoming.Dequeue();
-                return true;
-            }
-
-            packet = default;
-            return false;
-        }
-
-        public void Send(Lane lane, ArraySegment<byte> payload)
-        {
-            // No-op for in-process client harness.
-        }
-
-        public void Enqueue(Lane lane, byte[] payload)
-        {
-            _incoming.Enqueue(new NetPacket(_connId, lane, new ArraySegment<byte>(payload, 0, payload.Length)));
-        }
-
-        public void Dispose()
-        {
-            _incoming.Clear();
-            _connected = false;
+                ServerTick = frame.Tick,
+                StateHash = frame.StateHash,
+                Entities = world.ToSnapshot(),
+                Flow = world.BuildFlowSnapshot()
+            };
         }
     }
 }
