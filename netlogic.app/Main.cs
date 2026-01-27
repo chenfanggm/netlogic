@@ -14,12 +14,6 @@ namespace App
                 case 1:
                     LocalEngineProgram.Run(maxRunningDuration: TimeSpan.FromSeconds(15));
                     break;
-                case 2:
-                    AutoTickProgram.Run(maxRunningDuration: TimeSpan.FromSeconds(15));
-                    break;
-                case 3:
-                    ManualTickProgram.Run(totalTicks: 400);
-                    break;
                 case 4:
                     LocalClientEngineProgram.Run(maxRunningDuration: TimeSpan.FromSeconds(15));
                     break;

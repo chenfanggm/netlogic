@@ -1,6 +1,6 @@
+using Client2.Net;
 using Net;
 using Sim.Time;
-using Client2.Net;
 
 namespace Client2.Game
 {
