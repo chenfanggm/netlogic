@@ -13,32 +13,29 @@ namespace Sim.Client.Command
     {
         public readonly ClientCommandType Type;
 
-        /// <summary>
-        /// Used by FlowFire. Interpreted as a GameFlowIntent byte.
-        /// </summary>
-        public readonly byte Trigger;
-
-        public readonly int Param0;
-
+        // MoveBy
         public readonly int EntityId;
-
         public readonly int Dx;
         public readonly int Dy;
 
-        public ClientCommand(ClientCommandType type, byte trigger, int param0, int entityId, int dx, int dy)
+        // FlowFire
+        public readonly byte Trigger;
+        public readonly int Param0;
+
+        private ClientCommand(ClientCommandType type, int entityId, int dx, int dy, byte trigger, int param0)
         {
             Type = type;
-            Trigger = trigger;
-            Param0 = param0;
             EntityId = entityId;
             Dx = dx;
             Dy = dy;
+            Trigger = trigger;
+            Param0 = param0;
         }
 
         public static ClientCommand MoveBy(int entityId, int dx, int dy)
-            => new ClientCommand(ClientCommandType.MoveBy, trigger: 0, param0: 0, entityId, dx, dy);
+            => new ClientCommand(ClientCommandType.MoveBy, entityId, dx, dy, trigger: 0, param0: 0);
 
         public static ClientCommand FlowFire(byte trigger, int param0)
-            => new ClientCommand(ClientCommandType.FlowFire, trigger, param0, entityId: 0, dx: 0, dy: 0);
+            => new ClientCommand(ClientCommandType.FlowFire, entityId: 0, dx: 0, dy: 0, trigger: trigger, param0: param0);
     }
 }
