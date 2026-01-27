@@ -63,10 +63,20 @@ namespace Sim.Game.Flow
                         return;
                     }
 
-                    if (shouldExitRound && _sm.CanFire(GameFlowIntent.ClickContinue))
+                    if (shouldExitRound)
                     {
-                        // exit back to LevelOverview (won round)
-                        _sm.Fire(GameFlowIntent.ClickContinue);
+                        // For harness: any won round exits to RunVictory.
+                        if (_world.Round.IsRoundWon)
+                        {
+                            _world.FlowManager.SetStateInternal(GameFlowState.RunVictory);
+                            return;
+                        }
+
+                        if (_sm.CanFire(GameFlowIntent.ClickContinue))
+                        {
+                            // exit back to LevelOverview (won round)
+                            _sm.Fire(GameFlowIntent.ClickContinue);
+                        }
                     }
                     return;
                 }

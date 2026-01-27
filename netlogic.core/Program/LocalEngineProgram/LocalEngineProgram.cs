@@ -1,5 +1,9 @@
-using Sim.Game;
+using Program.FlowScript;
+using Sim.Command;
 using Sim.Engine;
+using Sim.Game;
+using Sim.Game.Flow;
+using Sim.System;
 using Sim.Time;
 
 namespace Program
@@ -11,29 +15,110 @@ namespace Program
             const int tickRateHz = 20;
             const int entityId = 1;
             const int connId = 1;
+            const int playerEntityId = 1;
 
             // 1) Build authoritative world + engine (no transport)
             Game game = new Game();
             game.CreateEntityAt(entityId: entityId, x: 0, y: 0);
 
-            IGameEngine engine = new GameEngine(game);
+            GameEngine engine = new GameEngine(game);
 
             // 2) Build outer-ring components (IO around the engine)
             TickRunner runner = new TickRunner(tickRateHz);
-            IInputPump input = new MoveRightInputPump(connId, entityId, period: TimeSpan.FromMilliseconds(250));
-            IOutputPump output = new ConsoleSnapshotOutput(
-                entityId,
-                period: TimeSpan.FromMilliseconds(500),
-                formatter: new SnapshotFormatter(new EntityPositionReader()));
-            LatestValue<TickFrame> latest = new LatestValue<TickFrame>();
-
-            // 3) Host owns threads + lifecycle
-            LocalEngineHost host = new LocalEngineHost(engine, runner, input, output, latest);
+            PlayerFlowScript flowScript = new PlayerFlowScript();
+            uint clientCmdSeq = 1;
+            GameFlowState lastFlowState = (GameFlowState)255;
+            bool exitingInRound = false;
+            long exitMenuAtMs = -1;
+            long lastPrintAtMs = 0;
 
             using CancellationTokenSource cts = new CancellationTokenSource();
             if (maxRunningDuration.HasValue)
                 cts.CancelAfter(maxRunningDuration.Value);
-            host.Run(cts.Token);
+
+            runner.Run(
+                onTick: (TickContext ctx) =>
+                {
+                    engine.TickOnce(ctx);
+
+                    GameFlowState flowState = engine.ReadOnlyWorld.BuildFlowSnapshot().FlowState;
+                    bool leftInRound = (lastFlowState == GameFlowState.InRound) && (flowState != GameFlowState.InRound);
+
+                    flowScript.Step(
+                        flowState,
+                        (long)ctx.ServerTimeMs,
+                        fireIntent: (intent, param0) =>
+                        {
+                            List<EngineCommand<EngineCommandType>> cmds =
+                            [
+                                new FlowIntentEngineCommand(intent, param0)
+                            ];
+
+                            engine.EnqueueCommands(
+                                connId: connId,
+                                requestedClientTick: engine.CurrentTick + 1,
+                                clientCmdSeq: clientCmdSeq++,
+                                commands: cmds);
+                        },
+                        move: () =>
+                        {
+                            List<EngineCommand<EngineCommandType>> cmds =
+                            [
+                                new MoveByEngineCommand(entityId: playerEntityId, dx: 1, dy: 0)
+                            ];
+
+                            engine.EnqueueCommands(
+                                connId: connId,
+                                requestedClientTick: engine.CurrentTick + 1,
+                                clientCmdSeq: clientCmdSeq++,
+                                commands: cmds);
+                        });
+
+                    if (leftInRound && flowState != GameFlowState.MainMenu)
+                    {
+                        exitingInRound = true;
+                        List<EngineCommand<EngineCommandType>> cmds =
+                        [
+                            new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)
+                        ];
+
+                        engine.EnqueueCommands(
+                            connId: connId,
+                            requestedClientTick: engine.CurrentTick + 1,
+                            clientCmdSeq: clientCmdSeq++,
+                            commands: cmds);
+                    }
+
+                    if (exitingInRound && flowState == GameFlowState.MainMenu)
+                    {
+                        if (exitMenuAtMs < 0)
+                            exitMenuAtMs = (long)ctx.ServerTimeMs + 1000;
+                        else if ((long)ctx.ServerTimeMs >= exitMenuAtMs)
+                            cts.Cancel();
+                    }
+
+                    if (flowState == GameFlowState.InRound)
+                    {
+                        foreach (Entity e in engine.ReadOnlyWorld.Entities)
+                        {
+                            if (e.Id == playerEntityId)
+                            {
+                                Console.WriteLine($"[Engine] InRound Entity {playerEntityId} pos=({e.X},{e.Y})");
+                                break;
+                            }
+                        }
+                    }
+
+                    if (flowState != lastFlowState || ctx.ServerTimeMs - lastPrintAtMs >= 250)
+                    {
+                        lastFlowState = flowState;
+                        lastPrintAtMs = (long)ctx.ServerTimeMs;
+
+                        Console.WriteLine(
+                            $"[Engine] t={ctx.ServerTimeMs:0} tick={engine.CurrentTick} Flow={flowState}");
+                    }
+                },
+                token: cts.Token);
         }
     }
 }

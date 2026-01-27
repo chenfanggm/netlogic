@@ -1,9 +1,11 @@
 using Client2.Game;
 using Client2.Net;
 using Net;
+using Program.FlowScript;
 using Sim.Command;
 using Sim.Engine;
 using Sim.Game;
+using Sim.Game.Flow;
 using Sim.System;
 using Sim.Time;
 
@@ -27,6 +29,7 @@ namespace Program
             const int tickRateHz = 20;
             const int entityId = 1;
             const int connId = 1;
+            const int playerEntityId = 1;
 
             // ---------------------
             // Create authoritative world + engine
@@ -61,16 +64,21 @@ namespace Program
                 snapshot: bootstrapFrame.Snapshot!);
             feed.PushBaseline(baseline);
 
+            if (emitter.TryBuildReliableFlowSnapshot(bootstrapFrame.Tick, engine.ReadOnlyWorld, out ServerOpsMsg bootstrapReliable))
+                feed.PushOps(bootstrapReliable, Lane.Reliable);
+
             // ---------------------
             // Drive ticks
             // ---------------------
             TickRunner runner = new TickRunner(tickRateHz);
 
-            long lastMoveAtMs = 0;
+            PlayerFlowScript flowScript = new PlayerFlowScript();
+            uint clientCmdSeq = 1;
+            GameFlowState lastClientFlowState = (GameFlowState)255;
+            bool exitingInRound = false;
+            long exitMenuAtMs = -1;
             long lastPrintAtMs = 0;
             long lastResyncAtMs = 0;
-
-            uint clientCmdSeq = 1;
 
             using CancellationTokenSource cts = new CancellationTokenSource();
             if (maxRunningDuration.HasValue)
@@ -79,23 +87,6 @@ namespace Program
             runner.Run(
                 onTick: (TickContext ctx) =>
                 {
-                    // Inject a server command (as if client sent it) every 250ms.
-                    if ((long)ctx.ServerTimeMs - lastMoveAtMs >= 250)
-                    {
-                        lastMoveAtMs = (long)ctx.ServerTimeMs;
-
-                        List<EngineCommand<EngineCommandType>> cmds =
-                        [
-                            new MoveByEngineCommand(entityId: entityId, dx: 1, dy: 0)
-                        ];
-
-                        engine.EnqueueCommands(
-                            connId: connId,
-                            requestedClientTick: engine.CurrentTick + 1,
-                            clientCmdSeq: clientCmdSeq++,
-                            commands: cmds);
-                    }
-
                     // Periodic resync every 5 seconds (for testing correctness)
                     if ((long)ctx.ServerTimeMs - lastResyncAtMs >= 5000)
                     {
@@ -114,32 +105,88 @@ namespace Program
                             stateHash: frame.StateHash,
                             snapshot: frame.Snapshot!);
                         feed.PushBaseline(resyncBaseline);
+
+                        if (emitter.TryBuildReliableFlowSnapshot(frame.Tick, engine.ReadOnlyWorld, out ServerOpsMsg rel0))
+                            feed.PushOps(rel0, Lane.Reliable);
                     }
 
                     // Build sample ops from recorded replication ops and feed them to client
                     ServerOpsMsg sampleOps = emitter.BuildSampleOpsFromRepOps(frame.Tick, frame.StateHash, frame.Ops);
                     feed.PushOps(sampleOps, Lane.Sample);
 
-                    // Build reliable flow ops from recorded replication ops and feed them to client
-                    if (emitter.TryBuildReliableOpsFromRepOps(frame.Tick, frame.StateHash, frame.Ops, out ServerOpsMsg relOps))
+                    // Build reliable flow snapshot (on change) and feed it to client
+                    if (emitter.TryBuildReliableFlowSnapshot(frame.Tick, engine.ReadOnlyWorld, out ServerOpsMsg relOps))
                         feed.PushOps(relOps, Lane.Reliable);
 
-                    // Print every 500ms
-                    if ((long)ctx.ServerTimeMs - lastPrintAtMs >= 500)
+                    GameFlowState clientFlow = (GameFlowState)client.Model.Flow.FlowState;
+                    bool leftInRound = (lastClientFlowState == GameFlowState.InRound) && (clientFlow != GameFlowState.InRound);
+
+                    flowScript.Step(
+                        clientFlow,
+                        (long)ctx.ServerTimeMs,
+                        fireIntent: (intent, param0) =>
+                        {
+                            List<EngineCommand<EngineCommandType>> cmds =
+                            [
+                                new FlowIntentEngineCommand(intent, param0)
+                            ];
+
+                            engine.EnqueueCommands(
+                                connId: connId,
+                                requestedClientTick: engine.CurrentTick + 1,
+                                clientCmdSeq: clientCmdSeq++,
+                                commands: cmds);
+                        },
+                        move: () =>
+                        {
+                            List<EngineCommand<EngineCommandType>> cmds =
+                            [
+                                new MoveByEngineCommand(entityId: playerEntityId, dx: 1, dy: 0)
+                            ];
+
+                            engine.EnqueueCommands(
+                                connId: connId,
+                                requestedClientTick: engine.CurrentTick + 1,
+                                clientCmdSeq: clientCmdSeq++,
+                                commands: cmds);
+                        });
+
+                    if (clientFlow == GameFlowState.InRound && ctx.ServerTimeMs - lastPrintAtMs >= 500)
                     {
+                        if (client.Model.Entities.TryGetValue(playerEntityId, out EntityState e))
+                            Console.WriteLine($"[ClientModel] InRound Entity {playerEntityId} pos=({e.X},{e.Y})");
+                    }
+
+                    if (leftInRound && clientFlow != GameFlowState.MainMenu)
+                    {
+                        exitingInRound = true;
+                        List<EngineCommand<EngineCommandType>> cmds =
+                        [
+                            new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)
+                        ];
+
+                        engine.EnqueueCommands(
+                            connId: connId,
+                            requestedClientTick: engine.CurrentTick + 1,
+                            clientCmdSeq: clientCmdSeq++,
+                            commands: cmds);
+                    }
+
+                    if (exitingInRound && clientFlow == GameFlowState.MainMenu)
+                    {
+                        if (exitMenuAtMs < 0)
+                            exitMenuAtMs = (long)ctx.ServerTimeMs + 1000;
+                        else if ((long)ctx.ServerTimeMs >= exitMenuAtMs)
+                            cts.Cancel();
+                    }
+
+                    if (clientFlow != lastClientFlowState || ctx.ServerTimeMs - lastPrintAtMs >= 500)
+                    {
+                        lastClientFlowState = clientFlow;
                         lastPrintAtMs = (long)ctx.ServerTimeMs;
 
-                        Console.WriteLine($"[ClientModel] tick={client.Model.LastServerTick} hash={client.Model.LastStateHash}");
-
-                        foreach (EntityState e in client.Model.Entities.Values)
-                            Console.WriteLine($"  Entity {e.Id} pos=({e.X},{e.Y}) hp={e.Hp}");
-
                         Console.WriteLine(
-                            $"  FlowState={client.Model.Flow.FlowState} RoundState={client.Model.Flow.RoundState} " +
-                            $"Level={client.Model.Flow.LevelIndex} Round={client.Model.Flow.RoundIndex} " +
-                            $"Target={client.Model.Flow.TargetScore} Cum={client.Model.Flow.CumulativeScore} " +
-                            $"CookSeq={client.Model.Flow.CookResultSeq} Delta={client.Model.Flow.LastCookScoreDelta} " +
-                            $"Met={client.Model.Flow.LastCookMetTarget}");
+                            $"[ClientModel] t={ctx.ServerTimeMs:0} serverTick={client.Model.LastServerTick} Flow={clientFlow}");
                     }
                 },
                 token: cts.Token);

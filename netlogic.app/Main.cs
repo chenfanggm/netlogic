@@ -12,16 +12,16 @@ namespace App
             switch (program)
             {
                 case 1:
-                    LocalEngineProgram.Run(maxRunningDuration: TimeSpan.FromSeconds(6));
+                    LocalEngineProgram.Run(maxRunningDuration: TimeSpan.FromSeconds(15));
                     break;
                 case 2:
-                    AutoTickProgram.Run(maxRunningDuration: TimeSpan.FromSeconds(6));
+                    AutoTickProgram.Run(maxRunningDuration: TimeSpan.FromSeconds(15));
                     break;
                 case 3:
                     ManualTickProgram.Run(totalTicks: 400);
                     break;
                 case 4:
-                    LocalClientEngineProgram.Run(maxRunningDuration: TimeSpan.FromSeconds(6));
+                    LocalClientEngineProgram.Run(maxRunningDuration: TimeSpan.FromSeconds(15));
                     break;
                 default:
                     throw new ArgumentException("Invalid program");

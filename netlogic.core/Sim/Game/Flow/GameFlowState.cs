@@ -21,6 +21,8 @@ namespace Sim.Game.Flow
         InRound = 4,
 
         RunDefeat = 5,
-        RunVictory = 6
+        RunVictory = 6,
+
+        Exit = 99,
     }
 }
