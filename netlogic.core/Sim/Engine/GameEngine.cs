@@ -35,6 +35,9 @@ namespace Sim.Engine
 
         private readonly IReplicationRecorder _replication;
 
+        private readonly int _snapshotEveryNTicks;
+        private bool _snapshotRequested;
+
         // Flow replication (emit only on change)
         private FlowSnapshot _lastFlowSnap;
         private bool _hasLastFlowSnap;
@@ -62,6 +65,9 @@ namespace Sim.Engine
 
             _replication = new ReplicationRecorder(initialCapacity: 256);
 
+            _snapshotEveryNTicks = 20;
+            _snapshotRequested = true;
+
             _currentTick = 0;
             _lastServerTimeMs = 0;
 
@@ -88,11 +94,18 @@ namespace Sim.Engine
             // 2) Game fixed step (lifecycle + deterministic per-tick logic)
             _game.Advance(1);
 
-            // 3) Snapshot (can be made periodic/on-demand later)
-            GameSnapshot snapshot = _game.Snapshot();
+            // 3) Snapshot (periodic or on-demand)
+            GameSnapshot? snapshot = null;
+            bool due = (_snapshotEveryNTicks > 0) && (tick % _snapshotEveryNTicks == 0);
+            if (due || _snapshotRequested)
+            {
+                snapshot = _game.Snapshot();
+                _snapshotRequested = false;
+            }
 
             // 4) Flow replication: reliable flow snapshot when changed
-            EmitFlowIfChanged(snapshot.Flow);
+            FlowSnapshot flowSnapshot = _game.BuildFlowSnapshot();
+            EmitFlowIfChanged(flowSnapshot);
 
             // 5) Finalize
             RepOp[] ops = _replication.EndTickAndFlush();
@@ -109,6 +122,11 @@ namespace Sim.Engine
                 stateHash: worldHash,
                 ops: ops,
                 snapshot: snapshot);
+        }
+
+        public void RequestSnapshot()
+        {
+            _snapshotRequested = true;
         }
 
         private void EmitFlowIfChanged(in FlowSnapshot flow)

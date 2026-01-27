@@ -102,6 +102,7 @@ namespace Client2.Game
         {
             Model.ResetFromBaseline(baseline);
             _lastAppliedSampleTick = baseline.ServerTick;
+            _lastAppliedReliableSeq = 0;
         }
 
         private void OnServerOps(ServerOpsMsg msg, Lane lane)

@@ -36,6 +36,25 @@ namespace Program
                 entities: entities);
         }
 
+        public BaselineMsg BuildBaselineFromSnapshot(int serverTick, uint stateHash, GameSnapshot snapshot)
+        {
+            SampleEntityPos[] sample = snapshot.Entities;
+            EntityState[] entities = new EntityState[sample.Length];
+
+            int i = 0;
+            while (i < sample.Length)
+            {
+                SampleEntityPos e = sample[i];
+                entities[i] = new EntityState(e.EntityId, e.X, e.Y, 0);
+                i++;
+            }
+
+            return new BaselineMsg(
+                serverTick: serverTick,
+                stateHash: stateHash,
+                entities: entities);
+        }
+
         public ServerOpsMsg BuildSampleOpsFromSnapshot(int serverTick, Game world)
         {
             _w.Reset();
@@ -80,6 +99,59 @@ namespace Program
                 serverSeq: 0, // sample lane ignores serverSeq
                 opCount: opCount,
                 opsPayload: payload);
+        }
+
+        public bool TryBuildReliableOpsFromRepOps(int serverTick, uint stateHash, RepOp[] ops, out ServerOpsMsg msg)
+        {
+            _w.Reset();
+            ushort opCount = 0;
+
+            for (int i = 0; i < ops.Length; i++)
+            {
+                RepOp op = ops[i];
+                if (op.Type == RepOpType.FlowSnapshot)
+                {
+                    byte flowState = (byte)(op.A & 0xFF);
+                    byte roundState = (byte)((op.A >> 8) & 0xFF);
+                    byte lastMetTarget = (byte)((op.A >> 16) & 0xFF);
+                    byte cookAttemptsUsed = (byte)((op.A >> 24) & 0xFF);
+
+                    OpsWriter.WriteFlowSnapshot(
+                        _w,
+                        flowState: flowState,
+                        roundState: roundState,
+                        lastMetTarget: lastMetTarget,
+                        cookAttemptsUsed: cookAttemptsUsed,
+                        levelIndex: op.B,
+                        roundIndex: op.C,
+                        selectedChefHatId: op.D,
+                        targetScore: op.E,
+                        cumulativeScore: op.F,
+                        cookResultSeq: op.G,
+                        lastCookScoreDelta: op.H);
+
+                    opCount++;
+                }
+            }
+
+            if (opCount == 0)
+            {
+                msg = new ServerOpsMsg();
+                return false;
+            }
+
+            _reliableSeq++;
+
+            byte[] payload = _w.CopyData();
+
+            msg = new ServerOpsMsg(
+                serverTick: serverTick,
+                stateHash: stateHash,
+                serverSeq: _reliableSeq,
+                opCount: opCount,
+                opsPayload: payload);
+
+            return true;
         }
 
         public bool TryBuildReliableFlowSnapshot(int serverTick, Game world, out ServerOpsMsg msg)

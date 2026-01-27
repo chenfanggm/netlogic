@@ -44,8 +44,21 @@ namespace Program
 
             InProcessServerEmitter emitter = new InProcessServerEmitter();
 
-            // Baseline at tick 0
-            BaselineMsg baseline = emitter.BuildBaseline(serverTick: engine.CurrentTick, world: engine.ReadOnlyWorld);
+            // Force a snapshot for baseline seed
+            engine.RequestSnapshot();
+
+            // Run one tick to produce the snapshot
+            TickContext bootstrapCtx = new TickContext(serverTimeMs: 0, elapsedMsSinceLastTick: 0);
+            TickFrame bootstrapFrame = engine.TickOnce(bootstrapCtx);
+
+            if (bootstrapFrame.Snapshot == null)
+                throw new Exception("Expected snapshot on bootstrap tick, but got null.");
+
+            // Build baseline from snapshot instead of world iteration (future-proof)
+            BaselineMsg baseline = emitter.BuildBaselineFromSnapshot(
+                serverTick: bootstrapFrame.Tick,
+                stateHash: bootstrapFrame.StateHash,
+                snapshot: bootstrapFrame.Snapshot!);
             feed.PushBaseline(baseline);
 
             // ---------------------
@@ -55,6 +68,7 @@ namespace Program
 
             long lastMoveAtMs = 0;
             long lastPrintAtMs = 0;
+            long lastResyncAtMs = 0;
 
             uint clientCmdSeq = 1;
 
@@ -82,15 +96,32 @@ namespace Program
                             commands: cmds);
                     }
 
+                    // Periodic resync every 5 seconds (for testing correctness)
+                    if ((long)ctx.ServerTimeMs - lastResyncAtMs >= 5000)
+                    {
+                        lastResyncAtMs = (long)ctx.ServerTimeMs;
+                        engine.RequestSnapshot();
+                    }
+
                     // Tick engine
                     TickFrame frame = engine.TickOnce(ctx);
+
+                    // If snapshot emitted this tick, treat it as resync baseline
+                    if (frame.Snapshot != null)
+                    {
+                        BaselineMsg resyncBaseline = emitter.BuildBaselineFromSnapshot(
+                            serverTick: frame.Tick,
+                            stateHash: frame.StateHash,
+                            snapshot: frame.Snapshot!);
+                        feed.PushBaseline(resyncBaseline);
+                    }
 
                     // Build sample ops from recorded replication ops and feed them to client
                     ServerOpsMsg sampleOps = emitter.BuildSampleOpsFromRepOps(frame.Tick, frame.StateHash, frame.Ops);
                     feed.PushOps(sampleOps, Lane.Sample);
 
-                    // Build reliable flow snapshot if changed and feed it
-                    if (emitter.TryBuildReliableFlowSnapshot(frame.Tick, engine.ReadOnlyWorld, out ServerOpsMsg relOps))
+                    // Build reliable flow ops from recorded replication ops and feed them to client
+                    if (emitter.TryBuildReliableOpsFromRepOps(frame.Tick, frame.StateHash, frame.Ops, out ServerOpsMsg relOps))
                         feed.PushOps(relOps, Lane.Reliable);
 
                     // Print every 500ms
