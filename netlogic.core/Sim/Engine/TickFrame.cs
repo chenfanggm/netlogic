@@ -1,10 +1,11 @@
 using System;
-using Sim.Snapshot;
 
 namespace Sim.Engine
 {
     /// <summary>
     /// Canonical authoritative output for a single fixed server tick.
+    /// Note: tick frames intentionally do NOT carry engine snapshots (debug-only),
+    /// to keep the server path decoupled from internal snapshot types.
     /// </summary>
     public readonly struct TickFrame : IDisposable
     {
@@ -17,16 +18,12 @@ namespace Sim.Engine
         /// <summary>Ordered replication ops for this tick.</summary>
         public readonly RepOpBatch Ops;
 
-        /// <summary>Optional snapshot (baseline / late-join / UI convenience).</summary>
-        public readonly GameSnapshot? Snapshot;
-
-        public TickFrame(int tick, double serverTimeMs, uint stateHash, RepOpBatch ops, GameSnapshot? snapshot)
+        public TickFrame(int tick, double serverTimeMs, uint stateHash, RepOpBatch ops)
         {
             Tick = tick;
             ServerTimeMs = serverTimeMs;
             StateHash = stateHash;
             Ops = ops;
-            Snapshot = snapshot;
         }
 
         /// <summary>
@@ -37,9 +34,8 @@ namespace Sim.Engine
             if (Ops.Count == 0)
                 return this;
 
-            // Clone to an owned array (safe to store), keep same snapshot reference.
             RepOp[] owned = Ops.ToArray();
-            return new TickFrame(Tick, ServerTimeMs, StateHash, RepOpBatch.FromOwnedArray(owned, owned.Length), Snapshot);
+            return new TickFrame(Tick, ServerTimeMs, StateHash, RepOpBatch.FromOwnedArray(owned, owned.Length));
         }
 
         public void Dispose()

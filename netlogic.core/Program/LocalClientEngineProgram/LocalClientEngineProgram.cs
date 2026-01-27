@@ -49,15 +49,9 @@ namespace Program
             NetworkClient2 net = new NetworkClient2(transport);
             GameClient2 client = new GameClient2(net);
 
-            // Force a snapshot for baseline seed
-            engine.RequestSnapshot();
-
-            // Run one tick to produce the snapshot
+            // Run one tick to produce initial state
             TickContext bootstrapCtx = new TickContext(serverTimeMs: 0, elapsedMsSinceLastTick: 0);
             using TickFrame bootstrapFrame = engine.TickOnce(bootstrapCtx);
-
-            if (bootstrapFrame.Snapshot == null)
-                throw new Exception("Expected snapshot on bootstrap tick, but got null.");
 
             // Build initial snapshot and deliver to client
             ServerSnapshot bootstrapSnapshot = BuildSnapshot(engine, bootstrapFrame);
@@ -89,7 +83,6 @@ namespace Program
                     if ((long)ctx.ServerTimeMs - lastResyncAtMs >= 5000)
                     {
                         lastResyncAtMs = (long)ctx.ServerTimeMs;
-                        engine.RequestSnapshot();
                     }
 
                     // Tick engine

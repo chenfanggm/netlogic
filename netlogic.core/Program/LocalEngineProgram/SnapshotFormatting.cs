@@ -5,7 +5,7 @@ namespace Program
 {
     public interface ISnapshotFormatter
     {
-        string Format(TickFrame r, int entityId);
+        string Format(TickSnapshot r, int entityId);
     }
 
     public interface IEntityPositionReader
@@ -21,18 +21,17 @@ namespace Program
     {
         private readonly IEntityPositionReader _pos = pos ?? throw new ArgumentNullException(nameof(pos));
 
-        public string Format(TickFrame r, int entityId)
+        public string Format(TickSnapshot r, int entityId)
         {
-            GameSnapshot? snap = r.Snapshot;
-            if (snap == null)
-                return $"Tick={r.Tick} TimeMs={r.ServerTimeMs} Snapshot=<null>";
+            GameSnapshot snap = r.Snapshot;
+            TickFrame frame = r.Frame;
 
             FlowSnapshot flow = snap.Flow;
 
             if (_pos.TryGetEntityPos(snap, entityId, out int x, out int y))
             {
                 return
-                    $"Tick={r.Tick} TimeMs={r.ServerTimeMs} " +
+                    $"Tick={frame.Tick} TimeMs={frame.ServerTimeMs} " +
                     $"Entity{entityId}=({x},{y}) " +
                     $"Flow={flow.FlowState} L{flow.LevelIndex} R{flow.RoundIndex} " +
                     $"RoundState={flow.RoundState} Score={flow.CumulativeScore}/{flow.TargetScore} " +
@@ -40,7 +39,7 @@ namespace Program
             }
 
             return
-                $"Tick={r.Tick} TimeMs={r.ServerTimeMs} " +
+                $"Tick={frame.Tick} TimeMs={frame.ServerTimeMs} " +
                 $"Entity{entityId}=<not found> Flow={flow.FlowState}";
         }
     }

@@ -1,5 +1,6 @@
 using Sim.Game;
 using Sim.Command;
+using Sim.Snapshot;
 using Sim.Time;
 
 namespace Sim.Engine
@@ -26,5 +27,9 @@ namespace Sim.Engine
             List<EngineCommand<EngineCommandType>> commands, int requestedTick = -1);
 
         TickFrame TickOnce(TickContext ctx);
+
+        GameSnapshot BuildSnapshot();
+
+        uint ComputeStateHash();
     }
 }

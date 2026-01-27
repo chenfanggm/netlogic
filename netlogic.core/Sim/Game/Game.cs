@@ -116,7 +116,7 @@ namespace Sim.Game
         {
             List<SampleEntityPos> list = new List<SampleEntityPos>(128);
             foreach (Entity e in Entities)
-                list.Add(new SampleEntityPos(e.Id, e.X, e.Y));
+                list.Add(new SampleEntityPos(e.Id, e.X, e.Y, e.Hp));
 
             FlowSnapshot flow = BuildFlowSnapshot();
             return new GameSnapshot(flow, list.ToArray());

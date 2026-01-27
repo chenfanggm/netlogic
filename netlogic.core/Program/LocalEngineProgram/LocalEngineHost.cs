@@ -19,13 +19,13 @@ namespace Program
         TickRunner runner,
         IInputPump input,
         IOutputPump output,
-        LatestValue<TickFrame> latest)
+        LatestValue<TickSnapshot> latest)
     {
         private readonly IGameEngine _engine = engine ?? throw new ArgumentNullException(nameof(engine));
         private readonly TickRunner _runner = runner ?? throw new ArgumentNullException(nameof(runner));
         private readonly IInputPump _input = input ?? throw new ArgumentNullException(nameof(input));
         private readonly IOutputPump _output = output ?? throw new ArgumentNullException(nameof(output));
-        private readonly LatestValue<TickFrame> _latest = latest ?? throw new ArgumentNullException(nameof(latest));
+        private readonly LatestValue<TickSnapshot> _latest = latest ?? throw new ArgumentNullException(nameof(latest));
 
         public void Run(CancellationToken token)
         {
@@ -38,7 +38,8 @@ namespace Program
                     // The engine owns authoritative tick advancement.
                     using TickFrame frame = _engine.TickOnce(ctx);
                     TickFrame owned = frame.WithOwnedOps();
-                    _latest.Publish(owned);
+                    Sim.Snapshot.GameSnapshot snap = _engine.BuildSnapshot();
+                    _latest.Publish(new TickSnapshot(owned, snap));
                 },
                 token: token))
             {

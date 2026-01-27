@@ -35,6 +35,20 @@ namespace Client2.Game
                 _entities[e.Id] = new EntityState(e.Id, e.X, e.Y, e.Hp);
             }
 
+            FlowSnapshot flow = new FlowSnapshot(
+                (Sim.Game.Flow.GameFlowState)baseline.Flow.FlowState,
+                baseline.Flow.LevelIndex,
+                baseline.Flow.RoundIndex,
+                baseline.Flow.SelectedChefHatId,
+                baseline.Flow.TargetScore,
+                baseline.Flow.CumulativeScore,
+                baseline.Flow.CookAttemptsUsed,
+                (Sim.Game.Flow.RoundState)baseline.Flow.RoundState,
+                baseline.Flow.CookResultSeq,
+                baseline.Flow.LastCookScoreDelta,
+                baseline.Flow.LastCookMetTarget);
+            Flow.ApplyFlowSnapshot(flow);
+
             LastServerTick = baseline.ServerTick;
             LastStateHash = baseline.StateHash;
         }

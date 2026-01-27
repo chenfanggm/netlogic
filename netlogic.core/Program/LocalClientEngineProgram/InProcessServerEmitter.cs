@@ -53,7 +53,7 @@ namespace Program
             while (i < sample.Length)
             {
                 SampleEntityPos e = sample[i];
-                entities[i] = new EntityState(e.EntityId, e.X, e.Y, 0);
+                entities[i] = new EntityState(e.EntityId, e.X, e.Y, e.Hp);
                 i++;
             }
 

@@ -35,9 +35,6 @@ namespace Sim.Engine
 
         private readonly IReplicationRecorder _replication;
 
-        private readonly int _snapshotEveryNTicks;
-        private bool _snapshotRequested;
-
         // Flow replication (emit only on change)
         private FlowSnapshot _lastFlowSnap;
         private bool _hasLastFlowSnap;
@@ -65,9 +62,6 @@ namespace Sim.Engine
 
             _replication = new ReplicationRecorder(initialCapacity: 256);
 
-            _snapshotEveryNTicks = 20;
-            _snapshotRequested = true;
-
             _currentTick = 0;
             _lastServerTimeMs = 0;
 
@@ -94,39 +88,43 @@ namespace Sim.Engine
             // 2) Game fixed step (lifecycle + deterministic per-tick logic)
             _game.Advance(1);
 
-            // 3) Snapshot (periodic or on-demand)
-            GameSnapshot? snapshot = null;
-            bool due = (_snapshotEveryNTicks > 0) && (tick % _snapshotEveryNTicks == 0);
-            if (due || _snapshotRequested)
-            {
-                snapshot = _game.Snapshot();
-                _snapshotRequested = false;
-            }
-
-            // 4) Flow replication: reliable flow snapshot when changed
+            // 3) Flow replication: reliable flow snapshot when changed
             FlowSnapshot flowSnapshot = _game.BuildFlowSnapshot();
             EmitFlowIfChanged(flowSnapshot);
 
-            // 5) Finalize
+            // 4) Finalize
             RepOpBatch ops = _replication.EndTickAndFlush();
 
             // Clear transient hook
             _game.SetReplicator(null);
 
-            // 6) World hash AFTER applying tick
+            // 5) World hash AFTER applying tick
             uint worldHash = Sim.Game.WorldHash.Compute(_game);
 
             return new TickFrame(
                 tick: tick,
                 serverTimeMs: _lastServerTimeMs,
                 stateHash: worldHash,
-                ops: ops,
-                snapshot: snapshot);
+                ops: ops);
         }
 
-        public void RequestSnapshot()
+        /// <summary>
+        /// Builds an engine snapshot for baseline building / debug tools.
+        /// This is intentionally NOT part of TickFrame to avoid coupling server tick output
+        /// to internal snapshot structures.
+        /// </summary>
+        public GameSnapshot BuildSnapshot()
         {
-            _snapshotRequested = true;
+            return _game.Snapshot();
+        }
+
+        /// <summary>
+        /// Computes authoritative hash at the current moment (post-tick state).
+        /// Server can use this for baselines.
+        /// </summary>
+        public uint ComputeStateHash()
+        {
+            return Sim.Game.WorldHash.Compute(_game);
         }
 
         private void EmitFlowIfChanged(in FlowSnapshot flow)

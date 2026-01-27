@@ -40,12 +40,14 @@ namespace Sim.Engine
         public readonly int EntityId;
         public readonly int X;
         public readonly int Y;
+        public readonly int Hp;
 
-        public SampleEntityPos(int entityId, int x, int y)
+        public SampleEntityPos(int entityId, int x, int y, int hp)
         {
             EntityId = entityId;
             X = x;
             Y = y;
+            Hp = hp;
         }
     }
 
