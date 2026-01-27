@@ -17,7 +17,7 @@ namespace Sim.Server
     /// - Converts ClientCommand[] -> EngineCommand[]
     /// - Feeds ServerEngine
     /// - Calls TickOnce()
-    /// - Hashes + encodes TickFrame into wire packets (Reliable + Sample)
+    /// - Hashes + encodes TickFrame into wire packets (Reliable + Unreliable)
     /// </summary>
     public sealed class GameServer
     {
@@ -34,7 +34,7 @@ namespace Sim.Server
         private const int ReliableMaxOpsBytesPerTick = 8 * 1024;
         private const int ReliableMaxPendingPackets = 128;
 
-        private uint _serverSampleSeq;
+        private uint _serverUnreliableSeq;
         private readonly NetDataWriter _opsWriter;
 
 
@@ -56,7 +56,7 @@ namespace Sim.Server
             _clientSet = new HashSet<int>();
             _reliableStreams = new Dictionary<int, ServerReliableStream>(32);
 
-            _serverSampleSeq = 1;
+            _serverUnreliableSeq = 1;
             _opsWriter = new NetDataWriter();
             _lastServerTimeMs = 0;
 
@@ -95,8 +95,8 @@ namespace Sim.Server
             // Flush reliable streams (ack/replay lives here).
             FlushReliableStreams(frame.Tick, worldHash);
 
-            // Sample lane: positions (latest-wins).
-            SendSampleSnapshotToAll(frame.Tick, worldHash, part.Sample);
+            // Unreliable lane: positions (latest-wins).
+            SendUnreliableSnapshotToAll(frame.Tick, worldHash, part.Unreliable);
         }
 
         // -------------------------
@@ -338,10 +338,10 @@ namespace Sim.Server
         }
 
         // -------------------------
-        // Engine -> Sample (RepOps -> wire ops -> broadcast)
+        // Engine -> Unreliable (RepOps -> wire ops -> broadcast)
         // -------------------------
 
-        private void SendSampleSnapshotToAll(int serverTick, uint worldHash, ReadOnlySpan<RepOp> ops)
+        private void SendUnreliableSnapshotToAll(int serverTick, uint worldHash, ReadOnlySpan<RepOp> ops)
         {
             _opsWriter.Reset();
             ushort opCount = 0;
@@ -350,10 +350,10 @@ namespace Sim.Server
             while (i < ops.Length)
             {
                 RepOp op = ops[i];
-                if (op.Type == RepOpType.PositionAt)
+                if (op.Type == RepOpType.PositionSnapshot)
                 {
                     // op.A=entityId, op.B=x, op.C=y
-                    OpsWriter.WritePositionAt(_opsWriter, op.A, op.B, op.C);
+                    OpsWriter.WritePositionSnapshot(_opsWriter, op.A, op.B, op.C);
                     opCount++;
                 }
                 i++;
@@ -368,18 +368,18 @@ namespace Sim.Server
                 HashContract.ScopeId,
                 (byte)HashContract.Phase,
                 serverTick,
-                _serverSampleSeq++,
+                _serverUnreliableSeq++,
                 worldHash,
                 opCount,
                 opsBytes);
 
-            byte[] packetBytes = MsgCodec.EncodeServerOps(Lane.Sample, msg);
+            byte[] packetBytes = MsgCodec.EncodeServerOps(Lane.Unreliable, msg);
 
             int k = 0;
             while (k < _clients.Count)
             {
                 int connId = _clients[k];
-                _transport.Send(connId, Lane.Sample, new ArraySegment<byte>(packetBytes, 0, packetBytes.Length));
+                _transport.Send(connId, Lane.Unreliable, new ArraySegment<byte>(packetBytes, 0, packetBytes.Length));
                 k++;
             }
         }

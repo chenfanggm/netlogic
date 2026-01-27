@@ -65,7 +65,7 @@ Mental model:
 
 * `Protocol` / `MsgCodec` — message framing + serialize/deserialize
 * Message types: `Hello`, `Welcome`, `Ping`, `Pong`, `Ack`, `Baseline`, `ClientOps`, `ServerOps`
-* `Lane` — `Reliable` vs `Sample`
+* `Lane` — `Reliable` vs `Unreliable`
 * `IClientTransport`, `IServerTransport`
 * Transports:
 
@@ -271,7 +271,7 @@ Examples:
 
 ---
 
-## 6) Sample Lane + Interpolation (Client)
+## 6) Unreliable Lane + Interpolation (Client)
 
 ### Purpose
 
@@ -289,7 +289,7 @@ The sample lane provides **continuous state** updates (position, HP, etc.) where
 
 ### Invariants
 
-* Sample lane must not block gameplay (it’s “nice to have”)
+* Unreliable lane must not block gameplay (it’s “nice to have”)
 * Render is allowed to be nondeterministic (visual only)
 * Simulation remains authoritative on server
 
@@ -313,7 +313,7 @@ Client-side adapter between transport/protocol and presentation.
 * Ping/Pong for RTT estimation
 * Command sending (Reliable)
 * Reliable lane application (baseline + discrete ops)
-* Sample lane buffering for interpolation
+* Unreliable lane buffering for interpolation
 
 ### Outgoing path
 
@@ -322,7 +322,7 @@ Client-side adapter between transport/protocol and presentation.
 ### Incoming path
 
 * Reliable: apply immediately, ack sequences
-* Sample: push into interpolation buffer
+* Unreliable: push into interpolation buffer
 
 ### Invariants
 
@@ -454,7 +454,7 @@ Provide a unified interface:
 3. Client polls transport:
 
    * Reliable: apply baseline + discrete ops, send ack
-   * Sample: push snapshots into buffer
+   * Unreliable: push snapshots into buffer
 4. Unity render reads interpolated states from client
 
 ---
@@ -519,11 +519,11 @@ Recommended future: add periodic `WorldHash` computation and compare server vs r
 
 * In `ServerEngine`, decide per-conn what entities/ops to send
 * Keep reliable stream per-client
-* Sample lane can be throttled per interest radius
+* Unreliable lane can be throttled per interest radius
 
 ### Bandwidth reduction
 
-* Sample: quantize + delta + frequency control
+* Unreliable: quantize + delta + frequency control
 * Reliable: op packing + dictionary ids + compression
 
 ### Anti-cheat basics
@@ -546,7 +546,7 @@ Before merging changes, verify:
 * [ ] New inputs are represented as `ClientCommand` (not state)
 * [ ] Wire format changes stay inside protocol/codec layer
 * [ ] Transport does not reference game types
-* [ ] Sample lane is treated as latest-wins (not authoritative)
+* [ ] Unreliable lane is treated as latest-wins (not authoritative)
 * [ ] Reliable ops are acked and replayable
 * [ ] Feature adds an extension point rather than cross-layer coupling
 
@@ -557,7 +557,7 @@ Before merging changes, verify:
 * **Tick**: fixed-step simulation index (authoritative on server)
 * **ConnId**: server-side connection identifier
 * **Reliable lane**: ordered, acked, replayable ops
-* **Sample lane**: newest-wins snapshots for smooth rendering
+* **Unreliable lane**: newest-wins snapshots for smooth rendering
 * **Baseline**: authoritative reset snapshot for join/reconnect/recovery
 * **Command**: engine-level player intent (MoveBy, CastSpell, etc.)
 * **Op**: server-to-client action describing a state transition or snapshot

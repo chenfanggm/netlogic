@@ -7,13 +7,16 @@ namespace Sim.Engine
         internal enum Delivery : byte
         {
             Reliable = 0,
-            Sample = 1,
+            /// <summary>
+            /// Unreliable, latest-wins state deltas.
+            /// </summary>
+            Unreliable = 1,
         }
 
         public static Delivery DeliveryOf(RepOpType type) => type switch
         {
-            // Sample lane
-            RepOpType.PositionAt => Delivery.Sample,
+            // Unreliable lane
+            RepOpType.PositionSnapshot => Delivery.Unreliable,
 
             // Reliable lane (flow/UI control)
             RepOpType.FlowFire => Delivery.Reliable,
@@ -24,12 +27,12 @@ namespace Sim.Engine
         };
 
         /// <summary>
-        /// For Sample ops only: returns a stable replace-key for coalescing (latest-wins) within a tick.
-        /// - PositionAt uses entityId stored in A.
+        /// For Unreliable ops only: returns a stable replace-key for coalescing (latest-wins) within a tick.
+        /// - PositionSnapshot uses entityId stored in A.
         /// </summary>
-        public static int SampleReplaceKey(in RepOp op) => op.Type switch
+        public static int UnreliableReplaceKey(in RepOp op) => op.Type switch
         {
-            RepOpType.PositionAt => op.A, // entityId
+            RepOpType.PositionSnapshot => op.A, // entityId
             _ => 0
         };
     }

@@ -145,6 +145,7 @@ namespace Net
 
             // Your framing: first byte is lane.
             Lane lane = (Lane)reader.GetByte();
+            // lane == Reliable or Unreliable
 
             // NOTE: GetRemainingBytes allocates a new byte[]; safe for cross-thread queueing.
             // If you later want to reduce allocs, we can pool payload buffers.

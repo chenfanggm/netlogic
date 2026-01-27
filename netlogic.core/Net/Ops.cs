@@ -8,8 +8,8 @@ namespace Net
         MoveBy = 1,
         FlowFire = 2,
 
-        // Server -> Client (Sample)
-        PositionAt = 50,
+        // Server -> Client (Unreliable)
+        PositionSnapshot = 50,
 
         // Server -> Client (Reliable)
         FlowSnapshot = 60
@@ -42,9 +42,9 @@ namespace Net
             w.Put(param0);
         }
 
-        public static void WritePositionAt(NetDataWriter w, int entityId, int x, int y)
+        public static void WritePositionSnapshot(NetDataWriter w, int entityId, int x, int y)
         {
-            w.Put((byte)OpType.PositionAt);
+            w.Put((byte)OpType.PositionSnapshot);
             w.Put((ushort)12);
             w.Put(entityId);
             w.Put(x);

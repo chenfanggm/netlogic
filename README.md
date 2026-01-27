@@ -53,7 +53,7 @@ flowchart TB
     • Handshake / Ping / RTT
     • Send ClientCommands
     • Apply Baseline
-    • Interpolate Sample Lane"]
+    • Interpolate Unreliable Lane"]
 
     Delay["InputDelayController
     • RTT-based delay
@@ -78,7 +78,7 @@ flowchart TB
 
     Lanes["Logical Lanes
     • Reliable
-    • Sample"]
+    • Unreliable"]
 
     CT["IClientTransport"]
     ST["IServerTransport"]
@@ -281,7 +281,7 @@ TryDequeueOutbound();
 | Lane         | Purpose                         | Behavior                   |
 | ------------ | ------------------------------- | -------------------------- |
 | **Reliable** | Events, baseline, container ops | Ordered, acked, replayable |
-| **Sample**   | Position / continuous state     | Latest-wins, interpolated  |
+| **Unreliable**   | Position / continuous state     | Latest-wins, interpolated  |
 
 ### State Sync Strategy
 

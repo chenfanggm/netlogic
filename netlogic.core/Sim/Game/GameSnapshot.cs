@@ -3,7 +3,7 @@ using Sim.Engine;
 namespace Sim.Snapshot
 {
     /// <summary>
-    /// Sample snapshot payload sent each server tick (or at sampling frequency).
+    /// Unreliable snapshot payload sent each server tick (or at sampling frequency).
     /// Combines flow runtime + entity positions.
     /// </summary>
     public sealed class GameSnapshot

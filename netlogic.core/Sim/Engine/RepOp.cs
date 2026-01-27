@@ -8,10 +8,12 @@ namespace Sim.Engine
     {
         None = 0,
 
-        // Sample lane
-        PositionAt = 50,
+        // Unreliable state snapshot (presentation only).
+        // Latest-wins; safe to drop or overwrite.
+        // MUST NOT affect simulation truth.
+        PositionSnapshot = 50,
 
-        // Reliable lane (flow/UI control)
+        // Reliable lane (authoritative flow/UI control)
         FlowFire = 60,
         FlowSnapshot = 61,
     }
@@ -35,8 +37,8 @@ namespace Sim.Engine
             E = e; F = f; G = g; H = h;
         }
 
-        public static RepOp PositionAt(int entityId, int x, int y)
-            => new RepOp(RepOpType.PositionAt, a: entityId, b: x, c: y);
+        public static RepOp PositionSnapshot(int entityId, int x, int y)
+            => new RepOp(RepOpType.PositionSnapshot, a: entityId, b: x, c: y);
 
         public static RepOp FlowFire(byte trigger, int param0 = 0)
             => new RepOp(RepOpType.FlowFire, a: trigger, b: param0);

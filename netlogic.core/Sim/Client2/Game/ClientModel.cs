@@ -8,7 +8,7 @@ namespace Client2.Game
 {
     /// <summary>
     /// ClientModel = lightweight rebuildable state for rendering/UI.
-    /// Baseline seeds entities. Sample lane updates positions.
+    /// Baseline seeds entities. Unreliable lane updates positions.
     /// Reliable lane updates flow.
     /// </summary>
     public sealed class ClientModel
@@ -68,7 +68,7 @@ namespace Client2.Game
             LastStateHash = snapshot.StateHash;
         }
 
-        public void ApplyPositionAt(int id, int x, int y)
+        public void ApplyPositionSnapshot(int id, int x, int y)
         {
             if (_entities.TryGetValue(id, out EntityState existing))
                 _entities[id] = new EntityState(id, x, y, existing.Hp);

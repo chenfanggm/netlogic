@@ -1,11 +1,15 @@
 namespace Net
 {
     /// <summary>
-    /// Network packet delivery lane (reliable vs sample/unreliable).
+    /// Network packet delivery lane (reliable vs unreliable).
     /// </summary>
     public enum Lane : byte
     {
         Reliable = 1,
-        Sample = 2
+        /// <summary>
+        /// Unreliable, latest-wins state deltas (e.g. position snapshots).
+        /// Must never affect authoritative simulation truth.
+        /// </summary>
+        Unreliable = 2
     }
 }

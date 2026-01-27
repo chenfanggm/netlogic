@@ -72,7 +72,7 @@ namespace Sim.Game
         {
             bool ok = EntityManager.TryMoveEntityBy(entityId, dx, dy, out int newX, out int newY);
             if (ok && Replicator != null)
-                Replicator.Record(Sim.Engine.RepOp.PositionAt(entityId, newX, newY));
+                Replicator.Record(Sim.Engine.RepOp.PositionSnapshot(entityId, newX, newY));
 
             return ok;
         }

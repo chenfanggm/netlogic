@@ -101,6 +101,7 @@ namespace Net
             }
 
             Lane lane = (Lane)reader.GetByte();
+            // lane == Reliable or Unreliable
             byte[] payload = reader.GetRemainingBytes();
 
             NetPacket packet = new NetPacket(1, lane, new ArraySegment<byte>(payload, 0, payload.Length));

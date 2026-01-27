@@ -6,40 +6,40 @@ namespace Sim.Engine
 {
     internal static class RepOpPartitioner
     {
-        // If you ever want deterministic sample ordering for tests/replays, flip this to true.
-        // Usually not required (sample lane = latest state).
-        private const bool StableSampleOrder = false;
+        // If you ever want deterministic unreliable ordering for tests/replays, flip this to true.
+        // Usually not required (unreliable lane = latest state).
+        private const bool StableUnreliableOrder = false;
 
         internal readonly struct PartitionedOps : IDisposable
         {
             private readonly RepOp[]? _reliableBuf;
             private readonly int _reliableCount;
 
-            private readonly RepOp[]? _sampleBuf;
-            private readonly int _sampleCount;
+            private readonly RepOp[]? _unreliableBuf;
+            private readonly int _unreliableCount;
 
             public ReadOnlySpan<RepOp> Reliable => _reliableBuf == null ? ReadOnlySpan<RepOp>.Empty : _reliableBuf.AsSpan(0, _reliableCount);
-            public ReadOnlySpan<RepOp> Sample => _sampleBuf == null ? ReadOnlySpan<RepOp>.Empty : _sampleBuf.AsSpan(0, _sampleCount);
+            public ReadOnlySpan<RepOp> Unreliable => _unreliableBuf == null ? ReadOnlySpan<RepOp>.Empty : _unreliableBuf.AsSpan(0, _unreliableCount);
 
-            public PartitionedOps(RepOp[]? reliableBuf, int reliableCount, RepOp[]? sampleBuf, int sampleCount)
+            public PartitionedOps(RepOp[]? reliableBuf, int reliableCount, RepOp[]? unreliableBuf, int unreliableCount)
             {
                 _reliableBuf = reliableBuf;
                 _reliableCount = reliableCount;
-                _sampleBuf = sampleBuf;
-                _sampleCount = sampleCount;
+                _unreliableBuf = unreliableBuf;
+                _unreliableCount = unreliableCount;
             }
 
             public void Dispose()
             {
                 if (_reliableBuf != null) ArrayPool<RepOp>.Shared.Return(_reliableBuf, clearArray: false);
-                if (_sampleBuf != null) ArrayPool<RepOp>.Shared.Return(_sampleBuf, clearArray: false);
+                if (_unreliableBuf != null) ArrayPool<RepOp>.Shared.Return(_unreliableBuf, clearArray: false);
             }
         }
 
         /// <summary>
         /// Partition ops:
         /// - Reliable: appended in input order
-        /// - Sample: coalesced by (type, replaceKey) within this tick (latest-wins)
+        /// - Unreliable: coalesced by (type, replaceKey) within this tick (latest-wins)
         /// </summary>
         public static PartitionedOps Partition(ReadOnlySpan<RepOp> ops)
         {
@@ -49,7 +49,7 @@ namespace Sim.Engine
             RepOp[] reliable = ArrayPool<RepOp>.Shared.Rent(ops.Length);
             int reliableCount = 0;
 
-            Dictionary<long, RepOp>? sampleMap = null;
+            Dictionary<long, RepOp>? unreliableMap = null;
 
             for (int i = 0; i < ops.Length; i++)
             {
@@ -62,46 +62,46 @@ namespace Sim.Engine
                     continue;
                 }
 
-                sampleMap ??= new Dictionary<long, RepOp>(64);
+                unreliableMap ??= new Dictionary<long, RepOp>(64);
 
-                int replaceKey = RepOpDeliveryPolicy.SampleReplaceKey(in op);
-                long key = MakeSampleKey(op.Type, replaceKey);
+                int replaceKey = RepOpDeliveryPolicy.UnreliableReplaceKey(in op);
+                long key = MakeUnreliableKey(op.Type, replaceKey);
 
                 // latest-wins within this tick
-                sampleMap[key] = op;
+                unreliableMap[key] = op;
             }
 
-            if (sampleMap == null || sampleMap.Count == 0)
+            if (unreliableMap == null || unreliableMap.Count == 0)
                 return new PartitionedOps(reliable, reliableCount, null, 0);
 
-            RepOp[] sample = ArrayPool<RepOp>.Shared.Rent(sampleMap.Count);
-            int sampleCount = 0;
-            foreach (var kv in sampleMap)
-                sample[sampleCount++] = kv.Value;
+            RepOp[] unreliable = ArrayPool<RepOp>.Shared.Rent(unreliableMap.Count);
+            int unreliableCount = 0;
+            foreach (var kv in unreliableMap)
+                unreliable[unreliableCount++] = kv.Value;
 
-            if (StableSampleOrder && sampleCount > 1)
+            if (StableUnreliableOrder && unreliableCount > 1)
             {
-                Array.Sort(sample, 0, sampleCount, SampleOpComparer.Instance);
+                Array.Sort(unreliable, 0, unreliableCount, UnreliableOpComparer.Instance);
             }
 
-            return new PartitionedOps(reliable, reliableCount, sample, sampleCount);
+            return new PartitionedOps(reliable, reliableCount, unreliable, unreliableCount);
         }
 
-        private static long MakeSampleKey(RepOpType type, int replaceKey)
+        private static long MakeUnreliableKey(RepOpType type, int replaceKey)
             => ((long)(int)type << 32) | (uint)replaceKey;
 
-        private sealed class SampleOpComparer : IComparer<RepOp>
+        private sealed class UnreliableOpComparer : IComparer<RepOp>
         {
-            public static readonly SampleOpComparer Instance = new SampleOpComparer();
+            public static readonly UnreliableOpComparer Instance = new UnreliableOpComparer();
 
             public int Compare(RepOp x, RepOp y)
             {
                 int t = x.Type.CompareTo(y.Type);
                 if (t != 0) return t;
 
-                // sample coalesce key for stable ordering
-                int kx = RepOpDeliveryPolicy.SampleReplaceKey(in x);
-                int ky = RepOpDeliveryPolicy.SampleReplaceKey(in y);
+                // unreliable coalesce key for stable ordering
+                int kx = RepOpDeliveryPolicy.UnreliableReplaceKey(in x);
+                int ky = RepOpDeliveryPolicy.UnreliableReplaceKey(in y);
                 return kx.CompareTo(ky);
             }
         }

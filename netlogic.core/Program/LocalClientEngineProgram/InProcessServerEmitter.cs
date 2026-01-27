@@ -71,14 +71,14 @@ namespace Program
                 wireEntities);
         }
 
-        public ServerOpsMsg BuildSampleOpsFromSnapshot(int serverTick, Game world)
+        public ServerOpsMsg BuildUnreliableOpsFromSnapshot(int serverTick, Game world)
         {
             _w.Reset();
             ushort opCount = 0;
 
             foreach (Entity e in world.Entities)
             {
-                OpsWriter.WritePositionAt(_w, e.Id, e.X, e.Y);
+                OpsWriter.WritePositionSnapshot(_w, e.Id, e.X, e.Y);
                 opCount++;
             }
 
@@ -89,13 +89,13 @@ namespace Program
                 HashContract.ScopeId,
                 (byte)HashContract.Phase,
                 serverTick,
-                0, // sample lane ignores serverSeq
+                0, // unreliable lane ignores serverSeq
                 StateHash.ComputeWorldHash(world),
                 opCount,
                 payload);
         }
 
-        public ServerOpsMsg BuildSampleOpsFromRepOps(int serverTick, uint stateHash, ReadOnlySpan<RepOp> ops)
+        public ServerOpsMsg BuildUnreliableOpsFromRepOps(int serverTick, uint stateHash, ReadOnlySpan<RepOp> ops)
         {
             _w.Reset();
             ushort opCount = 0;
@@ -103,9 +103,9 @@ namespace Program
             for (int i = 0; i < ops.Length; i++)
             {
                 RepOp op = ops[i];
-                if (op.Type == RepOpType.PositionAt)
+                if (op.Type == RepOpType.PositionSnapshot)
                 {
-                    OpsWriter.WritePositionAt(_w, op.A, op.B, op.C);
+                    OpsWriter.WritePositionSnapshot(_w, op.A, op.B, op.C);
                     opCount++;
                 }
             }
@@ -117,7 +117,7 @@ namespace Program
                 HashContract.ScopeId,
                 (byte)HashContract.Phase,
                 serverTick,
-                0, // sample lane ignores serverSeq
+                0, // unreliable lane ignores serverSeq
                 stateHash,
                 opCount,
                 payload);

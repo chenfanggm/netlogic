@@ -13,7 +13,7 @@ namespace Sim.Engine
 
         /// <summary>
         /// Continuous snapshot for rendering/interpolation.
-        /// Adapter typically encodes this into Sample lane (latest-wins).
+        /// Adapter typically encodes this into Unreliable lane (latest-wins).
         /// </summary>
         public readonly GameSnapshot Snapshot;
 
