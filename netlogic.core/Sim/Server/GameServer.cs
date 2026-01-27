@@ -29,6 +29,7 @@ namespace Sim.Server
         private readonly List<int> _clients;
         private readonly HashSet<int> _clientSet;
         private readonly Dictionary<int, ServerReliableStream> _reliableStreams;
+        private double _lastServerTimeMs;
 
         private const int ReliableMaxOpsBytesPerTick = 8 * 1024;
         private const int ReliableMaxPendingPackets = 128;
@@ -57,6 +58,7 @@ namespace Sim.Server
 
             _serverSampleSeq = 1;
             _opsWriter = new NetDataWriter();
+            _lastServerTimeMs = 0;
 
         }
 
@@ -75,6 +77,7 @@ namespace Sim.Server
 
         public void TickOnce(TickContext ctx)
         {
+            _lastServerTimeMs = ctx.ServerTimeMs;
             using TickFrame frame = _engine.TickOnce(ctx);
 
             // Hash is produced by the engine as part of the canonical Frame.
@@ -189,8 +192,19 @@ namespace Sim.Server
 
         private void SendWelcome(int connId)
         {
-            byte[] bytes = MsgCodec.EncodeWelcome(_tickRateHz, _engine.CurrentTick);
+            byte[] bytes = MsgCodec.EncodeWelcome(_tickRateHz, _engine.CurrentTick, _lastServerTimeMs);
             _transport.Send(connId, Lane.Reliable, new ArraySegment<byte>(bytes, 0, bytes.Length));
+        }
+
+        public NetHealthStats GetNetHealthStats()
+        {
+            _engine.GetCommandBufferStats(
+                out long droppedTooOld,
+                out long snappedLate,
+                out long clampedFuture,
+                out long accepted);
+
+            return new NetHealthStats(droppedTooOld, snappedLate, clampedFuture, accepted);
         }
 
         private void SendBaseline(int connId)

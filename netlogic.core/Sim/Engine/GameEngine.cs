@@ -186,5 +186,18 @@ namespace Sim.Engine
                 commands: commands,
                 currentServerTick: CurrentTick);
         }
+
+        public void GetCommandBufferStats(
+            out long droppedTooOld,
+            out long snappedLate,
+            out long clampedFuture,
+            out long accepted)
+        {
+            _commandSystem.GetCommandBufferStats(
+                out droppedTooOld,
+                out snappedLate,
+                out clampedFuture,
+                out accepted);
+        }
     }
 }

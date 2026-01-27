@@ -11,46 +11,74 @@ namespace Sim.Command
     /// - Do not call Enqueue/TryDequeue/GetConnIdsByTick from multiple threads.
     ///
     /// If you ever need multi-thread enqueue, put a thread-safe queue at the boundary
-    /// (transport thread -> server thread), then call EnqueueCommands on the server thread.
+    /// (transport thread -> server thread), then call EnqueueWithValidation on the server thread.
     /// </summary>
     internal sealed class EngineCommandBuffer<TCommandType>
         where TCommandType : struct, Enum
     {
         private readonly int _maxPastTicks;
         private readonly int _maxFutureTicks;
+        private readonly int _lateGraceTicks;
+        private readonly int _maxStoredTicks;
 
         // tick -> connId -> bucket
         private readonly Dictionary<int, Dictionary<int, EngineCommandBucket<TCommandType>>> _byTick =
             new Dictionary<int, Dictionary<int, EngineCommandBucket<TCommandType>>>(256);
 
-        public EngineCommandBuffer(int maxPastTicks, int maxFutureTicks)
+        public long DroppedTooOldCount { get; private set; }
+        public long SnappedLateCount { get; private set; }
+        public long ClampedFutureCount { get; private set; }
+        public long AcceptedCount { get; private set; }
+
+        public EngineCommandBuffer(int maxPastTicks, int maxFutureTicks, int lateGraceTicks, int maxStoredTicks)
         {
             _maxPastTicks = Math.Max(0, maxPastTicks);
             _maxFutureTicks = Math.Max(0, maxFutureTicks);
+            _lateGraceTicks = Math.Max(0, lateGraceTicks);
+            _maxStoredTicks = Math.Max(1, maxStoredTicks);
         }
 
-        public void EnqueueCommands(int currentServerTick, int connId, int clientTick, uint clientCmdSeq, List<EngineCommand<TCommandType>> commands)
+        public bool EnqueueWithValidation(
+            int currentServerTick,
+            int connId,
+            int clientRequestedTick,
+            uint clientCmdSeq,
+            List<EngineCommand<TCommandType>> commands)
         {
             if (commands == null || commands.Count == 0)
-                return;
+                return false;
 
-            // Too old? Drop.
-            int oldestAllowed = currentServerTick - _maxPastTicks;
-            if (clientTick < oldestAllowed)
-                return;
+            int minAcceptedTick = currentServerTick - _maxPastTicks;
+            int tooOldDropTick = minAcceptedTick - _lateGraceTicks;
 
-            // Too far future? Clamp to avoid unbounded storage.
-            int newestAllowed = currentServerTick + _maxFutureTicks;
-            int effectiveTick = clientTick;
-            if (clientTick > newestAllowed)
-                effectiveTick = newestAllowed;
-            else if (clientTick < currentServerTick)
-                effectiveTick = currentServerTick;
+            if (clientRequestedTick < tooOldDropTick)
+            {
+                DroppedTooOldCount++;
+                return false;
+            }
 
-            if (!_byTick.TryGetValue(effectiveTick, out Dictionary<int, EngineCommandBucket<TCommandType>>? byConn))
+            int maxAcceptedTick = currentServerTick + _maxFutureTicks;
+
+            int scheduledTick;
+            if (clientRequestedTick < minAcceptedTick)
+            {
+                scheduledTick = currentServerTick;
+                SnappedLateCount++;
+            }
+            else if (clientRequestedTick > maxAcceptedTick)
+            {
+                scheduledTick = maxAcceptedTick;
+                ClampedFutureCount++;
+            }
+            else
+            {
+                scheduledTick = clientRequestedTick;
+            }
+
+            if (!_byTick.TryGetValue(scheduledTick, out Dictionary<int, EngineCommandBucket<TCommandType>>? byConn))
             {
                 byConn = new Dictionary<int, EngineCommandBucket<TCommandType>>(32);
-                _byTick.Add(effectiveTick, byConn);
+                _byTick.Add(scheduledTick, byConn);
             }
 
             if (!byConn.TryGetValue(connId, out EngineCommandBucket<TCommandType>? bucket))
@@ -61,9 +89,9 @@ namespace Sim.Command
 
             bucket.MergeReplace(clientCmdSeq, commands);
 
-            // Optional: simple memory hygiene. Since we keep past ticks for _maxPastTicks,
-            // we can prune anything older than oldestAllowed - 1.
-            PruneOldTicks(oldestAllowed);
+            TrimOldTicks_NoAlloc(currentServerTick);
+            AcceptedCount++;
+            return true;
         }
 
         public bool TryDequeueForTick(int tick, int connId, out EngineCommandBatch<TCommandType> batch)
@@ -102,17 +130,19 @@ namespace Sim.Command
             return ids;
         }
 
-        private void PruneOldTicks(int oldestAllowedTick)
+        private void TrimOldTicks_NoAlloc(int currentServerTick)
         {
-            // Remove anything strictly older than oldestAllowedTick.
-            // NOTE: dictionary iteration while removing requires collecting keys first.
+            // Keep a small window; prevent unbounded growth under jitter/attack.
+            // Conservative: allow storage around current tick.
+            int minKeep = currentServerTick - _maxStoredTicks;
+
             if (_byTick.Count == 0)
                 return;
 
             List<int>? toRemove = null;
             foreach (int t in _byTick.Keys)
             {
-                if (t < oldestAllowedTick)
+                if (t < minKeep)
                 {
                     toRemove ??= new List<int>(8);
                     toRemove.Add(t);

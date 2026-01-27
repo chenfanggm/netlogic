@@ -46,20 +46,23 @@ namespace Net
         public ushort ProtocolVersion;
         public int ServerTickRateHz;
         public int ServerTick;
+        public double ServerTimeMs;
 
         public Welcome()
         {
             ProtocolVersion = Net.ProtocolVersion.Current;
             ServerTickRateHz = 0;
             ServerTick = 0;
+            ServerTimeMs = 0;
         }
 
         [MemoryPackConstructor]
-        public Welcome(ushort protocolVersion, int serverTickRateHz, int serverTick)
+        public Welcome(ushort protocolVersion, int serverTickRateHz, int serverTick, double serverTimeMs)
         {
             ProtocolVersion = protocolVersion;
             ServerTickRateHz = serverTickRateHz;
             ServerTick = serverTick;
+            ServerTimeMs = serverTimeMs;
         }
     }
 
@@ -268,9 +271,9 @@ namespace Net
             return TryDecodePayload(packetBytes, MsgKind.Hello, out msg);
         }
 
-        public static byte[] EncodeWelcome(int serverTickRateHz, int serverTick)
+        public static byte[] EncodeWelcome(int serverTickRateHz, int serverTick, double serverTimeMs)
         {
-            Welcome payload = new Welcome(ProtocolVersion.Current, serverTickRateHz, serverTick);
+            Welcome payload = new Welcome(ProtocolVersion.Current, serverTickRateHz, serverTick, serverTimeMs);
             return EncodePayload(MsgKind.Welcome, PacketFlags.None, payload);
         }
 
