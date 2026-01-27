@@ -2,9 +2,8 @@ using Sim.Game;
 using Sim.Engine;
 using LiteNetLib.Utils;
 using Net;
-using Sim.Client.Commands;
+using Client2.Protocol;
 using Sim.Server.Reliability;
-using Sim.Client.Command;
 using Sim.Command;
 using Sim.Time;
 

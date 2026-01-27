@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Client2.Game;
 using Client2.Net;
 using Net;
@@ -42,8 +43,11 @@ namespace Program
             // ---------------------
             // Create in-process feed + client
             // ---------------------
-            InProcessNetFeed feed = new InProcessNetFeed();
-            GameClient2 client = new GameClient2(feed);
+            InProcessClientTransport transport = new InProcessClientTransport(connId: connId);
+            NetworkClient2 net = new NetworkClient2(transport, tickRateHz);
+            GameClient2 client = new GameClient2(net);
+            client.Start();
+            client.Connect(host: "local", port: 0);
 
             InProcessServerEmitter emitter = new InProcessServerEmitter();
 
@@ -62,10 +66,16 @@ namespace Program
                 serverTick: bootstrapFrame.Tick,
                 stateHash: bootstrapFrame.StateHash,
                 snapshot: bootstrapFrame.Snapshot!);
-            feed.PushBaseline(baseline);
+            byte[] baselineBytes = MsgCodec.EncodeBaseline(baseline);
+            transport.Enqueue(Lane.Reliable, baselineBytes);
 
             if (emitter.TryBuildReliableFlowSnapshot(bootstrapFrame.Tick, engine.ReadOnlyWorld, out ServerOpsMsg bootstrapReliable))
-                feed.PushOps(bootstrapReliable, Lane.Reliable);
+            {
+                byte[] bootstrapRelBytes = MsgCodec.EncodeServerOps(Lane.Reliable, bootstrapReliable);
+                transport.Enqueue(Lane.Reliable, bootstrapRelBytes);
+            }
+
+            client.Poll();
 
             // ---------------------
             // Drive ticks
@@ -104,19 +114,29 @@ namespace Program
                             serverTick: frame.Tick,
                             stateHash: frame.StateHash,
                             snapshot: frame.Snapshot!);
-                        feed.PushBaseline(resyncBaseline);
+                        byte[] resyncBytes = MsgCodec.EncodeBaseline(resyncBaseline);
+                        transport.Enqueue(Lane.Reliable, resyncBytes);
 
                         if (emitter.TryBuildReliableFlowSnapshot(frame.Tick, engine.ReadOnlyWorld, out ServerOpsMsg rel0))
-                            feed.PushOps(rel0, Lane.Reliable);
+                        {
+                            byte[] rel0Bytes = MsgCodec.EncodeServerOps(Lane.Reliable, rel0);
+                            transport.Enqueue(Lane.Reliable, rel0Bytes);
+                        }
                     }
 
                     // Build sample ops from recorded replication ops and feed them to client
                     ServerOpsMsg sampleOps = emitter.BuildSampleOpsFromRepOps(frame.Tick, frame.StateHash, frame.Ops);
-                    feed.PushOps(sampleOps, Lane.Sample);
+                    byte[] sampleBytes = MsgCodec.EncodeServerOps(Lane.Sample, sampleOps);
+                    transport.Enqueue(Lane.Sample, sampleBytes);
 
                     // Build reliable flow snapshot (on change) and feed it to client
                     if (emitter.TryBuildReliableFlowSnapshot(frame.Tick, engine.ReadOnlyWorld, out ServerOpsMsg relOps))
-                        feed.PushOps(relOps, Lane.Reliable);
+                    {
+                        byte[] relBytes = MsgCodec.EncodeServerOps(Lane.Reliable, relOps);
+                        transport.Enqueue(Lane.Reliable, relBytes);
+                    }
+
+                    client.Poll();
 
                     GameFlowState clientFlow = (GameFlowState)client.Model.Flow.FlowState;
                     bool leftInRound = (lastClientFlowState == GameFlowState.InRound) && (clientFlow != GameFlowState.InRound);
@@ -190,6 +210,57 @@ namespace Program
                     }
                 },
                 token: cts.Token);
+        }
+    }
+    internal sealed class InProcessClientTransport : IClientTransport
+    {
+        private readonly Queue<NetPacket> _incoming = new Queue<NetPacket>();
+        private readonly int _connId;
+        private bool _connected;
+
+        public InProcessClientTransport(int connId)
+        {
+            _connId = connId;
+            _connected = true;
+        }
+
+        public bool IsConnected => _connected;
+
+        public void Start() { }
+
+        public void Connect(string host, int port)
+        {
+            _connected = true;
+        }
+
+        public void Poll() { }
+
+        public bool TryReceive(out NetPacket packet)
+        {
+            if (_incoming.Count > 0)
+            {
+                packet = _incoming.Dequeue();
+                return true;
+            }
+
+            packet = default;
+            return false;
+        }
+
+        public void Send(Lane lane, ArraySegment<byte> payload)
+        {
+            // No-op for in-process client harness.
+        }
+
+        public void Enqueue(Lane lane, byte[] payload)
+        {
+            _incoming.Enqueue(new NetPacket(_connId, lane, new ArraySegment<byte>(payload, 0, payload.Length)));
+        }
+
+        public void Dispose()
+        {
+            _incoming.Clear();
+            _connected = false;
         }
     }
 }

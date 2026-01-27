@@ -1,8 +1,8 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using Sim.Game;
 using Net;
 using Sim.Server;
-using Sim.Client;
+using Client2.Game;
 
 namespace Program
 {
@@ -39,18 +39,25 @@ namespace Program
                 using ServerHost serverHost = new ServerHost(serverTransport, tickRateHz, game);
                 serverHost.Start(port);
 
-                using ClientHost clientHost = new ClientHost(clientTransport, tickRateHz);
+                using ClientHost2 clientHost = new ClientHost2(clientTransport, tickRateHz);
                 clientHost.Start();
                 clientHost.Connect(host: "127.0.0.1", port);
 
                 // Demo input thread: send move every 250ms
+                uint clientCmdSeq = 1;
                 Thread inputThread = new Thread(() =>
                 {
                     int t = 0;
                     while (!cts.IsCancellationRequested)
                     {
                         // You can swap this with your real input sampling
-                        clientHost.Client.SendMoveBy(clientTick: t, entityId: 1, dx: 1, dy: 0);
+                        int targetServerTick = clientHost.Client.Model.LastServerTick + 1;
+                        clientHost.Client.SendMoveBy(
+                            targetServerTick: targetServerTick,
+                            clientCmdSeq: clientCmdSeq++,
+                            entityId: 1,
+                            dx: 1,
+                            dy: 0);
                         t += 5;
                         Thread.Sleep(250);
                     }
@@ -84,11 +91,9 @@ namespace Program
                 Stopwatch sw = Stopwatch.StartNew();
                 while (!cts.IsCancellationRequested)
                 {
-                    EntityState[] render = clientHost.Client.GetRenderEntities();
-                    if (render.Length > 0)
+                    if (clientHost.Client.Model.Entities.TryGetValue(1, out EntityState e0))
                     {
-                        EntityState e0 = render[0];
-                        Console.WriteLine("Render Entity1=(" + e0.X + "," + e0.Y + ") Delay=" + clientHost.Client.RenderDelayTicks);
+                        Console.WriteLine("Entity1=(" + e0.X + "," + e0.Y + ")");
                     }
 
                     // Check if we've exceeded max duration

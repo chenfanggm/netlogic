@@ -2,7 +2,8 @@ using System.Diagnostics;
 using Sim.Game;
 using Net;
 using Sim.Server;
-using Sim.Client;
+using Client2.Game;
+using Client2.Net;
 using Sim.Time;
 
 namespace Program
@@ -26,7 +27,8 @@ namespace Program
             GameServer server = new GameServer(serverTransport, tickRateHz, world);
             server.Start(port);
 
-            GameClient client = new GameClient(clientTransport, tickRateHz);
+            NetworkClient2 net = new NetworkClient2(clientTransport, tickRateHz);
+            GameClient2 client = new GameClient2(net);
             client.Start();
             client.Connect(host: "127.0.0.1", port);
 
@@ -34,16 +36,24 @@ namespace Program
 
             double lastTickAtMs = time.Elapsed.TotalMilliseconds;
 
+            uint clientCmdSeq = 1;
+
             for (int i = 0; i < totalTicks; i++)
             {
                 // Poll network
                 server.Poll();
-                client.Poll(clientTick: i);
+                client.Poll();
 
                 // Send input every 5 ticks
                 if ((i % 5) == 0)
                 {
-                    client.SendMoveBy(clientTick: i, entityId: 1, dx: 1, dy: 0);
+                    int targetServerTick = client.Model.LastServerTick + 1;
+                    client.SendMoveBy(
+                        targetServerTick: targetServerTick,
+                        clientCmdSeq: clientCmdSeq++,
+                        entityId: 1,
+                        dx: 1,
+                        dy: 0);
                 }
 
                 // Advance server tick
@@ -59,18 +69,14 @@ namespace Program
 
                 // Poll again to receive updates
                 server.Poll();
-                client.Poll(clientTick: i);
+                client.Poll();
 
                 if ((i % 10) == 0)
                 {
-                    EntityState[] render = client.GetRenderEntities();
-                    if (render.Length > 0)
+                    if (client.Model.Entities.TryGetValue(1, out EntityState e0))
                     {
-                        EntityState e0 = render[0];
                         Console.WriteLine(
                             "Tick=" + i
-                            + " RenderDelay=" + client.RenderDelayTicks
-                            + " InputDelay=" + client.InputDelayTicks
                             + " Entity1=(" + e0.X + "," + e0.Y + ")");
                     }
                 }

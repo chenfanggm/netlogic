@@ -33,19 +33,6 @@ namespace Client2.Game
             _clientOpsWriter = new NetDataWriter();
         }
 
-        public GameClient2(Client2.Net.InProcessNetFeed feed)
-        {
-            if (feed == null) throw new ArgumentNullException(nameof(feed));
-
-            feed.BaselineReceived += OnBaseline;
-            feed.ServerOpsReceived += OnServerOps;
-
-            _lastAppliedSampleTick = -1;
-            _lastAppliedReliableSeq = 0;
-
-            _clientOpsWriter = new NetDataWriter();
-        }
-
         public void Start() => EnsureNet().Start();
         public void Connect(string host, int port) => EnsureNet().Connect(host, port);
         public void Poll() => EnsureNet().Poll();

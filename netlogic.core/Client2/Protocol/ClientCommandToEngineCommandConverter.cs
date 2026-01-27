@@ -1,10 +1,9 @@
 using Sim.Game;
 using Sim.Game.Flow;
-using Sim.Client.Command;
 using Sim.Command;
 using Sim.System;
 
-namespace Sim.Client.Commands
+namespace Client2.Protocol
 {
     /// <summary>
     /// Converts client-authored commands into authoritative engine commands.

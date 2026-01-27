@@ -1,6 +1,4 @@
-using System;
-
-namespace Sim.Client.Command
+namespace Client2.Protocol
 {
     public enum ClientCommandType : byte
     {

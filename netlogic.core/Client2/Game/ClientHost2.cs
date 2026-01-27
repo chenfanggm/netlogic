@@ -1,23 +1,24 @@
 using Net;
 using Sim.Time;
+using Client2.Net;
 
-namespace Sim.Client
+namespace Client2.Game
 {
-    public sealed class ClientHost : IDisposable
+    public sealed class ClientHost2 : IDisposable
     {
         private readonly IClientTransport _transport;
-        private readonly GameClient _client;
         private readonly TickRunner _runner;
-
         private int _clientTick;
         private bool _running;
 
-        public GameClient Client => _client;
+        public GameClient2 Client { get; }
+        public NetworkClient2 Network { get; }
 
-        public ClientHost(IClientTransport transport, int tickRateHz)
+        public ClientHost2(IClientTransport transport, int tickRateHz)
         {
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
-            _client = new GameClient(_transport, tickRateHz);
+            Network = new NetworkClient2(_transport, tickRateHz);
+            Client = new GameClient2(Network);
             _runner = new TickRunner(tickRateHz);
 
             _clientTick = 0;
@@ -26,12 +27,12 @@ namespace Sim.Client
 
         public void Start()
         {
-            _client.Start();
+            Client.Start();
         }
 
         public void Connect(string host, int port)
         {
-            _client.Connect(host, port);
+            Client.Connect(host, port);
             _running = true;
         }
 
@@ -43,11 +44,16 @@ namespace Sim.Client
             _runner.Run(
                 onTick: _ =>
                 {
-                    // ClientTick advances at same nominal tick rate for scheduling inputs
                     _clientTick++;
-                    _client.Poll(_clientTick);
+                    Client.Poll();
                 },
                 token: token);
+        }
+
+        public void Tick()
+        {
+            _clientTick++;
+            Client.Poll();
         }
 
         public void Dispose()
