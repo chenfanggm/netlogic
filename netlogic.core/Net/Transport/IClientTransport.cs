@@ -15,5 +15,7 @@ namespace Net
         bool TryReceive(out NetPacket packet);
 
         void Send(Lane lane, ArraySegment<byte> payload);
+
+        void Disconnect(string reason);
     }
 }

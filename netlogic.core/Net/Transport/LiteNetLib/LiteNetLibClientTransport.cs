@@ -71,6 +71,16 @@ namespace Net
             _serverPeer.Send(_sendWriter, method);
         }
 
+        public void Disconnect(string reason)
+        {
+            if (_serverPeer == null)
+                return;
+
+            Console.WriteLine($"[Net] Client disconnecting. {reason}");
+            _serverPeer.Disconnect();
+            _serverPeer = null;
+        }
+
         private void OnPeerConnected(NetPeer peer)
         {
             _serverPeer = peer;

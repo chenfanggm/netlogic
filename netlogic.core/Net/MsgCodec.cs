@@ -22,16 +22,19 @@ namespace Net
     [MemoryPackable]
     public sealed partial class Hello
     {
+        public ushort ProtocolVersion;
         public int ClientTickRateHz;
 
         public Hello()
         {
+            ProtocolVersion = Net.ProtocolVersion.Current;
             ClientTickRateHz = 0;
         }
 
         [MemoryPackConstructor]
-        public Hello(int clientTickRateHz)
+        public Hello(ushort protocolVersion, int clientTickRateHz)
         {
+            ProtocolVersion = protocolVersion;
             ClientTickRateHz = clientTickRateHz;
         }
     }
@@ -39,18 +42,21 @@ namespace Net
     [MemoryPackable]
     public sealed partial class Welcome
     {
+        public ushort ProtocolVersion;
         public int ServerTickRateHz;
         public int ServerTick;
 
         public Welcome()
         {
+            ProtocolVersion = Net.ProtocolVersion.Current;
             ServerTickRateHz = 0;
             ServerTick = 0;
         }
 
         [MemoryPackConstructor]
-        public Welcome(int serverTickRateHz, int serverTick)
+        public Welcome(ushort protocolVersion, int serverTickRateHz, int serverTick)
         {
+            ProtocolVersion = protocolVersion;
             ServerTickRateHz = serverTickRateHz;
             ServerTick = serverTick;
         }
@@ -85,6 +91,7 @@ namespace Net
     [MemoryPackable]
     public sealed partial class ServerOpsMsg
     {
+        public ushort ProtocolVersion;
         public int ServerTick;
         public uint ServerSeq;
         public uint StateHash;
@@ -93,6 +100,7 @@ namespace Net
 
         public ServerOpsMsg()
         {
+            ProtocolVersion = Net.ProtocolVersion.Current;
             ServerTick = 0;
             ServerSeq = 0;
             StateHash = 0;
@@ -101,8 +109,9 @@ namespace Net
         }
 
         [MemoryPackConstructor]
-        public ServerOpsMsg(int serverTick, uint serverSeq, uint stateHash, ushort opCount, byte[] opsPayload)
+        public ServerOpsMsg(ushort protocolVersion, int serverTick, uint serverSeq, uint stateHash, ushort opCount, byte[] opsPayload)
         {
+            ProtocolVersion = protocolVersion;
             ServerTick = serverTick;
             ServerSeq = serverSeq;
             StateHash = stateHash;
@@ -114,20 +123,23 @@ namespace Net
     [MemoryPackable]
     public sealed partial class BaselineMsg
     {
+        public ushort ProtocolVersion;
         public int ServerTick;
         public uint StateHash;
         public EntityState[] Entities;
 
         public BaselineMsg()
         {
+            ProtocolVersion = Net.ProtocolVersion.Current;
             ServerTick = 0;
             StateHash = 0;
             Entities = Array.Empty<EntityState>();
         }
 
         [MemoryPackConstructor]
-        public BaselineMsg(int serverTick, uint stateHash, EntityState[] entities)
+        public BaselineMsg(ushort protocolVersion, int serverTick, uint stateHash, EntityState[] entities)
         {
+            ProtocolVersion = protocolVersion;
             ServerTick = serverTick;
             StateHash = stateHash;
             Entities = entities ?? Array.Empty<EntityState>();
@@ -211,7 +223,7 @@ namespace Net
 
         public static byte[] EncodeHello(int clientTickRateHz)
         {
-            Hello payload = new Hello(clientTickRateHz);
+            Hello payload = new Hello(ProtocolVersion.Current, clientTickRateHz);
             return EncodePayload(MsgKind.Hello, PacketFlags.None, payload);
         }
 
@@ -223,14 +235,25 @@ namespace Net
 
         public static byte[] EncodeWelcome(int serverTickRateHz, int serverTick)
         {
-            Welcome payload = new Welcome(serverTickRateHz, serverTick);
+            Welcome payload = new Welcome(ProtocolVersion.Current, serverTickRateHz, serverTick);
             return EncodePayload(MsgKind.Welcome, PacketFlags.None, payload);
         }
 
         public static bool TryDecodeWelcome(ArraySegment<byte> packetBytes, out Welcome msg)
         {
             msg = null!;
-            return TryDecodePayload(packetBytes, MsgKind.Welcome, out msg);
+            if (!TryDecodePayload(packetBytes, MsgKind.Welcome, out msg))
+                return false;
+
+            if (msg.ProtocolVersion != ProtocolVersion.Current)
+            {
+                Console.WriteLine(
+                    $"[Net] Protocol mismatch on Welcome. Client={ProtocolVersion.Current} Server={msg.ProtocolVersion}");
+                msg = null!;
+                return false;
+            }
+
+            return true;
         }
 
         public static byte[] EncodeClientOps(ClientOpsMsg msg)
@@ -255,7 +278,18 @@ namespace Net
         public static bool TryDecodeServerOps(ArraySegment<byte> packetBytes, out ServerOpsMsg msg)
         {
             msg = null!;
-            return TryDecodePayload(packetBytes, MsgKind.ServerOps, out msg);
+            if (!TryDecodePayload(packetBytes, MsgKind.ServerOps, out msg))
+                return false;
+
+            if (msg.ProtocolVersion != ProtocolVersion.Current)
+            {
+                Console.WriteLine(
+                    $"[Net] Protocol mismatch on ServerOps. Client={ProtocolVersion.Current} Server={msg.ProtocolVersion}");
+                msg = null!;
+                return false;
+            }
+
+            return true;
         }
 
         public static byte[] EncodeBaseline(BaselineMsg msg)
@@ -266,7 +300,18 @@ namespace Net
         public static bool TryDecodeBaseline(ArraySegment<byte> packetBytes, out BaselineMsg msg)
         {
             msg = null!;
-            return TryDecodePayload(packetBytes, MsgKind.Baseline, out msg);
+            if (!TryDecodePayload(packetBytes, MsgKind.Baseline, out msg))
+                return false;
+
+            if (msg.ProtocolVersion != ProtocolVersion.Current)
+            {
+                Console.WriteLine(
+                    $"[Net] Protocol mismatch on Baseline. Client={ProtocolVersion.Current} Server={msg.ProtocolVersion}");
+                msg = null!;
+                return false;
+            }
+
+            return true;
         }
 
         public static byte[] EncodePing(PingMsg msg)

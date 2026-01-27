@@ -31,9 +31,10 @@ namespace Program
             EntityState[] entities = BuildEntityStates(world);
 
             return new BaselineMsg(
-                serverTick: serverTick,
-                stateHash: StateHash.ComputeWorldHash(world),
-                entities: entities);
+                ProtocolVersion.Current,
+                serverTick,
+                StateHash.ComputeWorldHash(world),
+                entities);
         }
 
         public BaselineMsg BuildBaselineFromSnapshot(int serverTick, uint stateHash, GameSnapshot snapshot)
@@ -50,9 +51,10 @@ namespace Program
             }
 
             return new BaselineMsg(
-                serverTick: serverTick,
-                stateHash: stateHash,
-                entities: entities);
+                ProtocolVersion.Current,
+                serverTick,
+                stateHash,
+                entities);
         }
 
         public ServerOpsMsg BuildSampleOpsFromSnapshot(int serverTick, Game world)
@@ -69,11 +71,12 @@ namespace Program
             byte[] payload = (opCount == 0) ? Array.Empty<byte>() : _w.CopyData();
 
             return new ServerOpsMsg(
-                serverTick: serverTick,
-                stateHash: StateHash.ComputeWorldHash(world),
-                serverSeq: 0, // sample lane ignores serverSeq
-                opCount: opCount,
-                opsPayload: payload);
+                ProtocolVersion.Current,
+                serverTick,
+                0, // sample lane ignores serverSeq
+                StateHash.ComputeWorldHash(world),
+                opCount,
+                payload);
         }
 
         public ServerOpsMsg BuildSampleOpsFromRepOps(int serverTick, uint stateHash, ReadOnlySpan<RepOp> ops)
@@ -94,11 +97,12 @@ namespace Program
             byte[] payload = (opCount == 0) ? Array.Empty<byte>() : _w.CopyData();
 
             return new ServerOpsMsg(
-                serverTick: serverTick,
-                stateHash: stateHash,
-                serverSeq: 0, // sample lane ignores serverSeq
-                opCount: opCount,
-                opsPayload: payload);
+                ProtocolVersion.Current,
+                serverTick,
+                0, // sample lane ignores serverSeq
+                stateHash,
+                opCount,
+                payload);
         }
 
         public bool TryBuildReliableOpsFromRepOps(int serverTick, uint stateHash, RepOp[] ops, out ServerOpsMsg msg)
@@ -145,11 +149,12 @@ namespace Program
             byte[] payload = _w.CopyData();
 
             msg = new ServerOpsMsg(
-                serverTick: serverTick,
-                stateHash: stateHash,
-                serverSeq: _reliableSeq,
-                opCount: opCount,
-                opsPayload: payload);
+                ProtocolVersion.Current,
+                serverTick,
+                _reliableSeq,
+                stateHash,
+                opCount,
+                payload);
 
             return true;
         }
@@ -203,11 +208,12 @@ namespace Program
             byte[] payload = _w.CopyData();
 
             msg = new ServerOpsMsg(
-                serverTick: serverTick,
-                stateHash: StateHash.ComputeWorldHash(world),
-                serverSeq: _reliableSeq,
-                opCount: opCount,
-                opsPayload: payload);
+                ProtocolVersion.Current,
+                serverTick,
+                _reliableSeq,
+                StateHash.ComputeWorldHash(world),
+                opCount,
+                payload);
 
             return true;
         }

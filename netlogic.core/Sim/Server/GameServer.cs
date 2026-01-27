@@ -121,8 +121,16 @@ namespace Sim.Server
                 if (packet.Lane != Lane.Reliable)
                     continue;
 
-                if (MsgCodec.TryDecodeHello(packet.Payload, out Hello _))
+                if (MsgCodec.TryDecodeHello(packet.Payload, out Hello hello))
                 {
+                    if (hello.ProtocolVersion != ProtocolVersion.Current)
+                    {
+                        DisconnectClient(
+                            packet.ConnId,
+                            $"Protocol mismatch. Client={hello.ProtocolVersion} Server={ProtocolVersion.Current}");
+                        continue;
+                    }
+
                     SendWelcome(packet.ConnId);
                     SendBaseline(packet.ConnId);
                     ReplayReliableStream(packet.ConnId);
@@ -189,7 +197,7 @@ namespace Sim.Server
             EntityState[] entities = world.ToSnapshot();
             uint hash = StateHash.ComputeEntitiesHash(entities);
 
-            BaselineMsg msg = new BaselineMsg(_engine.CurrentTick, hash, entities);
+            BaselineMsg msg = new BaselineMsg(ProtocolVersion.Current, _engine.CurrentTick, hash, entities);
             byte[] bytes = MsgCodec.EncodeBaseline(msg);
 
             _transport.Send(connId, Lane.Reliable, new ArraySegment<byte>(bytes, 0, bytes.Length));
@@ -344,11 +352,12 @@ namespace Sim.Server
             byte[] opsBytes = (opCount == 0) ? Array.Empty<byte>() : _opsWriter.CopyData();
 
             ServerOpsMsg msg = new ServerOpsMsg(
-                serverTick: frame.Tick,
-                serverSeq: _serverSampleSeq++,
-                stateHash: worldHash,
-                opCount: opCount,
-                opsPayload: opsBytes);
+                ProtocolVersion.Current,
+                frame.Tick,
+                _serverSampleSeq++,
+                worldHash,
+                opCount,
+                opsBytes);
 
             byte[] packetBytes = MsgCodec.EncodeServerOps(Lane.Sample, msg);
 
@@ -359,6 +368,15 @@ namespace Sim.Server
                 _transport.Send(connId, Lane.Sample, new ArraySegment<byte>(packetBytes, 0, packetBytes.Length));
                 k++;
             }
+        }
+
+        private void DisconnectClient(int connId, string reason)
+        {
+            Console.WriteLine($"[Net] Disconnecting connId={connId}. {reason}");
+            _transport.Disconnect(connId, reason);
+            _clientSet.Remove(connId);
+            _clients.Remove(connId);
+            _reliableStreams.Remove(connId);
         }
     }
 }

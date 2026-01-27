@@ -2,7 +2,7 @@ namespace Net
 {
     public static class Protocol
     {
-        public const ushort Version = 2;
+        public const ushort Version = ProtocolVersion.Current;
 
         // OPTIONAL: set this from your build pipeline (git hash -> uint)
         public const uint BuildHash = 0x00000000;

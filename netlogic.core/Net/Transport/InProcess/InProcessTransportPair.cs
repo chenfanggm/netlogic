@@ -61,6 +61,11 @@ namespace Net
             _s2c.Enqueue(packet);
         }
 
+        public void Disconnect(int connectionId, string reason)
+        {
+            Console.WriteLine($"[Net] In-process disconnect connId={connectionId}. {reason}");
+        }
+
         public void Dispose()
         {
         }
@@ -112,6 +117,15 @@ namespace Net
         {
             NetPacket packet = new NetPacket(_connectionId, lane, payload);
             _c2s.Enqueue(packet);
+        }
+
+        public void Disconnect(string reason)
+        {
+            if (!_isConnected)
+                return;
+
+            Console.WriteLine($"[Net] In-process client disconnect. {reason}");
+            _isConnected = false;
         }
 
         public void Dispose()

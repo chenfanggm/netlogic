@@ -23,6 +23,10 @@ namespace Client2.Game
 
         public void ResetFromBaseline(BaselineMsg baseline)
         {
+            if (baseline.ProtocolVersion != ProtocolVersion.Current)
+                throw new InvalidOperationException(
+                    $"Protocol mismatch. Client={ProtocolVersion.Current} Server={baseline.ProtocolVersion}");
+
             _entities.Clear();
             for (int i = 0; i < baseline.Entities.Length; i++)
             {

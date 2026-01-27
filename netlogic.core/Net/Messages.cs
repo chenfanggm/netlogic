@@ -30,7 +30,7 @@ namespace Net
     /// <summary>
     /// Client connection request message sent to server.
     /// </summary>
-    public sealed record HelloMsg(string PlayerName) : IMessage
+    public sealed record HelloMsg(ushort ProtocolVersion, string PlayerName) : IMessage
     {
         public MsgType Type => MsgType.Hello;
     }
@@ -38,7 +38,7 @@ namespace Net
     /// <summary>
     /// Server welcome message sent to client upon connection.
     /// </summary>
-    public sealed record WelcomeMsg(int PlayerId, int ServerTick, int TickRateHz) : IMessage
+    public sealed record WelcomeMsg(ushort ProtocolVersion, int PlayerId, int ServerTick, int TickRateHz) : IMessage
     {
         public MsgType Type => MsgType.Welcome;
     }

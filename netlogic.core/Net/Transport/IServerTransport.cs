@@ -18,5 +18,8 @@ namespace Net
 
         // Send to one connection
         void Send(int connectionId, Lane lane, ArraySegment<byte> payload);
+
+        // Disconnect a client with an optional reason
+        void Disconnect(int connectionId, string reason);
     }
 }

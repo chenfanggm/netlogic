@@ -102,11 +102,12 @@ namespace Sim.Server.Reliability
             byte[] payload = CombinePayloadParts(_build.PayloadParts, _build.PayloadBytes);
 
             ServerOpsMsg msg = new ServerOpsMsg(
-                serverTick: serverTick,
-                serverSeq: NextSeq++,
-                stateHash: stateHash,
-                opCount: _build.OpCount,
-                opsPayload: payload);
+                ProtocolVersion.Current,
+                serverTick,
+                NextSeq++,
+                stateHash,
+                _build.OpCount,
+                payload);
 
             byte[] packetBytes = MsgCodec.EncodeServerOps(Lane.Reliable, msg);
 

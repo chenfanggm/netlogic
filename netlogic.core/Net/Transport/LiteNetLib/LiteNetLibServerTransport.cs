@@ -76,6 +76,16 @@ namespace Net
             peer.Send(_sendWriter, method);
         }
 
+        public void Disconnect(int connectionId, string reason)
+        {
+            if (!_peersByConnId.TryGetValue(connectionId, out NetPeer? peer) || peer == null)
+                return;
+
+            Console.WriteLine($"[Net] Server disconnecting connId={connectionId}. {reason}");
+            peer.Disconnect();
+            _peersByConnId.Remove(connectionId);
+        }
+
         private void OnConnectionRequest(ConnectionRequest request)
         {
             request.AcceptIfKey("game_key");
