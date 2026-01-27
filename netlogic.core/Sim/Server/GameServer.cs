@@ -36,8 +36,6 @@ namespace Sim.Server
         private uint _serverSampleSeq;
         private readonly NetDataWriter _opsWriter;
 
-        private Sim.Snapshot.FlowSnapshot _lastFlowSnap;
-        private bool _hasLastFlowSnap;
 
         public int CurrentServerTick => _engine.CurrentTick;
         public int TickRateHz => _tickRateHz;
@@ -60,8 +58,6 @@ namespace Sim.Server
             _serverSampleSeq = 1;
             _opsWriter = new NetDataWriter();
 
-            _lastFlowSnap = default;
-            _hasLastFlowSnap = false;
         }
 
         public void Start(int port)
@@ -87,9 +83,6 @@ namespace Sim.Server
             // Baseline cadence is adapter-owned.
             if ((frame.Tick % Protocol.BaselineIntervalTicks) == 0)
                 SendBaselineToAll();
-
-            // Adapter-level flow snapshot emission if engine didn't already emit it.
-            SendFlowSnapshotIfChanged(frame);
 
             // Reliable lane: only reliable RepOps (e.g., FlowFire) are encoded here.
             ConsumeReliableOps(frame);
@@ -219,65 +212,6 @@ namespace Sim.Server
 
             foreach (byte[] packetBytes in stream.GetUnackedPackets())
                 _transport.Send(connId, Lane.Reliable, new ArraySegment<byte>(packetBytes, 0, packetBytes.Length));
-        }
-
-        private void SendFlowSnapshotIfChanged(in TickFrame frame)
-        {
-            if (frame.Ops.Count > 0)
-            {
-                ReadOnlySpan<RepOp> ops = frame.Ops.Span;
-                int i = 0;
-                while (i < ops.Length)
-                {
-                    if (ops[i].Type == RepOpType.FlowSnapshot)
-                        return;
-                    i++;
-                }
-            }
-
-            if (frame.Snapshot == null)
-                return;
-
-            Sim.Snapshot.FlowSnapshot flow = frame.Snapshot.Flow;
-
-            if (_hasLastFlowSnap && _lastFlowSnap == flow)
-                return;
-
-            _hasLastFlowSnap = true;
-            _lastFlowSnap = flow;
-
-            // Encode as reliable ops and broadcast through reliable streams.
-            _opsWriter.Reset();
-            ushort opCount = 0;
-
-            OpsWriter.WriteFlowSnapshot(
-                _opsWriter,
-                flowState: (byte)flow.FlowState,
-                roundState: (byte)flow.RoundState,
-                lastMetTarget: (byte)(flow.LastCookMetTarget ? 1 : 0),
-                cookAttemptsUsed: (byte)flow.CookAttemptsUsed,
-                levelIndex: flow.LevelIndex,
-                roundIndex: flow.RoundIndex,
-                selectedChefHatId: flow.SelectedChefHatId,
-                targetScore: flow.TargetScore,
-                cumulativeScore: flow.CumulativeScore,
-                cookResultSeq: flow.CookResultSeq,
-                lastCookScoreDelta: flow.LastCookScoreDelta);
-
-            opCount++;
-
-            byte[] payload = _opsWriter.CopyData();
-
-            int k = 0;
-            while (k < _clients.Count)
-            {
-                int connId = _clients[k];
-                if (_reliableStreams.TryGetValue(connId, out ServerReliableStream? stream) && stream != null)
-                {
-                    stream.AddOpsForTick(frame.Tick, opCount, payload);
-                }
-                k++;
-            }
         }
 
         // -------------------------
