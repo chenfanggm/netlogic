@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
+using System.Threading;
 using LiteNetLib;
 using LiteNetLib.Utils;
 
@@ -8,6 +8,12 @@ namespace Net
 {
     /// <summary>
     /// LiteNetLib-based server transport implementation for real UDP networking.
+    ///
+    /// Threading contract (professionalized):
+    /// - LiteNetLib callbacks may run on the polling thread, but we do not rely on that.
+    /// - All inbound events are enqueued to concurrent queues.
+    /// - Peer table is a ConcurrentDictionary so Send/Disconnect are safe even if callbacks fire concurrently.
+    /// - Send uses a thread-static NetDataWriter (no shared writer).
     /// </summary>
     public sealed class LiteNetLibServerTransport : IServerTransport
     {
@@ -17,10 +23,13 @@ namespace Net
         private readonly ConcurrentQueue<int> _connected;
         private readonly ConcurrentQueue<NetPacket> _received;
 
-        private readonly Dictionary<int, NetPeer> _peersByConnId;
+        // Thread-safe peer table (callbacks mutate; Send/Disconnect read)
+        private readonly ConcurrentDictionary<int, NetPeer> _peersByConnId;
+
         private int _nextConnId;
 
-        private readonly NetDataWriter _sendWriter;
+        [ThreadStatic]
+        private static NetDataWriter? _tlsWriter;
 
         public LiteNetLibServerTransport()
         {
@@ -30,10 +39,8 @@ namespace Net
             _connected = new ConcurrentQueue<int>();
             _received = new ConcurrentQueue<NetPacket>();
 
-            _peersByConnId = new Dictionary<int, NetPeer>(64);
-            _nextConnId = 1;
-
-            _sendWriter = new NetDataWriter();
+            _peersByConnId = new ConcurrentDictionary<int, NetPeer>();
+            _nextConnId = 0;
 
             _listener.ConnectionRequestEvent += OnConnectionRequest;
             _listener.PeerConnectedEvent += OnPeerConnected;
@@ -48,6 +55,8 @@ namespace Net
 
         public void Poll()
         {
+            // PollEvents executes callbacks. We are safe even if this is called from a thread
+            // different than Send/Disconnect because we use concurrent structures.
             _server.PollEvents();
         }
 
@@ -63,27 +72,31 @@ namespace Net
 
         public void Send(int connectionId, Lane lane, ArraySegment<byte> payload)
         {
-            NetPeer? peer;
-            if (!_peersByConnId.TryGetValue(connectionId, out peer) || peer == null)
+            if (!_peersByConnId.TryGetValue(connectionId, out NetPeer? peer) || peer == null)
                 return;
 
-            DeliveryMethod method = lane == Lane.Reliable ? DeliveryMethod.ReliableOrdered : DeliveryMethod.Unreliable;
+            DeliveryMethod method = lane == Lane.Reliable
+                ? DeliveryMethod.ReliableOrdered
+                : DeliveryMethod.Unreliable;
 
-            _sendWriter.Reset();
-            _sendWriter.Put((byte)lane);
-            _sendWriter.Put(payload.Array, payload.Offset, payload.Count);
+            NetDataWriter w = _tlsWriter ??= new NetDataWriter();
+            w.Reset();
 
-            peer.Send(_sendWriter, method);
+            // Frame: [lane byte][payload...]
+            w.Put((byte)lane);
+            if (payload.Array != null && payload.Count > 0)
+                w.Put(payload.Array, payload.Offset, payload.Count);
+
+            peer.Send(w, method);
         }
 
         public void Disconnect(int connectionId, string reason)
         {
-            if (!_peersByConnId.TryGetValue(connectionId, out NetPeer? peer) || peer == null)
+            if (!_peersByConnId.TryRemove(connectionId, out NetPeer? peer) || peer == null)
                 return;
 
             Console.WriteLine($"[Net] Server disconnecting connId={connectionId}. {reason}");
             peer.Disconnect();
-            _peersByConnId.Remove(connectionId);
         }
 
         private void OnConnectionRequest(ConnectionRequest request)
@@ -93,32 +106,36 @@ namespace Net
 
         private void OnPeerConnected(NetPeer peer)
         {
-            int connId = _nextConnId++;
+            // Thread-safe connId allocation
+            int connId = Interlocked.Increment(ref _nextConnId);
             peer.Tag = connId;
+
             _peersByConnId[connId] = peer;
             _connected.Enqueue(connId);
         }
 
         private void OnPeerDisconnected(NetPeer peer, DisconnectInfo info)
         {
-            object tag = peer.Tag;
-            if (tag is int)
+            // Remove from peer table
+            object? tag = peer.Tag;
+            if (tag is int connId)
             {
-                int connId = (int)tag;
-                _peersByConnId.Remove(connId);
+                _peersByConnId.TryRemove(connId, out _);
+
+                // NOTE: IServerTransport has no "TryDequeueDisconnected".
+                // If you later want server-side cleanup callbacks, add a disconnected queue
+                // and extend the interface in one controlled change.
             }
         }
 
         private void OnNetworkReceive(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod)
         {
-            object tag = peer.Tag;
-            if (!(tag is int))
+            object? tag = peer.Tag;
+            if (tag is not int connId)
             {
                 reader.Recycle();
                 return;
             }
-
-            int connId = (int)tag;
 
             if (reader.AvailableBytes < 1)
             {
@@ -126,12 +143,14 @@ namespace Net
                 return;
             }
 
+            // Your framing: first byte is lane.
             Lane lane = (Lane)reader.GetByte();
+
+            // NOTE: GetRemainingBytes allocates a new byte[]; safe for cross-thread queueing.
+            // If you later want to reduce allocs, we can pool payload buffers.
             byte[] payload = reader.GetRemainingBytes();
 
-            NetPacket packet = new NetPacket(connId, lane, new ArraySegment<byte>(payload, 0, payload.Length));
-            _received.Enqueue(packet);
-
+            _received.Enqueue(new NetPacket(connId, lane, new ArraySegment<byte>(payload, 0, payload.Length)));
             reader.Recycle();
         }
 
