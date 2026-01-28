@@ -14,7 +14,8 @@ namespace com.aqua.netlogic.sim.networkclient
     /// Responsibilities:
     /// - Send Hello once connected
     /// - Decode inbound packets (Welcome/Pong/Baseline/ServerOps)
-    /// - Apply Baseline + Ops into ClientEngine
+    /// - Convert wire messages -> snapshot/RepOps via ClientMessageDecoder
+    /// - Apply snapshot/RepOps into ClientEngine
     /// - Send ClientAck for reliable ServerOps stream
     /// - Encode client commands into ClientOpsMsg and send to server
     /// </summary>

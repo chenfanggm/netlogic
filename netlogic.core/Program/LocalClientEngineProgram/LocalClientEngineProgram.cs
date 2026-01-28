@@ -1,4 +1,5 @@
 using com.aqua.netlogic.sim.clientengine;
+using com.aqua.netlogic.sim.clientengine.protocol;
 using com.aqua.netlogic.net;
 using com.aqua.netlogic.program.flowscript;
 using com.aqua.netlogic.command;
@@ -56,8 +57,8 @@ namespace com.aqua.netlogic.program
                 serverTick: bootstrapFrame.Tick,
                 world: engine.ReadOnlyWorld);
 
-            com.aqua.netlogic.sim.game.snapshot.GameSnapshot snap0 = com.aqua.netlogic.sim.clientengine.protocol.ClientMessageDecoder
-                .DecodeBaselineToSnapshot(baseline, out int t0, out uint h0);
+            com.aqua.netlogic.sim.game.snapshot.GameSnapshot snap0 =
+                ClientMessageDecoder.DecodeBaselineToSnapshot(baseline, out int t0, out uint h0);
             client.ApplyBaselineSnapshot(snap0, t0, h0);
 
             // ---------------------
@@ -90,8 +91,8 @@ namespace com.aqua.netlogic.program
                             serverTick: engine.CurrentTick,
                             world: engine.ReadOnlyWorld);
 
-                        com.aqua.netlogic.sim.game.snapshot.GameSnapshot snap = com.aqua.netlogic.sim.clientengine.protocol.ClientMessageDecoder
-                            .DecodeBaselineToSnapshot(resync, out int t, out uint h);
+                        com.aqua.netlogic.sim.game.snapshot.GameSnapshot snap =
+                            ClientMessageDecoder.DecodeBaselineToSnapshot(resync, out int t, out uint h);
                         client.ApplyBaselineSnapshot(snap, t, h);
                     }
 
@@ -103,8 +104,8 @@ namespace com.aqua.netlogic.program
                         RepOp[] reliableScan = frame.Ops.ToArray(); // emitter expects array for reliable build
                         if (server.TryBuildReliableOpsFromRepOps(frame.Tick, frame.StateHash, reliableScan, out ServerOpsMsg reliableMsg))
                         {
-                            com.aqua.netlogic.sim.replication.ReplicationUpdate up = com.aqua.netlogic.sim.clientengine.protocol.ClientMessageDecoder
-                                .DecodeServerOpsToUpdate(reliableMsg, isReliableLane: true);
+                        com.aqua.netlogic.sim.replication.ReplicationUpdate up =
+                            ClientMessageDecoder.DecodeServerOpsToUpdate(reliableMsg, isReliableLane: true);
                             client.ApplyReplicationUpdate(up);
                         }
                     }
@@ -116,8 +117,8 @@ namespace com.aqua.netlogic.program
                             stateHash: frame.StateHash,
                             ops: frame.Ops.Span);
 
-                        com.aqua.netlogic.sim.replication.ReplicationUpdate up = com.aqua.netlogic.sim.clientengine.protocol.ClientMessageDecoder
-                            .DecodeServerOpsToUpdate(unreliableMsg, isReliableLane: false);
+                        com.aqua.netlogic.sim.replication.ReplicationUpdate up =
+                            ClientMessageDecoder.DecodeServerOpsToUpdate(unreliableMsg, isReliableLane: false);
                         client.ApplyReplicationUpdate(up);
                     }
 

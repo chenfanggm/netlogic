@@ -1,18 +1,21 @@
+using System;
 using com.aqua.netlogic.sim.serverengine;
 
 namespace com.aqua.netlogic.sim.replication
 {
     /// <summary>
     /// Client-facing replication envelope.
-    /// This is what ClientEngine consumes (NOT wire messages).
+    ///
+    /// ClientEngine consumes this (NOT wire messages).
+    /// Carries tick/seq/hash metadata plus decoded RepOps.
     /// </summary>
     public readonly struct ReplicationUpdate
     {
         public readonly int ServerTick;
-        public readonly uint ServerSeq;   // 0 allowed (unreliable lane or "no seq")
+        public readonly uint ServerSeq;
         public readonly uint StateHash;
         public readonly bool IsReliable;
-        public readonly RepOp[] Ops;      // empty array = heartbeat update
+        public readonly RepOp[] Ops;
 
         public ReplicationUpdate(int serverTick, uint serverSeq, uint stateHash, bool isReliable, RepOp[] ops)
         {
@@ -20,7 +23,7 @@ namespace com.aqua.netlogic.sim.replication
             ServerSeq = serverSeq;
             StateHash = stateHash;
             IsReliable = isReliable;
-            Ops = ops ?? global::System.Array.Empty<RepOp>();
+            Ops = ops ?? Array.Empty<RepOp>();
         }
     }
 }

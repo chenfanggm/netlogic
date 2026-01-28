@@ -7,9 +7,13 @@ namespace com.aqua.netlogic.sim.clientengine
 {
     /// <summary>
     /// ClientEngine = pure client-side state reconstruction core.
-    /// Owns ClientModel, consumes GameSnapshot + ReplicationUpdate (RepOp[]).
+    /// Owns ClientModel.
     ///
-    /// No transport, no wire decoding, no reliability.
+    /// Consumes only client-facing replication primitives:
+    /// - GameSnapshot (baseline)
+    /// - ReplicationUpdate (RepOp[] + tick/hash/seq)
+    ///
+    /// No transport, no reliability, no wire decoding.
     /// </summary>
     public sealed class ClientEngine
     {
@@ -23,7 +27,6 @@ namespace com.aqua.netlogic.sim.clientengine
 
         public void ApplyReplicationUpdate(ReplicationUpdate update)
         {
-            // Apply ops (if any)
             RepOp[] ops = update.Ops;
             if (ops != null && ops.Length > 0)
             {
@@ -34,23 +37,19 @@ namespace com.aqua.netlogic.sim.clientengine
                     switch (op.Type)
                     {
                         case RepOpType.PositionSnapshot:
-                            // A=id, B=x, C=y
                             Model.ApplyPositionSnapshot(op.A, op.B, op.C);
                             break;
 
                         case RepOpType.EntitySpawned:
-                            // A=id, B=x, C=y, D=hp
                             Model.ApplyEntitySpawned(op.A, op.B, op.C, op.D);
                             break;
 
                         case RepOpType.EntityDestroyed:
-                            // A=id
                             Model.ApplyEntityDestroyed(op.A);
                             break;
 
                         case RepOpType.FlowSnapshot:
                         {
-                            // RepOp.FlowSnapshot packs bytes into A.
                             byte flowState = (byte)(op.A & 0xFF);
                             byte roundState = (byte)((op.A >> 8) & 0xFF);
                             byte lastCookMetTarget = (byte)((op.A >> 16) & 0xFF);
@@ -73,9 +72,8 @@ namespace com.aqua.netlogic.sim.clientengine
                             break;
                         }
 
-                        // Optional: if you ever want client-side reactions to FlowFire.
                         case RepOpType.FlowFire:
-                            // Currently no model mutation required; keep it as a hook for UI/FX if desired.
+                            // Optional: hook for client-side UI/FX.
                             break;
 
                         default:
@@ -84,10 +82,8 @@ namespace com.aqua.netlogic.sim.clientengine
                 }
             }
 
-            // Always advance tick/hash (heartbeat included)
             Model.LastServerTick = update.ServerTick;
             Model.LastStateHash = update.StateHash;
         }
-
     }
 }

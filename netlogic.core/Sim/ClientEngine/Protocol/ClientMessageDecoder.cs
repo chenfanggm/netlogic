@@ -9,11 +9,12 @@ using com.aqua.netlogic.sim.replication;
 namespace com.aqua.netlogic.sim.clientengine.protocol
 {
     /// <summary>
-    /// Decodes wire messages into client-facing data:
-    /// - BaselineMsg  -> GameSnapshot (full state)
-    /// - ServerOpsMsg -> ReplicationUpdate (RepOp[])
+    /// Decodes wire messages into client-facing primitives.
     ///
-    /// Owns protocol/hash contract validation for the client-side pipeline.
+    /// Motivation:
+    /// - Keep ClientEngine free of wire/protocol parsing.
+    /// - Centralize protocol validation (version + hash contract).
+    /// - Enable replay/testing by feeding ClientEngine decoded updates.
     /// </summary>
     public static class ClientMessageDecoder
     {
@@ -45,18 +46,18 @@ namespace com.aqua.netlogic.sim.clientengine.protocol
                 wf.LastCookScoreDelta,
                 wf.LastCookMetTarget);
 
-            // WireEntityState[] -> SampleEntityPos[]
-            WireEntityState[] ents = baseline.Entities;
-            SampleEntityPos[] sample = new SampleEntityPos[ents.Length];
-            for (int i = 0; i < ents.Length; i++)
+            // Wire -> SampleEntityPos[]
+            WireEntityState[] wireEnts = baseline.Entities ?? Array.Empty<WireEntityState>();
+            SampleEntityPos[] ents = new SampleEntityPos[wireEnts.Length];
+            for (int i = 0; i < wireEnts.Length; i++)
             {
-                WireEntityState e = ents[i];
-                sample[i] = new SampleEntityPos(e.Id, e.X, e.Y, e.Hp);
+                WireEntityState e = wireEnts[i];
+                ents[i] = new SampleEntityPos(e.Id, e.X, e.Y, e.Hp);
             }
 
             serverTick = baseline.ServerTick;
             stateHash = baseline.StateHash;
-            return new GameSnapshot(flow, sample);
+            return new GameSnapshot(flow, ents);
         }
 
         public static ReplicationUpdate DecodeServerOpsToUpdate(ServerOpsMsg msg, bool isReliableLane)
@@ -84,11 +85,13 @@ namespace com.aqua.netlogic.sim.clientengine.protocol
             }
 
             NetDataReader r = new NetDataReader(msg.OpsPayload);
-
-            RepOp[] ops = new RepOp[msg.OpCount];
-            int outIdx = 0;
-
             ushort remaining = msg.OpCount;
+
+            // RepOps are fixed-width, so we can decode into a tight array.
+            // If unknown ops exist, we skip and compact.
+            RepOp[] tmp = new RepOp[remaining];
+            int outCount = 0;
+
             while (remaining > 0)
             {
                 remaining--;
@@ -98,6 +101,9 @@ namespace com.aqua.netlogic.sim.clientengine.protocol
 
                 int startPos = r.Position;
 
+                bool recognized = true;
+                RepOp rep = default;
+
                 switch (opType)
                 {
                     case OpType.PositionSnapshot:
@@ -105,7 +111,7 @@ namespace com.aqua.netlogic.sim.clientengine.protocol
                         int id = r.GetInt();
                         int x = r.GetInt();
                         int y = r.GetInt();
-                        ops[outIdx++] = RepOp.PositionSnapshot(id, x, y);
+                        rep = RepOp.PositionSnapshot(id, x, y);
                         break;
                     }
 
@@ -115,30 +121,29 @@ namespace com.aqua.netlogic.sim.clientengine.protocol
                         int x = r.GetInt();
                         int y = r.GetInt();
                         int hp = r.GetInt();
-                        ops[outIdx++] = RepOp.EntitySpawned(id, x, y, hp);
+                        rep = RepOp.EntitySpawned(id, x, y, hp);
                         break;
                     }
 
                     case OpType.EntityDestroyed:
                     {
                         int id = r.GetInt();
-                        ops[outIdx++] = RepOp.EntityDestroyed(id);
+                        rep = RepOp.EntityDestroyed(id);
                         break;
                     }
 
                     case OpType.FlowFire:
                     {
-                        // Payload layout matches OpsWriter.WriteFlowFire
+                        // Payload: [byte trigger][3 pad][int param0]
                         byte trigger = r.GetByte();
-                        r.GetByte(); r.GetByte(); r.GetByte(); // padding
+                        r.GetByte(); r.GetByte(); r.GetByte(); // pad
                         int param0 = r.GetInt();
-                        ops[outIdx++] = RepOp.FlowFire(trigger, param0);
+                        rep = RepOp.FlowFire(trigger, param0);
                         break;
                     }
 
                     case OpType.FlowSnapshot:
                     {
-                        // Payload layout matches OpsWriter.WriteFlowSnapshot
                         byte flowState = r.GetByte();
                         byte roundState = r.GetByte();
                         byte lastMetTarget = r.GetByte();
@@ -152,40 +157,47 @@ namespace com.aqua.netlogic.sim.clientengine.protocol
                         int cookResultSeq = r.GetInt();
                         int lastCookScoreDelta = r.GetInt();
 
-                        ops[outIdx++] = RepOp.FlowSnapshot(
-                            flowState: flowState,
-                            roundState: roundState,
-                            lastCookMetTarget: lastMetTarget,
-                            cookAttemptsUsed: cookAttemptsUsed,
-                            levelIndex: levelIndex,
-                            roundIndex: roundIndex,
-                            selectedChefHatId: selectedChefHatId,
-                            targetScore: targetScore,
-                            cumulativeScore: cumulativeScore,
-                            cookResultSeq: cookResultSeq,
-                            lastCookScoreDelta: lastCookScoreDelta);
+                        rep = RepOp.FlowSnapshot(
+                            flowState,
+                            roundState,
+                            lastMetTarget,
+                            cookAttemptsUsed,
+                            levelIndex,
+                            roundIndex,
+                            selectedChefHatId,
+                            targetScore,
+                            cumulativeScore,
+                            cookResultSeq,
+                            lastCookScoreDelta);
                         break;
                     }
 
                     default:
-                    {
-                        // Unknown op: skip payload, keep stream aligned
-                        OpsReader.SkipBytes(r, opLen);
-                        ops[outIdx++] = new RepOp(RepOpType.None);
+                        recognized = false;
                         break;
-                    }
                 }
 
-                // enforce opLen alignment
                 int consumed = r.Position - startPos;
                 if (consumed < opLen)
                     OpsReader.SkipBytes(r, opLen - consumed);
                 else if (consumed > opLen)
                     throw new InvalidOperationException(
                         $"Ops decode overread: opType={opType} expectedLen={opLen} consumed={consumed}");
+
+                if (recognized)
+                    tmp[outCount++] = rep;
             }
 
-            // If any unknown ops produced RepOpType.None, keep them. ClientEngine can ignore them.
+            RepOp[] ops;
+            if (outCount == tmp.Length)
+            {
+                ops = tmp;
+            }
+            else
+            {
+                ops = new RepOp[outCount];
+                Array.Copy(tmp, ops, outCount);
+            }
 
             return new ReplicationUpdate(
                 serverTick: msg.ServerTick,

@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using com.aqua.netlogic.sim.game;
 using com.aqua.netlogic.sim.serverengine;
 using com.aqua.netlogic.sim.serverengine.replication;
-using LiteNetLib.Utils;
 using com.aqua.netlogic.net;
 using com.aqua.netlogic.net.transport;
 using com.aqua.netlogic.sim.clientengine.protocol;
+using com.aqua.netlogic.sim.networkserver.protocol;
 using com.aqua.netlogic.sim.networkserver.reliability;
 using com.aqua.netlogic.command;
 using com.aqua.netlogic.sim.timing;
@@ -39,7 +39,7 @@ namespace com.aqua.netlogic.sim.networkserver
         private const int ReliableMaxPendingPackets = 128;
 
         private uint _serverUnreliableSeq;
-        private readonly NetDataWriter _opsWriter;
+        private readonly ServerMessageEncoder _encoder;
         private readonly global::System.Buffers.ArrayBufferWriter<byte> _packetWriter =
             new global::System.Buffers.ArrayBufferWriter<byte>(2048);
 
@@ -75,7 +75,7 @@ namespace com.aqua.netlogic.sim.networkserver
             _reliableStreams = new Dictionary<int, ServerReliableStream>(32);
 
             _serverUnreliableSeq = 1;
-            _opsWriter = new NetDataWriter();
+            _encoder = new ServerMessageEncoder();
             _lastServerTimeMs = 0;
 
         }
@@ -235,7 +235,7 @@ namespace com.aqua.netlogic.sim.networkserver
             com.aqua.netlogic.sim.game.snapshot.GameSnapshot snap = _engine.BuildSnapshot();
             uint hash = _engine.ComputeStateHash();
 
-            BaselineMsg msg = BaselineBuilder.Build(snap, _engine.CurrentTick, hash);
+            BaselineMsg msg = ServerMessageEncoder.BuildBaseline(snap, _engine.CurrentTick, hash);
             byte[] bytes = MsgCodec.EncodeBaseline(msg);
 
             SendPacket(connId, Lane.Reliable, bytes);
@@ -273,7 +273,7 @@ namespace com.aqua.netlogic.sim.networkserver
             if (ops.Length == 0)
                 return;
 
-            EncodeReliableRepOpsToWire(ops, out ushort opCount);
+            _encoder.EncodeReliableRepOpsToWriter(ops, out ushort opCount);
 
             if (opCount == 0)
                 return;
@@ -285,7 +285,7 @@ namespace com.aqua.netlogic.sim.networkserver
                 int connId = _clients[k];
                 if (_reliableStreams.TryGetValue(connId, out ServerReliableStream? stream) && stream != null)
                 {
-                    byte[] opsPayload = com.aqua.netlogic.net.PooledBytes.RentCopy(_opsWriter, out int opsLen);
+                    byte[] opsPayload = com.aqua.netlogic.net.PooledBytes.RentCopy(_encoder.Writer, out int opsLen);
                     try
                     {
                         stream.AddOpsForTick(frameTick, opCount, opsPayload, opsLen);
@@ -299,71 +299,6 @@ namespace com.aqua.netlogic.sim.networkserver
                 }
                 k++;
             }
-        }
-
-        private void EncodeReliableRepOpsToWire(ReadOnlySpan<RepOp> ops, out ushort opCount)
-        {
-            _opsWriter.Reset();
-            opCount = 0;
-
-            if (ops.Length > 0)
-            {
-                int i = 0;
-                while (i < ops.Length)
-                {
-                    RepOp op = ops[i];
-
-                    switch (op.Type)
-                    {
-                        case RepOpType.EntitySpawned:
-                            // op.A = entityId, op.B = x, op.C = y, op.D = hp
-                            OpsWriter.WriteEntitySpawned(_opsWriter, op.A, op.B, op.C, op.D);
-                            opCount++;
-                            break;
-
-                        case RepOpType.EntityDestroyed:
-                            // op.A = entityId
-                            OpsWriter.WriteEntityDestroyed(_opsWriter, op.A);
-                            opCount++;
-                            break;
-
-                        case RepOpType.FlowFire:
-                            // op.A = trigger (byte stored in int), op.B = param0
-                            OpsWriter.WriteFlowFire(_opsWriter, (byte)op.A, op.B);
-                            opCount++;
-                            break;
-
-                        case RepOpType.FlowSnapshot:
-                            // Decode packed bytes from op.A
-                            byte flowState = (byte)(op.A & 0xFF);
-                            byte roundState = (byte)((op.A >> 8) & 0xFF);
-                            byte lastCookMetTarget = (byte)((op.A >> 16) & 0xFF);
-                            byte cookAttemptsUsed = (byte)((op.A >> 24) & 0xFF);
-
-                            OpsWriter.WriteFlowSnapshot(
-                                _opsWriter,
-                                flowState,
-                                roundState,
-                                lastCookMetTarget,
-                                cookAttemptsUsed,
-                                op.B,  // levelIndex
-                                op.C,  // roundIndex
-                                op.D,  // selectedChefHatId
-                                op.E,  // targetScore
-                                op.F,  // cumulativeScore
-                                op.G,  // cookResultSeq
-                                op.H); // lastCookScoreDelta
-                            opCount++;
-                            break;
-
-                        default:
-                            break;
-                    }
-
-                    i++;
-                }
-            }
-
         }
 
         private void FlushReliableStreams(int serverTick, uint worldHash)
@@ -390,25 +325,11 @@ namespace com.aqua.netlogic.sim.networkserver
 
         private void SendUnreliableSnapshotToAll(int serverTick, uint worldHash, ReadOnlySpan<RepOp> ops)
         {
-            _opsWriter.Reset();
-            ushort opCount = 0;
-
-            int i = 0;
-            while (i < ops.Length)
-            {
-                RepOp op = ops[i];
-                if (op.Type == RepOpType.PositionSnapshot)
-                {
-                    // op.A=entityId, op.B=x, op.C=y
-                    OpsWriter.WritePositionSnapshot(_opsWriter, op.A, op.B, op.C);
-                    opCount++;
-                }
-                i++;
-            }
+            _encoder.EncodeUnreliablePositionSnapshotsToWriter(ops, out ushort opCount);
 
             // Send heartbeat even when no ops (prevents interpolation gaps)
             // If opCount == 0, we still send a message with opCount=0 to maintain tick cadence
-            byte[] opsBytes = (opCount == 0) ? Array.Empty<byte>() : _opsWriter.CopyData();
+            byte[] opsBytes = (opCount == 0) ? Array.Empty<byte>() : _encoder.Writer.CopyData();
 
             ServerOpsMsg msg = new ServerOpsMsg(
                 ProtocolVersion.Current,

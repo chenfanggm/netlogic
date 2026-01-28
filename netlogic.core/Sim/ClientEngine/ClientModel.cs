@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using com.aqua.netlogic.net;
 using com.aqua.netlogic.sim.game.snapshot;
@@ -21,6 +22,8 @@ namespace com.aqua.netlogic.sim.clientengine
 
         public void ResetFromSnapshot(GameSnapshot snap, int serverTick, uint stateHash)
         {
+            if (snap == null) throw new ArgumentNullException(nameof(snap));
+
             _entities.Clear();
 
             SampleEntityPos[] ents = snap.Entities;
