@@ -2,7 +2,7 @@ using System;
 using LiteNetLib.Utils;
 using Net;
 
-namespace Client2.Protocol
+namespace Client.Protocol
 {
     public static class ClientCommandCodec
     {

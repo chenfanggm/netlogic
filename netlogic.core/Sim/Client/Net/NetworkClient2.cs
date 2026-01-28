@@ -1,7 +1,7 @@
 using System;
-using Client2.Protocol;
+using Client.Protocol;
 
-namespace Client2.Net
+namespace Client.Net
 {
     public sealed class NetworkClient2
     {

@@ -1,8 +1,8 @@
 using System;
-using Client2.Net;
-using Client2.Protocol;
+using Client.Net;
+using Client.Protocol;
 
-namespace Client2.Game
+namespace Client.Game
 {
     /// <summary>
     /// GameClient2 = applies decoded messages into ClientModel.

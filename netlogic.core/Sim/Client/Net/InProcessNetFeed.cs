@@ -1,6 +1,6 @@
 using System;
 
-namespace Client2.Net
+namespace Client.Net
 {
     /// <summary>
     /// Deterministic in-process message bus for client/server wiring.

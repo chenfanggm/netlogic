@@ -1,6 +1,6 @@
-using Client2.Net;
+using Client.Net;
 
-namespace Client2.Game
+namespace Client.Game
 {
     public sealed class ClientHost2 : IDisposable
     {

@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using LiteNetLib.Utils;
 using Net;
 
-namespace Client2.Protocol
+namespace Client.Protocol
 {
     public sealed class ClientOpsMsgToClientCommandConverter
     {

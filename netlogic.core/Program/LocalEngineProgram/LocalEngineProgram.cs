@@ -12,19 +12,17 @@ namespace Program
     {
         public void Run(ProgramConfig config)
         {
-            int tickRateHz = config.TickRateHz;
-            const int entityId = 1;
             const int connId = 1;
-            const int playerEntityId = 1;
 
             // 1) Build authoritative world + engine (no transport)
             Game game = new Game();
-            game.CreateEntityAt(entityId: entityId, x: 0, y: 0);
+            Entity playerEntity = game.CreateEntityAt(x: 0, y: 0);
+            int playerEntityId = playerEntity.Id;
 
             GameEngine engine = new GameEngine(game);
 
             // 2) Build outer-ring components (IO around the engine)
-            TickRunner runner = new TickRunner(tickRateHz);
+            TickRunner runner = new TickRunner(config.TickRateHz);
             PlayerFlowScript flowScript = new PlayerFlowScript();
             uint clientCmdSeq = 1;
             GameFlowState lastFlowState = (GameFlowState)255;

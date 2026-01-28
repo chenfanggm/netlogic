@@ -2,7 +2,7 @@ using System;
 using Net;
 using Sim.Snapshot;
 
-namespace Client2.Protocol
+namespace Client.Protocol
 {
     public sealed class ServerSnapshot
     {

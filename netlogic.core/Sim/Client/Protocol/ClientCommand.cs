@@ -1,4 +1,4 @@
-namespace Client2.Protocol
+namespace Client.Protocol
 {
     public enum ClientCommandType : byte
     {

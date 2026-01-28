@@ -1,6 +1,6 @@
 using System;
 
-namespace Client2.Net
+namespace Client.Net
 {
     public interface IClientTransport : IDisposable
     {

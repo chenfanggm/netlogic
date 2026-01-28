@@ -1,6 +1,6 @@
-using Client2.Game;
-using Client2.Net;
-using Client2.Protocol;
+using Client.Game;
+using Client.Net;
+using Client.Protocol;
 using Net;
 using Program.FlowScript;
 using Sim.Command;
@@ -27,23 +27,25 @@ namespace Program
     {
         public void Run(ProgramConfig config)
         {
-            const int entityId = 1;
-            const int connId = 1;
-            const int playerEntityId = 1;
+            const int playerConnId = 1;
 
             // ---------------------
-            // Create authoritative world + engine
+            // Create authoritative world
             // ---------------------
             Game world = new Game();
-            world.CreateEntityAt(entityId: entityId, x: 0, y: 0);
+            Entity playerEntity = world.CreateEntityAt(x: 0, y: 0);
+            int playerEntityId = playerEntity.Id;
 
+            // ---------------------
+            // Create engine
+            // ---------------------
             GameEngine engine = new GameEngine(world);
 
             // ---------------------
             // Create in-process feed + client
             // ---------------------
-            Client2.Net.InProcessNetFeed feed = new Client2.Net.InProcessNetFeed();
-            Client2.Net.InProcessClientTransport transport = new Client2.Net.InProcessClientTransport(feed);
+            Client.Net.InProcessNetFeed feed = new Client.Net.InProcessNetFeed();
+            Client.Net.InProcessClientTransport transport = new Client.Net.InProcessClientTransport(feed);
             NetworkClient2 net = new NetworkClient2(transport);
             GameClient2 client = new GameClient2(net);
 
@@ -106,7 +108,7 @@ namespace Program
                             ];
 
                             engine.EnqueueCommands(
-                                connId: connId,
+                                connId: playerConnId,
                                 requestedClientTick: engine.CurrentTick + 1,
                                 clientCmdSeq: clientCmdSeq++,
                                 commands: cmds);
@@ -119,7 +121,7 @@ namespace Program
                             ];
 
                             engine.EnqueueCommands(
-                                connId: connId,
+                                connId: playerConnId,
                                 requestedClientTick: engine.CurrentTick + 1,
                                 clientCmdSeq: clientCmdSeq++,
                                 commands: cmds);
@@ -140,7 +142,7 @@ namespace Program
                         ];
 
                         engine.EnqueueCommands(
-                            connId: connId,
+                            connId: playerConnId,
                             requestedClientTick: engine.CurrentTick + 1,
                             clientCmdSeq: clientCmdSeq++,
                             commands: cmds);
@@ -165,7 +167,7 @@ namespace Program
                         ];
 
                         engine.EnqueueCommands(
-                            connId: connId,
+                            connId: playerConnId,
                             requestedClientTick: engine.CurrentTick + 1,
                             clientCmdSeq: clientCmdSeq++,
                             commands: cmds);

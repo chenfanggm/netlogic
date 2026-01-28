@@ -1,10 +1,10 @@
 using System.Collections.Generic;
-using Client2.Protocol;
+using Client.Protocol;
 using Net;
 using Net.WireState;
 using Sim.Snapshot;
 
-namespace Client2.Game
+namespace Client.Game
 {
     /// <summary>
     /// ClientModel = lightweight rebuildable state for rendering/UI.
