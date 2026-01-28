@@ -301,6 +301,21 @@ The sample lane provides **continuous state** updates (position, HP, etc.) where
 
 ---
 
+## Client core (`ClientEngine`)
+
+`ClientEngine` is **pure state reconstruction** for rendering/UI.
+
+Important boundary:
+
+- `ClientEngine` **does not** decode wire bytes.
+- It consumes only **client-facing replication primitives**:
+  - `GameSnapshot` (baseline snapshot)
+  - `ReplicationUpdate` (envelope containing `RepOp[]`, plus tick/hash/seq)
+
+Wire decoding lives in `ClientMessageDecoder`.
+
+---
+
 ## 7) Client Networking (`NetworkClient`)
 
 ### Purpose
@@ -312,7 +327,7 @@ Client-side adapter between transport/protocol and presentation.
 * Handshake lifecycle (Hello/Welcome)
 * Ping/Pong for RTT estimation
 * Command sending (Reliable)
-* Reliable lane application (baseline + discrete ops)
+* Reliable lane application (snapshot + discrete ops)
 * Unreliable lane buffering for interpolation
 
 ### Outgoing path
@@ -396,6 +411,31 @@ Define wire contract:
 * Compression
 * Interest-managed op subsets
 * Security: signature or session tokens
+
+---
+
+## Protocol boundary: why messages are decoded into RepOps before ClientEngine
+
+The wire protocol (`BaselineMsg`, `ServerOpsMsg`) exists to support:
+- schema/versioning
+- hash contract guards
+- packet lanes (reliable/unreliable)
+- payload framing `[opType][opLen][payload]`
+
+However, the **client simulation core** should not depend on wire details.
+
+Therefore:
+
+- `NetworkClient` receives messages via transport
+- `ClientMessageDecoder` validates + decodes:
+  - `BaselineMsg` → `GameSnapshot`
+  - `ServerOpsMsg` → `ReplicationUpdate(RepOp[])`
+- `ClientEngine` consumes only `GameSnapshot` + `ReplicationUpdate`
+
+This keeps `ClientEngine` reusable for:
+- replays (feed updates directly)
+- client prediction (same input type)
+- deterministic tests without any network codec
 
 ---
 

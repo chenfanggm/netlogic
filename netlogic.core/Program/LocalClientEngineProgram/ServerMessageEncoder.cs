@@ -1,10 +1,8 @@
-using System.Collections.Generic;
 using LiteNetLib.Utils;
 using com.aqua.netlogic.net;
 using com.aqua.netlogic.net.wirestate;
 using com.aqua.netlogic.sim.serverengine;
 using com.aqua.netlogic.sim.game;
-using com.aqua.netlogic.sim.game.entity;
 using com.aqua.netlogic.sim.game.snapshot;
 
 namespace com.aqua.netlogic.program
@@ -13,13 +11,13 @@ namespace com.aqua.netlogic.program
     /// Converts ServerEngine outputs into messages that ClientEngine can consume,
     /// WITHOUT any transport/reliability layer.
     /// </summary>
-    internal sealed class InProcessServerEmitter
+    internal sealed class ServerMessageEncoder
     {
         private readonly NetDataWriter _w = new NetDataWriter();
 
         private uint _reliableSeq;
 
-        public InProcessServerEmitter()
+        public ServerMessageEncoder()
         {
             _reliableSeq = 0;
         }

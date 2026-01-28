@@ -1,15 +1,13 @@
 using System.Collections.Generic;
-using com.aqua.netlogic.sim.clientengine.protocol;
 using com.aqua.netlogic.net;
-using com.aqua.netlogic.net.wirestate;
 using com.aqua.netlogic.sim.game.snapshot;
+using com.aqua.netlogic.sim.serverengine;
 
 namespace com.aqua.netlogic.sim.clientengine
 {
     /// <summary>
     /// ClientModel = lightweight rebuildable state for rendering/UI.
-    /// Baseline seeds entities. Unreliable lane updates positions.
-    /// Reliable lane updates flow.
+    /// Seeds from a full snapshot, then applies RepOps (positions/lifecycle/flow).
     /// </summary>
     public sealed class ClientModel
     {
@@ -17,40 +15,25 @@ namespace com.aqua.netlogic.sim.clientengine
         public uint LastStateHash { get; internal set; }
 
         private readonly Dictionary<int, EntityState> _entities = new Dictionary<int, EntityState>();
-
         public IReadOnlyDictionary<int, EntityState> Entities => _entities;
 
         public readonly FlowView Flow = new FlowView();
 
-        public void ResetFromBaseline(BaselineMsg baseline)
+        public void ResetFromSnapshot(GameSnapshot snap, int serverTick, uint stateHash)
         {
-            if (baseline.ProtocolVersion != ProtocolVersion.Current)
-                throw new InvalidOperationException(
-                    $"Protocol mismatch. Client={ProtocolVersion.Current} Server={baseline.ProtocolVersion}");
-
             _entities.Clear();
-            for (int i = 0; i < baseline.Entities.Length; i++)
+
+            SampleEntityPos[] ents = snap.Entities;
+            for (int i = 0; i < ents.Length; i++)
             {
-                WireEntityState e = baseline.Entities[i];
-                _entities[e.Id] = new EntityState(e.Id, e.X, e.Y, e.Hp);
+                SampleEntityPos e = ents[i];
+                _entities[e.EntityId] = new EntityState(e.EntityId, e.X, e.Y, e.Hp);
             }
 
-            FlowSnapshot flow = new FlowSnapshot(
-                (com.aqua.netlogic.sim.game.flow.GameFlowState)baseline.Flow.FlowState,
-                baseline.Flow.LevelIndex,
-                baseline.Flow.RoundIndex,
-                baseline.Flow.SelectedChefHatId,
-                baseline.Flow.TargetScore,
-                baseline.Flow.CumulativeScore,
-                baseline.Flow.CookAttemptsUsed,
-                (com.aqua.netlogic.sim.game.flow.RoundState)baseline.Flow.RoundState,
-                baseline.Flow.CookResultSeq,
-                baseline.Flow.LastCookScoreDelta,
-                baseline.Flow.LastCookMetTarget);
-            Flow.ApplyFlowSnapshot(flow);
+            Flow.ApplyFlowSnapshot(snap.Flow);
 
-            LastServerTick = baseline.ServerTick;
-            LastStateHash = baseline.StateHash;
+            LastServerTick = serverTick;
+            LastStateHash = stateHash;
         }
 
         public void ApplyPositionSnapshot(int id, int x, int y)

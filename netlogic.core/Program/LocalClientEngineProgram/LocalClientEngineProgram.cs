@@ -44,7 +44,7 @@ namespace com.aqua.netlogic.program
             // ---------------------
             // Create in-process emitter + client (NO transport)
             // ---------------------
-            InProcessServerEmitter server = new InProcessServerEmitter();
+            ServerMessageEncoder server = new ServerMessageEncoder();
             ClientEngine client = new ClientEngine();
 
             // Run one tick to produce initial state
@@ -52,11 +52,13 @@ namespace com.aqua.netlogic.program
             using TickFrame bootstrapFrame = engine.TickOnce(bootstrapCtx);
 
             // Build baseline once and apply to client
-            BaselineMsg baseline = InProcessServerEmitter.BuildBaseline(
+            BaselineMsg baseline = ServerMessageEncoder.BuildBaseline(
                 serverTick: bootstrapFrame.Tick,
                 world: engine.ReadOnlyWorld);
 
-            client.ApplyBaseline(baseline);
+            com.aqua.netlogic.sim.game.snapshot.GameSnapshot snap0 = com.aqua.netlogic.sim.clientengine.protocol.ClientMessageDecoder
+                .DecodeBaselineToSnapshot(baseline, out int t0, out uint h0);
+            client.ApplyBaselineSnapshot(snap0, t0, h0);
 
             // ---------------------
             // Drive ticks
@@ -84,11 +86,13 @@ namespace com.aqua.netlogic.program
                     {
                         lastResyncAtMs = (long)ctx.ServerTimeMs;
 
-                        BaselineMsg resync = InProcessServerEmitter.BuildBaseline(
+                        BaselineMsg resync = ServerMessageEncoder.BuildBaseline(
                             serverTick: engine.CurrentTick,
                             world: engine.ReadOnlyWorld);
 
-                        client.ApplyBaseline(resync);
+                        com.aqua.netlogic.sim.game.snapshot.GameSnapshot snap = com.aqua.netlogic.sim.clientengine.protocol.ClientMessageDecoder
+                            .DecodeBaselineToSnapshot(resync, out int t, out uint h);
+                        client.ApplyBaselineSnapshot(snap, t, h);
                     }
 
                     // Tick engine
@@ -98,7 +102,11 @@ namespace com.aqua.netlogic.program
                     {
                         RepOp[] reliableScan = frame.Ops.ToArray(); // emitter expects array for reliable build
                         if (server.TryBuildReliableOpsFromRepOps(frame.Tick, frame.StateHash, reliableScan, out ServerOpsMsg reliableMsg))
-                            client.ApplyServerOps(reliableMsg);
+                        {
+                            com.aqua.netlogic.sim.replication.ReplicationUpdate up = com.aqua.netlogic.sim.clientengine.protocol.ClientMessageDecoder
+                                .DecodeServerOpsToUpdate(reliableMsg, isReliableLane: true);
+                            client.ApplyReplicationUpdate(up);
+                        }
                     }
 
                     // Build unreliable ops from RepOps (position snapshots) and apply
@@ -108,7 +116,9 @@ namespace com.aqua.netlogic.program
                             stateHash: frame.StateHash,
                             ops: frame.Ops.Span);
 
-                        client.ApplyServerOps(unreliableMsg);
+                        com.aqua.netlogic.sim.replication.ReplicationUpdate up = com.aqua.netlogic.sim.clientengine.protocol.ClientMessageDecoder
+                            .DecodeServerOpsToUpdate(unreliableMsg, isReliableLane: false);
+                        client.ApplyReplicationUpdate(up);
                     }
 
                     GameFlowState clientFlow = (GameFlowState)client.Model.Flow.FlowState;

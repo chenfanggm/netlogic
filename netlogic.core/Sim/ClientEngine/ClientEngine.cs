@@ -1,151 +1,92 @@
 using System;
-using com.aqua.netlogic.sim.clientengine.protocol;
-using LiteNetLib.Utils;
-using com.aqua.netlogic.net;
 using com.aqua.netlogic.sim.game.snapshot;
+using com.aqua.netlogic.sim.replication;
+using com.aqua.netlogic.sim.serverengine;
 
 namespace com.aqua.netlogic.sim.clientengine
 {
     /// <summary>
     /// ClientEngine = pure client-side state reconstruction core.
-    /// Owns ClientModel, consumes Baseline + Ops.
+    /// Owns ClientModel, consumes GameSnapshot + ReplicationUpdate (RepOp[]).
     ///
-    /// No transport, no reliability, no realtime concerns.
+    /// No transport, no wire decoding, no reliability.
     /// </summary>
     public sealed class ClientEngine
     {
         public ClientModel Model { get; } = new ClientModel();
 
-        public void ApplyBaseline(BaselineMsg baseline)
+        public void ApplyBaselineSnapshot(GameSnapshot snapshot, int serverTick, uint stateHash)
         {
-            if (baseline == null) throw new ArgumentNullException(nameof(baseline));
-
-            // Hash contract guard (keeps baseline/ops consistent across builds)
-            if (baseline.HashScopeId != HashContract.ScopeId || baseline.HashPhase != (byte)HashContract.Phase)
-                throw new InvalidOperationException(
-                    $"Hash contract mismatch on Baseline. Client scope/phase={HashContract.ScopeId}/{(byte)HashContract.Phase} " +
-                    $"Server scope/phase={baseline.HashScopeId}/{baseline.HashPhase}");
-
-            Model.ResetFromBaseline(baseline);
+            if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+            Model.ResetFromSnapshot(snapshot, serverTick, stateHash);
         }
 
-        /// <summary>
-        /// Apply a ServerOpsMsg payload (reliable or unreliable lane).
-        /// Does NOT handle ack/replay ordering — higher layers do that.
-        /// </summary>
-        public void ApplyServerOps(ServerOpsMsg msg)
+        public void ApplyReplicationUpdate(ReplicationUpdate update)
         {
-            if (msg == null) throw new ArgumentNullException(nameof(msg));
-
-            if (msg.ProtocolVersion != ProtocolVersion.Current)
-                throw new InvalidOperationException(
-                    $"Protocol mismatch. Client={ProtocolVersion.Current} Server={msg.ProtocolVersion}");
-
-            if (msg.HashScopeId != HashContract.ScopeId || msg.HashPhase != (byte)HashContract.Phase)
-                throw new InvalidOperationException(
-                    $"Hash contract mismatch on ServerOps. Client scope/phase={HashContract.ScopeId}/{(byte)HashContract.Phase} " +
-                    $"Server scope/phase={msg.HashScopeId}/{msg.HashPhase}");
-
-            // Empty message still advances tick/hash
-            if (msg.OpCount == 0 || msg.OpsPayload == null || msg.OpsPayload.Length == 0)
+            // Apply ops (if any)
+            RepOp[] ops = update.Ops;
+            if (ops != null && ops.Length > 0)
             {
-                Model.LastServerTick = msg.ServerTick;
-                Model.LastStateHash = msg.StateHash;
-                return;
-            }
-
-            NetDataReader r = new NetDataReader(msg.OpsPayload);
-
-            ushort remaining = msg.OpCount;
-            while (remaining > 0)
-            {
-                remaining--;
-
-                com.aqua.netlogic.net.OpType opType = OpsReader.ReadOpType(r);
-                ushort opLen = OpsReader.ReadOpLen(r);
-
-                int startPos = r.Position;
-
-                switch (opType)
+                for (int i = 0; i < ops.Length; i++)
                 {
-                    case com.aqua.netlogic.net.OpType.PositionSnapshot:
+                    RepOp op = ops[i];
+
+                    switch (op.Type)
                     {
-                        int id = r.GetInt();
-                        int x = r.GetInt();
-                        int y = r.GetInt();
-                        Model.ApplyPositionSnapshot(id, x, y);
-                        break;
-                    }
+                        case RepOpType.PositionSnapshot:
+                            // A=id, B=x, C=y
+                            Model.ApplyPositionSnapshot(op.A, op.B, op.C);
+                            break;
 
-                    case com.aqua.netlogic.net.OpType.EntitySpawned:
-                    {
-                        int id = r.GetInt();
-                        int x = r.GetInt();
-                        int y = r.GetInt();
-                        int hp = r.GetInt();
-                        Model.ApplyEntitySpawned(id, x, y, hp);
-                        break;
-                    }
+                        case RepOpType.EntitySpawned:
+                            // A=id, B=x, C=y, D=hp
+                            Model.ApplyEntitySpawned(op.A, op.B, op.C, op.D);
+                            break;
 
-                    case com.aqua.netlogic.net.OpType.EntityDestroyed:
-                    {
-                        int id = r.GetInt();
-                        Model.ApplyEntityDestroyed(id);
-                        break;
-                    }
+                        case RepOpType.EntityDestroyed:
+                            // A=id
+                            Model.ApplyEntityDestroyed(op.A);
+                            break;
 
-                    case com.aqua.netlogic.net.OpType.FlowSnapshot:
-                    {
-                        // Matches OpsWriter.WriteFlowSnapshot payload layout
-                        byte flowState = r.GetByte();
-                        byte roundState = r.GetByte();
-                        byte lastMetTarget = r.GetByte();
-                        byte cookAttemptsUsed = r.GetByte();
+                        case RepOpType.FlowSnapshot:
+                        {
+                            // RepOp.FlowSnapshot packs bytes into A.
+                            byte flowState = (byte)(op.A & 0xFF);
+                            byte roundState = (byte)((op.A >> 8) & 0xFF);
+                            byte lastCookMetTarget = (byte)((op.A >> 16) & 0xFF);
+                            byte cookAttemptsUsed = (byte)((op.A >> 24) & 0xFF);
 
-                        int levelIndex = r.GetInt();
-                        int roundIndex = r.GetInt();
-                        int selectedChefHatId = r.GetInt();
-                        int targetScore = r.GetInt();
-                        int cumulativeScore = r.GetInt();
-                        int cookResultSeq = r.GetInt();
-                        int lastCookScoreDelta = r.GetInt();
+                            FlowSnapshot flow = new FlowSnapshot(
+                                (com.aqua.netlogic.sim.game.flow.GameFlowState)flowState,
+                                op.B, // levelIndex
+                                op.C, // roundIndex
+                                op.D, // selectedChefHatId
+                                op.E, // targetScore
+                                op.F, // cumulativeScore
+                                cookAttemptsUsed,
+                                (com.aqua.netlogic.sim.game.flow.RoundState)roundState,
+                                op.G, // cookResultSeq
+                                op.H, // lastCookScoreDelta
+                                lastCookMetTarget != 0);
 
-                        FlowSnapshot flow = new FlowSnapshot(
-                            (com.aqua.netlogic.sim.game.flow.GameFlowState)flowState,
-                            levelIndex,
-                            roundIndex,
-                            selectedChefHatId,
-                            targetScore,
-                            cumulativeScore,
-                            cookAttemptsUsed,
-                            (com.aqua.netlogic.sim.game.flow.RoundState)roundState,
-                            cookResultSeq,
-                            lastCookScoreDelta,
-                            lastMetTarget != 0);
+                            Model.Flow.ApplyFlowSnapshot(flow);
+                            break;
+                        }
 
-                        Model.Flow.ApplyFlowSnapshot(flow);
-                        break;
-                    }
+                        // Optional: if you ever want client-side reactions to FlowFire.
+                        case RepOpType.FlowFire:
+                            // Currently no model mutation required; keep it as a hook for UI/FX if desired.
+                            break;
 
-                    default:
-                    {
-                        // Unknown op: skip payload to keep stream aligned
-                        OpsReader.SkipBytes(r, opLen);
-                        break;
+                        default:
+                            break;
                     }
                 }
-
-                // Safety: enforce exact opLen consumption
-                int consumed = r.Position - startPos;
-                if (consumed < opLen)
-                    OpsReader.SkipBytes(r, opLen - consumed);
-                else if (consumed > opLen)
-                    throw new InvalidOperationException(
-                        $"Ops decode overread: opType={opType} expectedLen={opLen} consumed={consumed}");
             }
 
-            Model.LastServerTick = msg.ServerTick;
-            Model.LastStateHash = msg.StateHash;
+            // Always advance tick/hash (heartbeat included)
+            Model.LastServerTick = update.ServerTick;
+            Model.LastStateHash = update.StateHash;
         }
 
     }
