@@ -4,6 +4,7 @@ using com.aqua.netlogic.net;
 using com.aqua.netlogic.program.flowscript;
 using com.aqua.netlogic.command;
 using com.aqua.netlogic.sim.serverengine;
+using ServerMessageEncoder = com.aqua.netlogic.sim.networkserver.protocol.ServerMessageEncoder;
 using com.aqua.netlogic.sim.game;
 using com.aqua.netlogic.sim.game.entity;
 using com.aqua.netlogic.sim.game.flow;
@@ -45,7 +46,8 @@ namespace com.aqua.netlogic.program
             // ---------------------
             // Create in-process emitter + client (NO transport)
             // ---------------------
-            ServerMessageEncoder server = new ServerMessageEncoder();
+            ServerMessageEncoder encoder = new ServerMessageEncoder();
+            ClientMessageDecoder decoder = new ClientMessageDecoder();
             ClientEngine client = new ClientEngine();
 
             // Run one tick to produce initial state
@@ -53,12 +55,14 @@ namespace com.aqua.netlogic.program
             using TickFrame bootstrapFrame = engine.TickOnce(bootstrapCtx);
 
             // Build baseline once and apply to client
+            com.aqua.netlogic.sim.game.snapshot.GameSnapshot bootstrapSnap = engine.BuildSnapshot();
             BaselineMsg baseline = ServerMessageEncoder.BuildBaseline(
-                serverTick: bootstrapFrame.Tick,
-                world: engine.ReadOnlyWorld);
+                bootstrapSnap,
+                bootstrapFrame.Tick,
+                bootstrapFrame.StateHash);
 
             com.aqua.netlogic.sim.game.snapshot.GameSnapshot snap0 =
-                ClientMessageDecoder.DecodeBaselineToSnapshot(baseline, out int t0, out uint h0);
+                decoder.DecodeBaselineToSnapshot(baseline, out int t0, out uint h0);
             client.ApplyBaselineSnapshot(snap0, t0, h0);
 
             // ---------------------
@@ -68,6 +72,7 @@ namespace com.aqua.netlogic.program
 
             PlayerFlowScript flowScript = new PlayerFlowScript();
             uint clientCmdSeq = 1;
+            uint reliableSeq = 0;
             GameFlowState lastClientFlowState = (GameFlowState)255;
             bool exitingInRound = false;
             long exitMenuAtMs = -1;
@@ -87,12 +92,15 @@ namespace com.aqua.netlogic.program
                     {
                         lastResyncAtMs = (long)ctx.ServerTimeMs;
 
+                        com.aqua.netlogic.sim.game.snapshot.GameSnapshot resyncSnap = engine.BuildSnapshot();
+                        uint resyncHash = engine.ComputeStateHash();
                         BaselineMsg resync = ServerMessageEncoder.BuildBaseline(
-                            serverTick: engine.CurrentTick,
-                            world: engine.ReadOnlyWorld);
+                            resyncSnap,
+                            engine.CurrentTick,
+                            resyncHash);
 
                         com.aqua.netlogic.sim.game.snapshot.GameSnapshot snap =
-                            ClientMessageDecoder.DecodeBaselineToSnapshot(resync, out int t, out uint h);
+                            decoder.DecodeBaselineToSnapshot(resync, out int t, out uint h);
                         client.ApplyBaselineSnapshot(snap, t, h);
                     }
 
@@ -101,24 +109,42 @@ namespace com.aqua.netlogic.program
 
                     // Build reliable ops from RepOps (entity lifecycle + flow) and apply
                     {
-                        RepOp[] reliableScan = frame.Ops.ToArray(); // emitter expects array for reliable build
-                        if (server.TryBuildReliableOpsFromRepOps(frame.Tick, frame.StateHash, reliableScan, out ServerOpsMsg reliableMsg))
+                        encoder.EncodeReliableRepOpsToWriter(frame.Ops.Span, out ushort opCount);
+                        if (opCount > 0)
                         {
-                        com.aqua.netlogic.sim.replication.ReplicationUpdate up =
-                            ClientMessageDecoder.DecodeServerOpsToUpdate(reliableMsg, isReliableLane: true);
+                            byte[] payload = encoder.Writer.CopyData();
+                            ServerOpsMsg reliableMsg = new ServerOpsMsg(
+                                ProtocolVersion.Current,
+                                HashContract.ScopeId,
+                                (byte)HashContract.Phase,
+                                frame.Tick,
+                                ++reliableSeq,
+                                frame.StateHash,
+                                opCount,
+                                payload);
+
+                            com.aqua.netlogic.sim.replication.ReplicationUpdate up =
+                                decoder.DecodeServerOpsToUpdate(reliableMsg, isReliableLane: true);
                             client.ApplyReplicationUpdate(up);
                         }
                     }
 
                     // Build unreliable ops from RepOps (position snapshots) and apply
                     {
-                        ServerOpsMsg unreliableMsg = server.BuildUnreliableOpsFromRepOps(
-                            serverTick: frame.Tick,
-                            stateHash: frame.StateHash,
-                            ops: frame.Ops.Span);
+                        encoder.EncodeUnreliablePositionSnapshotsToWriter(frame.Ops.Span, out ushort opCount);
+                        byte[] payload = (opCount == 0) ? Array.Empty<byte>() : encoder.Writer.CopyData();
+                        ServerOpsMsg unreliableMsg = new ServerOpsMsg(
+                            ProtocolVersion.Current,
+                            HashContract.ScopeId,
+                            (byte)HashContract.Phase,
+                            frame.Tick,
+                            0,
+                            frame.StateHash,
+                            opCount,
+                            payload);
 
                         com.aqua.netlogic.sim.replication.ReplicationUpdate up =
-                            ClientMessageDecoder.DecodeServerOpsToUpdate(unreliableMsg, isReliableLane: false);
+                            decoder.DecodeServerOpsToUpdate(unreliableMsg, isReliableLane: false);
                         client.ApplyReplicationUpdate(up);
                     }
 

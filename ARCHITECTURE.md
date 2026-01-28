@@ -439,6 +439,109 @@ This keeps `ClientEngine` reusable for:
 
 ---
 
+## Folder layout and naming rules (refactor checklist)
+
+### Recommended folder layout
+
+```
+netlogic.core/
+  Net/                       <-- pure wire protocol: message structs + byte codecs
+    Messages/
+      BaselineMsg.cs
+      ServerOpsMsg.cs
+      ClientOpsMsg.cs
+      WelcomeMsg.cs
+      PingMsg.cs
+      PongMsg.cs
+      ClientAckMsg.cs
+    Codec/
+      MsgCodec.cs            <-- bytes <-> message structs (framing, envelopes)
+      OpsWriter.cs           <-- writes op payload bytes into writer
+      OpsReader.cs           <-- reads op payload bytes from reader
+    WireState/
+      WireEntityState.cs
+      WireFlowState.cs
+    Transport/
+      IClientTransport.cs
+      IServerTransport.cs
+      LiteNetLib/
+        ...
+
+  Sim/                       <-- simulation + replication (transport-agnostic)
+    Game/
+      Game.cs
+      Entity/
+      Snapshot/
+        GameSnapshot.cs
+        SampleEntityPos.cs
+      Flow/
+        FlowSnapshot.cs
+        ...
+    ServerEngine/
+      ServerEngine.cs
+      TickFrame.cs
+      CommandBuffer.cs
+      ...
+
+    Replication/             <-- shared replication primitives (client + server)
+      RepOp.cs
+      RepOpType.cs
+      ReplicationUpdate.cs
+      StateHash.cs
+      HashContract.cs
+
+    NetworkServer/           <-- server endpoint; owns transport + reliability streams
+      NetworkServer.cs
+      ReliableStream/
+        ServerReliableStream.cs
+      Protocol/
+        ServerMessageEncoder.cs   <-- ServerEngine outputs -> BaselineMsg/ServerOpsMsg
+
+    NetworkClient/           <-- client endpoint; owns transport + acks
+      NetworkClient.cs
+      Protocol/
+        ClientMessageDecoder.cs   <-- BaselineMsg/ServerOpsMsg -> snapshot + RepUpdate
+
+    ClientEngine/            <-- client core; consumes snapshot + RepUpdate only
+      ClientEngine.cs
+      ClientModel.cs
+```
+
+### Naming rules
+
+1) Codec = converts between bytes and a structured message type.
+   - Pure wire framing layer.
+   - Examples:
+     - MsgCodec: bytes <-> BaselineMsg / ServerOpsMsg / etc
+     - ClientCommandCodec: ClientCommand <-> ops payload bytes (if needed)
+
+2) Encoder = converts from higher-level domain data -> message struct or payload bytes.
+   - Does not do transport.
+   - Does not do reliability/ordering.
+   - Examples:
+     - ServerMessageEncoder: (GameSnapshot + RepOp[]) -> BaselineMsg/ServerOpsMsg payload
+
+3) Decoder = converts from message struct or payload bytes -> higher-level domain data.
+   - Validates protocol/schema/hash contract.
+   - Examples:
+     - ClientMessageDecoder: BaselineMsg -> GameSnapshot, ServerOpsMsg -> ReplicationUpdate
+
+4) Transport classes should not parse op payload bytes.
+   - NetworkClient/NetworkServer may call MsgCodec, but op payload parsing belongs in Decoder/Encoder.
+
+5) Engine cores should never touch NetDataReader/Writer.
+   - ServerEngine produces RepOps, ClientEngine consumes RepOps, no wire details.
+
+6) Reliable sequencing belongs to the endpoint (NetworkServer/NetworkClient) or stream module.
+   - Encoder/Decoder may read or forward seq fields but should not own retransmit windows.
+
+### Optional refinement
+
+- Move RepOp out of Sim/ServerEngine into Sim/Replication so it is clearly shared
+  by both server and client layers.
+
+---
+
 ## 10) Transport (LiteNetLib / InProcess)
 
 ### Purpose

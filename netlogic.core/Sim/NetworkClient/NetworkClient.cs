@@ -33,6 +33,7 @@ namespace com.aqua.netlogic.sim.networkclient
         private uint _lastAckedReliableSeq = 0;
 
         private readonly NetDataWriter _cmdOpsWriter = new NetDataWriter();
+        private readonly ClientMessageDecoder _decoder = new ClientMessageDecoder();
 
         public NetworkClient(com.aqua.netlogic.net.transport.IClientTransport transport, int clientTickRateHz = 60, ClientEngine? engine = null)
         {
@@ -76,14 +77,14 @@ namespace com.aqua.netlogic.sim.networkclient
 
                     if (MsgCodec.TryDecodeBaseline(packet.Payload, out BaselineMsg baseline))
                     {
-                        var snap = ClientMessageDecoder.DecodeBaselineToSnapshot(baseline, out int serverTick, out uint stateHash);
+                        var snap = _decoder.DecodeBaselineToSnapshot(baseline, out int serverTick, out uint stateHash);
                         Engine.ApplyBaselineSnapshot(snap, serverTick, stateHash);
                         continue;
                     }
 
                     if (MsgCodec.TryDecodeServerOps(packet.Payload, out ServerOpsMsg relOps))
                     {
-                        var update = ClientMessageDecoder.DecodeServerOpsToUpdate(relOps, isReliableLane: true);
+                        var update = _decoder.DecodeServerOpsToUpdate(relOps, isReliableLane: true);
                         Engine.ApplyReplicationUpdate(update);
 
                         // Ack reliable ops stream so server replay window works.
@@ -107,7 +108,7 @@ namespace com.aqua.netlogic.sim.networkclient
                 {
                     if (MsgCodec.TryDecodeServerOps(packet.Payload, out ServerOpsMsg unrelOps))
                     {
-                        var update = ClientMessageDecoder.DecodeServerOpsToUpdate(unrelOps, isReliableLane: false);
+                        var update = _decoder.DecodeServerOpsToUpdate(unrelOps, isReliableLane: false);
                         Engine.ApplyReplicationUpdate(update);
                     }
                 }

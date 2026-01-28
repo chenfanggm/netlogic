@@ -11,25 +11,18 @@ namespace com.aqua.netlogic.sim.clientengine.protocol
     /// <summary>
     /// Decodes wire messages into client-facing primitives.
     ///
-    /// Motivation:
-    /// - Keep ClientEngine free of wire/protocol parsing.
-    /// - Centralize protocol validation (version + hash contract).
-    /// - Enable replay/testing by feeding ClientEngine decoded updates.
+    /// Instance-based to allow:
+    /// - negotiated protocol/schema in the future
+    /// - buffer reuse / allocation control
+    /// - easier dependency injection / testing
     /// </summary>
-    public static class ClientMessageDecoder
+    public sealed class ClientMessageDecoder
     {
-        public static GameSnapshot DecodeBaselineToSnapshot(BaselineMsg baseline, out int serverTick, out uint stateHash)
+        public GameSnapshot DecodeBaselineToSnapshot(BaselineMsg baseline, out int serverTick, out uint stateHash)
         {
             if (baseline == null) throw new ArgumentNullException(nameof(baseline));
 
-            if (baseline.ProtocolVersion != ProtocolVersion.Current)
-                throw new InvalidOperationException(
-                    $"Protocol mismatch. Client={ProtocolVersion.Current} Server={baseline.ProtocolVersion}");
-
-            if (baseline.HashScopeId != HashContract.ScopeId || baseline.HashPhase != (byte)HashContract.Phase)
-                throw new InvalidOperationException(
-                    $"Hash contract mismatch on Baseline. Client scope/phase={HashContract.ScopeId}/{(byte)HashContract.Phase} " +
-                    $"Server scope/phase={baseline.HashScopeId}/{baseline.HashPhase}");
+            ValidateProtocol(baseline.ProtocolVersion, baseline.HashScopeId, baseline.HashPhase, "Baseline");
 
             // WireFlowState -> FlowSnapshot
             WireFlowState wf = baseline.Flow;
@@ -60,18 +53,11 @@ namespace com.aqua.netlogic.sim.clientengine.protocol
             return new GameSnapshot(flow, ents);
         }
 
-        public static ReplicationUpdate DecodeServerOpsToUpdate(ServerOpsMsg msg, bool isReliableLane)
+        public ReplicationUpdate DecodeServerOpsToUpdate(ServerOpsMsg msg, bool isReliableLane)
         {
             if (msg == null) throw new ArgumentNullException(nameof(msg));
 
-            if (msg.ProtocolVersion != ProtocolVersion.Current)
-                throw new InvalidOperationException(
-                    $"Protocol mismatch. Client={ProtocolVersion.Current} Server={msg.ProtocolVersion}");
-
-            if (msg.HashScopeId != HashContract.ScopeId || msg.HashPhase != (byte)HashContract.Phase)
-                throw new InvalidOperationException(
-                    $"Hash contract mismatch on ServerOps. Client scope/phase={HashContract.ScopeId}/{(byte)HashContract.Phase} " +
-                    $"Server scope/phase={msg.HashScopeId}/{msg.HashPhase}");
+            ValidateProtocol(msg.ProtocolVersion, msg.HashScopeId, msg.HashPhase, "ServerOps");
 
             // Heartbeat is meaningful: advances tick/hash even with zero ops
             if (msg.OpCount == 0 || msg.OpsPayload == null || msg.OpsPayload.Length == 0)
@@ -205,6 +191,18 @@ namespace com.aqua.netlogic.sim.clientengine.protocol
                 stateHash: msg.StateHash,
                 isReliable: isReliableLane,
                 ops: ops);
+        }
+
+        private static void ValidateProtocol(int protocolVersion, int scopeId, byte phase, string context)
+        {
+            if (protocolVersion != ProtocolVersion.Current)
+                throw new InvalidOperationException(
+                    $"Protocol mismatch in {context}. Client={ProtocolVersion.Current} Server={protocolVersion}");
+
+            if (scopeId != HashContract.ScopeId || phase != (byte)HashContract.Phase)
+                throw new InvalidOperationException(
+                    $"Hash contract mismatch in {context}. Client scope/phase={HashContract.ScopeId}/{(byte)HashContract.Phase} " +
+                    $"Server scope/phase={scopeId}/{phase}");
         }
     }
 }
