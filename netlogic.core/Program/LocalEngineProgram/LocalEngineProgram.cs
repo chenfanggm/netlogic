@@ -19,7 +19,7 @@ namespace Program
             Entity playerEntity = game.CreateEntityAt(x: 0, y: 0);
             int playerEntityId = playerEntity.Id;
 
-            GameEngine engine = new GameEngine(game);
+            ServerEngine engine = new ServerEngine(game);
 
             // 2) Build outer-ring components (IO around the engine)
             TickRunner runner = new TickRunner(config.TickRateHz);

@@ -17,9 +17,9 @@ namespace Program
     /// - rendering
     ///
     /// It tests:
-    /// - GameEngine determinism loop
+    /// - ServerEngine determinism loop
     /// - server output building (baseline + ops)
-    /// - GameClient applying baseline + ops to rebuild ClientModel
+    /// - ClientEngine applying baseline + ops to rebuild ClientModel
     /// </summary>
     public sealed class LocalClientEngineProgram : IProgram
     {
@@ -37,7 +37,7 @@ namespace Program
             // ---------------------
             // Create engine
             // ---------------------
-            GameEngine engine = new GameEngine(world);
+            ServerEngine engine = new ServerEngine(world);
 
             // ---------------------
             // Create in-process emitter + client (NO transport)

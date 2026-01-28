@@ -27,7 +27,7 @@ Mental model:
 
 | Layer                | Purpose                                             | Allowed to depend on                      |
 | -------------------- | --------------------------------------------------- | ----------------------------------------- |
-| Unity (presentation) | Input + render only                                 | GameClient API (presentation view models) |
+| Unity (presentation) | Input + render only                                 | NetworkClient API (presentation view models) |
 | Client App           | Client networking + interpolation + command sending | Protocol + Transport                      |
 | Server Adapter       | Network polling + decode/encode + feed engine       | Protocol + Transport + Engine public API  |
 | Pure Engine          | Tick + deterministic simulation + outbound queue    | Game domain only (no Transport)           |
@@ -51,8 +51,8 @@ Mental model:
 ### `netlogic.core/Sim` (application + engine glue)
 
 * `ServerEngine` — pure authoritative simulation + tick
-* `GameServer` — server network adapter
-* `GameClient` — client network adapter + interpolation/presentation hooks
+* `NetworkServer` — server network adapter
+* `NetworkClient` — client network adapter + interpolation/presentation hooks
 * `ClientCommandBuffer2` — scheduling + validation buffer
 * `TickTicker` — fixed tick source
 * `ServerReliableStream` — reliable op stream per client
@@ -301,7 +301,7 @@ The sample lane provides **continuous state** updates (position, HP, etc.) where
 
 ---
 
-## 7) Client Networking (`GameClient`)
+## 7) Client Networking (`NetworkClient`)
 
 ### Purpose
 
@@ -338,7 +338,7 @@ Client-side adapter between transport/protocol and presentation.
 
 ---
 
-## 8) Server Adapter (`GameServer`)
+## 8) Server Adapter (`NetworkServer`)
 
 ### Purpose
 
@@ -354,7 +354,7 @@ A thin adapter that connects transport to engine.
 
 ### Critical invariant
 
-**GameServer must never mutate World and must never run simulation.**
+**NetworkServer must never mutate World and must never run simulation.**
 It can call `ServerEngine.TickOnce()` when hosting, but it must not apply gameplay itself.
 
 ### Extension points
@@ -433,7 +433,7 @@ Provide a unified interface:
 
 **Poll phase (no simulation):**
 
-1. `GameServer.Poll()`
+1. `NetworkServer.Poll()`
 2. transport events + packet receives
 3. decode → convert → `ServerEngine.EnqueueClientCommands()`
 4. drain `ServerEngine.TryDequeueOutbound()` and send any queued packets
@@ -450,7 +450,7 @@ Provide a unified interface:
 ## B) Client flow (commands out, state in)
 
 1. Unity input produces `ClientCommand`
-2. `GameClient` applies delay strategy and sends `ClientOps` on Reliable lane
+2. `NetworkClient` applies delay strategy and sends `ClientOps` on Reliable lane
 3. Client polls transport:
 
    * Reliable: apply baseline + discrete ops, send ack
@@ -490,7 +490,7 @@ Recommended future: add periodic `WorldHash` computation and compare server vs r
 
 ### 2) InProcess end-to-end tests
 
-* Connect `GameClient` ↔ `GameServer` using InProcess transport
+* Connect `NetworkClient` ↔ `NetworkServer` using InProcess transport
 * Send commands under simulated jitter/loss
 * Assert:
 

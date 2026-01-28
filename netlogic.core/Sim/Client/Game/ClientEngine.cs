@@ -8,7 +8,7 @@ namespace Client.Game
 {
     /// <summary>
     /// ClientEngine = pure client-side state reconstruction core.
-    /// Owns ClientModel, consumes Baseline + Ops + (legacy) ServerSnapshot.
+    /// Owns ClientModel, consumes Baseline + Ops.
     ///
     /// No transport, no reliability, no realtime concerns.
     /// </summary>
@@ -54,21 +54,21 @@ namespace Client.Game
                 return;
             }
 
-            var r = new NetDataReader(msg.OpsPayload);
+            NetDataReader r = new NetDataReader(msg.OpsPayload);
 
             ushort remaining = msg.OpCount;
             while (remaining > 0)
             {
                 remaining--;
 
-                OpType opType = OpsReader.ReadOpType(r);
+                global::Net.OpType opType = OpsReader.ReadOpType(r);
                 ushort opLen = OpsReader.ReadOpLen(r);
 
                 int startPos = r.Position;
 
                 switch (opType)
                 {
-                    case OpType.PositionSnapshot:
+                    case global::Net.OpType.PositionSnapshot:
                     {
                         int id = r.GetInt();
                         int x = r.GetInt();
@@ -77,7 +77,7 @@ namespace Client.Game
                         break;
                     }
 
-                    case OpType.EntitySpawned:
+                    case global::Net.OpType.EntitySpawned:
                     {
                         int id = r.GetInt();
                         int x = r.GetInt();
@@ -87,14 +87,14 @@ namespace Client.Game
                         break;
                     }
 
-                    case OpType.EntityDestroyed:
+                    case global::Net.OpType.EntityDestroyed:
                     {
                         int id = r.GetInt();
                         Model.ApplyEntityDestroyed(id);
                         break;
                     }
 
-                    case OpType.FlowSnapshot:
+                    case global::Net.OpType.FlowSnapshot:
                     {
                         // Matches OpsWriter.WriteFlowSnapshot payload layout
                         byte flowState = r.GetByte();
@@ -110,7 +110,7 @@ namespace Client.Game
                         int cookResultSeq = r.GetInt();
                         int lastCookScoreDelta = r.GetInt();
 
-                        var flow = new FlowSnapshot(
+                        FlowSnapshot flow = new FlowSnapshot(
                             (Sim.Game.Flow.GameFlowState)flowState,
                             levelIndex,
                             roundIndex,
@@ -148,13 +148,5 @@ namespace Client.Game
             Model.LastStateHash = msg.StateHash;
         }
 
-        /// <summary>
-        /// Legacy/full snapshot (old harness path + current NetworkClient event).
-        /// </summary>
-        public void ApplySnapshot(ServerSnapshot snapshot)
-        {
-            if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
-            Model.ApplySnapshot(snapshot);
-        }
     }
 }

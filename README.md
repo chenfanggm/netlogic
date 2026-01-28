@@ -48,12 +48,11 @@ flowchart TB
   %% CLIENT APP
   %% =========================================================
   subgraph Client["Client App Layer (netlogic.core/Sim)"]
-    GC["GameClient
-    • Network IO
-    • Handshake / Ping / RTT
+    GC["NetworkClient
+    • Transport + handshake
     • Send ClientCommands
-    • Apply Baseline
-    • Interpolate Unreliable Lane"]
+    • Apply Baseline + Ops
+    • ClientEngine rebuilds ClientModel"]
 
     Delay["InputDelayController
     • RTT-based delay
@@ -91,7 +90,7 @@ flowchart TB
   %% SERVER ADAPTER
   %% =========================================================
   subgraph ServerAdapter["Server Network Adapter (NO GAME LOGIC)"]
-    GS["GameServer
+    GS["NetworkServer
     • Poll transport
     • Decode packets
     • Ops → ClientCommand[]
@@ -173,8 +172,8 @@ flowchart TB
 | Layer            | Responsibility                                              |
 | ---------------- | ----------------------------------------------------------- |
 | **ServerEngine** | Pure game logic, authoritative state, fixed-tick simulation |
-| **GameServer**   | Network adapter (decode → engine, engine → encode)          |
-| **GameClient**   | Network IO, interpolation, presentation                     |
+| **NetworkServer** | Network adapter (decode → engine, engine → encode)         |
+| **NetworkClient** | Network IO, interpolation, presentation                    |
 | **Transport**    | UDP / InProcess, zero game knowledge                        |
 | **Protocol**     | Message framing + serialization                             |
 

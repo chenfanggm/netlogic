@@ -53,21 +53,6 @@ namespace Client.Game
             LastStateHash = baseline.StateHash;
         }
 
-        public void ApplySnapshot(ServerSnapshot snapshot)
-        {
-            _entities.Clear();
-            for (int i = 0; i < snapshot.Entities.Length; i++)
-            {
-                EntityState e = snapshot.Entities[i];
-                _entities[e.Id] = e;
-            }
-
-            Flow.ApplyFlowSnapshot(snapshot.Flow);
-
-            LastServerTick = snapshot.ServerTick;
-            LastStateHash = snapshot.StateHash;
-        }
-
         public void ApplyPositionSnapshot(int id, int x, int y)
         {
             if (_entities.TryGetValue(id, out EntityState existing))

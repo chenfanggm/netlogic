@@ -8,7 +8,7 @@ using Sim.Snapshot;
 namespace Program
 {
     /// <summary>
-    /// Converts GameEngine outputs into messages that GameClient2 can consume,
+    /// Converts ServerEngine outputs into messages that ClientEngine can consume,
     /// WITHOUT any transport/reliability layer.
     /// </summary>
     internal sealed class InProcessServerEmitter
