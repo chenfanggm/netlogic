@@ -1,17 +1,25 @@
+using System;
+using Net;
 using Client.Net;
 
 namespace Client.Game
 {
     public sealed class ClientHost : IDisposable
     {
-        private readonly IClientTransport _transport;
+        private readonly global::Net.IClientTransport _transport;
 
         public NetworkClient Client { get; }
 
-        public ClientHost(IClientTransport transport)
+        public ClientHost(global::Net.IClientTransport transport, int clientTickRateHz = 60)
         {
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
-            Client = new NetworkClient(_transport);
+            Client = new NetworkClient(_transport, clientTickRateHz);
+        }
+
+        public void StartAndConnect(string host, int port)
+        {
+            Client.Start();
+            Client.Connect(host, port);
         }
 
         public void Tick()
@@ -21,7 +29,7 @@ namespace Client.Game
 
         public void Dispose()
         {
-            _transport.Dispose();
+            Client.Dispose();
         }
     }
 }

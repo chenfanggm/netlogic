@@ -1,4 +1,5 @@
 using System;
+using LiteNetLib.Utils;
 using Client.Game;
 using Client.Protocol;
 using Net;
@@ -6,91 +7,157 @@ using Net;
 namespace Client.Net
 {
     /// <summary>
-    /// NetworkClient = client endpoint (transport/session + forwards server updates into ClientEngine).
+    /// NetworkClient = real packet client endpoint.
+    /// - Owns Net.IClientTransport
+    /// - Owns ClientEngine (ClientModel reconstruction)
     ///
     /// Responsibilities:
-    /// - Own a ClientEngine (ClientModel reconstruction)
-    /// - Send client commands via transport
-    /// - Receive server messages via transport and apply to ClientEngine
-    ///
-    /// NOTE:
-    /// - Today this supports legacy ServerSnapshot (object transport harness).
-    /// - It also supports BaselineMsg + ServerOpsMsg if the transport delivers them (future-proof).
-    /// - Reliability/replay/ack is still out-of-scope here unless you add it later.
+    /// - Send Hello once connected
+    /// - Decode inbound packets (Welcome/Pong/Baseline/ServerOps)
+    /// - Apply Baseline + Ops into ClientEngine
+    /// - Send ClientAck for reliable ServerOps stream
+    /// - Encode client commands into ClientOpsMsg and send to server
     /// </summary>
-    public sealed class NetworkClient
+    public sealed class NetworkClient : IDisposable
     {
-        private readonly IClientTransport _transport;
+        private readonly global::Net.IClientTransport _transport;
 
         public ClientEngine Engine { get; }
         public ClientModel Model => Engine.Model;
 
-        public NetworkClient(IClientTransport transport)
+        private readonly int _clientTickRateHz;
+        private bool _sentHello;
+
+        private uint _clientCmdSeq = 1;
+        private uint _lastAckedReliableSeq = 0;
+
+        private readonly NetDataWriter _cmdOpsWriter = new NetDataWriter();
+
+        public NetworkClient(global::Net.IClientTransport transport, int clientTickRateHz = 60, ClientEngine? engine = null)
         {
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
-            _transport.OnReceive += OnReceive;
+            if (clientTickRateHz <= 0)
+                throw new ArgumentOutOfRangeException(nameof(clientTickRateHz));
 
-            Engine = new ClientEngine();
+            _clientTickRateHz = clientTickRateHz;
+            Engine = engine ?? new ClientEngine();
+
+            _sentHello = false;
         }
 
-        public NetworkClient(IClientTransport transport, ClientEngine engine)
-        {
-            _transport = transport ?? throw new ArgumentNullException(nameof(transport));
-            _transport.OnReceive += OnReceive;
+        public void Start() => _transport.Start();
 
-            Engine = engine ?? throw new ArgumentNullException(nameof(engine));
-        }
+        public void Connect(string host, int port) => _transport.Connect(host, port);
 
-        // -------------------------
-        // Outbound
-        // -------------------------
-
-        public void SendClientCommand(ClientCommand cmd)
-        {
-            _transport.Send(cmd);
-        }
-
-        // Convenience helpers (keeps call sites clean)
-        public void SendMoveBy(int entityId, int dx, int dy)
-        {
-            SendClientCommand(ClientCommand.MoveBy(entityId, dx, dy));
-        }
-
-        public void SendFlowFire(byte trigger, int param0)
-        {
-            SendClientCommand(ClientCommand.FlowFire(trigger, param0));
-        }
-
-        // -------------------------
-        // Inbound
-        // -------------------------
+        public bool IsConnected => _transport.IsConnected;
 
         public void Poll()
         {
             _transport.Poll();
+
+            // Send Hello once when connected.
+            if (_transport.IsConnected && !_sentHello)
+            {
+                byte[] helloBytes = MsgCodec.EncodeHello(_clientTickRateHz);
+                _transport.Send(Lane.Reliable, new ArraySegment<byte>(helloBytes, 0, helloBytes.Length));
+                _sentHello = true;
+            }
+
+            while (_transport.TryReceive(out NetPacket packet))
+            {
+                if (packet.Lane == Lane.Reliable)
+                {
+                    if (MsgCodec.TryDecodeWelcome(packet.Payload, out Welcome _))
+                        continue;
+
+                    if (MsgCodec.TryDecodePong(packet.Payload, out PongMsg _))
+                        continue;
+
+                    if (MsgCodec.TryDecodeBaseline(packet.Payload, out BaselineMsg baseline))
+                    {
+                        Engine.ApplyBaseline(baseline);
+                        continue;
+                    }
+
+                    if (MsgCodec.TryDecodeServerOps(packet.Payload, out ServerOpsMsg relOps))
+                    {
+                        Engine.ApplyServerOps(relOps);
+
+                        // Ack reliable ops stream so server replay window works.
+                        if (relOps.ServerSeq > _lastAckedReliableSeq)
+                        {
+                            _lastAckedReliableSeq = relOps.ServerSeq;
+                            ClientAckMsg ack = new ClientAckMsg(_lastAckedReliableSeq);
+                            byte[] ackBytes = MsgCodec.EncodeClientAck(ack);
+                            _transport.Send(Lane.Reliable, new ArraySegment<byte>(ackBytes, 0, ackBytes.Length));
+                        }
+
+                        continue;
+                    }
+
+                    // Unknown reliable msg: ignore
+                    continue;
+                }
+
+                // Unreliable lane: normally ServerOps heartbeat/position snapshots
+                if (packet.Lane == Lane.Unreliable)
+                {
+                    if (MsgCodec.TryDecodeServerOps(packet.Payload, out ServerOpsMsg unrelOps))
+                        Engine.ApplyServerOps(unrelOps);
+                }
+            }
         }
 
-        private void OnReceive(object msg)
+        // -------------------------
+        // Outbound commands
+        // -------------------------
+
+        public void SendMoveBy(int entityId, int dx, int dy)
         {
-            // Legacy harness path
-            if (msg is ServerSnapshot snap)
-            {
-                Engine.ApplySnapshot(snap);
-                return;
-            }
-
-            // Baseline/Ops path (if transport starts delivering these)
-            if (msg is BaselineMsg baseline)
-            {
-                Engine.ApplyBaseline(baseline);
-                return;
-            }
-
-            if (msg is ServerOpsMsg ops)
-            {
-                Engine.ApplyServerOps(ops);
-                return;
-            }
+            ClientCommand[] cmds = [ClientCommand.MoveBy(entityId, dx, dy)];
+            SendCommands(cmds);
         }
+
+        public void SendFlowFire(byte trigger, int param0)
+        {
+            ClientCommand[] cmds = [ClientCommand.FlowFire(trigger, param0)];
+            SendCommands(cmds);
+        }
+
+        public void SendCommands(ReadOnlySpan<ClientCommand> cmds)
+        {
+            if (!_transport.IsConnected)
+                return;
+
+            if (cmds.Length == 0)
+                return;
+
+            _cmdOpsWriter.Reset();
+            ushort opCount = 0;
+
+            for (int i = 0; i < cmds.Length; i++)
+            {
+                ClientCommandCodec.EncodeToOps(_cmdOpsWriter, cmds[i]);
+                opCount++;
+            }
+
+            byte[] opsPayload = _cmdOpsWriter.CopyData();
+
+            // requested tick policy (simple): last known server tick + 1
+            int requestedTick = (Model.LastServerTick <= 0) ? 1 : (Model.LastServerTick + 1);
+
+            ClientOpsMsg msg = new ClientOpsMsg(
+                clientTick: requestedTick,
+                clientCmdSeq: _clientCmdSeq++,
+                opCount: opCount,
+                opsPayload: opsPayload);
+
+            byte[] bytes = MsgCodec.EncodeClientOps(msg);
+            _transport.Send(Lane.Reliable, new ArraySegment<byte>(bytes, 0, bytes.Length));
+        }
+
+        public void Disconnect(string reason) => _transport.Disconnect(reason);
+
+        public void Dispose() => _transport.Dispose();
     }
 }

@@ -19,10 +19,10 @@ namespace Sim.Server
     /// - Calls TickOnce()
     /// - Hashes + encodes TickFrame into wire packets (Reliable + Unreliable)
     /// </summary>
-    public sealed class GameServer
+    public sealed class NetworkServer
     {
         private readonly IServerTransport _transport;
-        private readonly GameEngine _engine;
+        private readonly ServerEngine _engine;
         private readonly int _tickRateHz;
 
         private readonly ClientOpsMsgToClientCommandConverter _converter;
@@ -55,14 +55,14 @@ namespace Sim.Server
         public int CurrentServerTick => _engine.CurrentTick;
         public int TickRateHz => _tickRateHz;
 
-        public GameServer(IServerTransport transport, int tickRateHz, Game.Game initialGame)
+        public NetworkServer(IServerTransport transport, int tickRateHz, Game.Game initialGame)
         {
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
             if (tickRateHz <= 0)
                 throw new ArgumentOutOfRangeException(nameof(tickRateHz));
 
             _tickRateHz = tickRateHz;
-            _engine = new GameEngine(initialGame ?? throw new ArgumentNullException(nameof(initialGame)));
+            _engine = new ServerEngine(initialGame ?? throw new ArgumentNullException(nameof(initialGame)));
 
             _converter = new ClientOpsMsgToClientCommandConverter(initialCapacity: 32);
 

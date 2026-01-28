@@ -5,6 +5,7 @@ namespace Client.Net
     /// <summary>
     /// Deterministic in-process message bus for client/server wiring.
     /// </summary>
+    [global::System.Obsolete("Legacy object/message transport. Use Net.IClientTransport + InProcessPacketTransportPair.")]
     public sealed class InProcessNetFeed
     {
         public event Action<object>? OnClientReceive;

@@ -6,14 +6,14 @@ namespace Sim.Server
 {
     /// <summary>
     /// Real-time server host:
-    /// - Owns transport + GameServer
+    /// - Owns transport + NetworkServer
     /// - Runs Poll + TickOnce on a fixed clock (real time)
-    /// Keeps GameServer pure and testable.
+    /// Keeps NetworkServer pure and testable.
     /// </summary>
     public sealed class ServerHost : IDisposable
     {
         private readonly IServerTransport _transport;
-        private readonly GameServer _server;
+        private readonly NetworkServer _server;
         private readonly TickRunner _runner;
 
         private bool _running;
@@ -21,7 +21,7 @@ namespace Sim.Server
         public ServerHost(IServerTransport transport, int tickRateHz, Game.Game game)
         {
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
-            _server = new GameServer(_transport, tickRateHz, game);
+            _server = new NetworkServer(_transport, tickRateHz, game);
             _runner = new TickRunner(tickRateHz);
 
             _running = false;

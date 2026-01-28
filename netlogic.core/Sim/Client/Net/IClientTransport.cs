@@ -2,6 +2,7 @@ using System;
 
 namespace Client.Net
 {
+    [global::System.Obsolete("Legacy object/message transport. Use Net.IClientTransport (packet transport) + MsgCodec + Baseline/Ops.")]
     public interface IClientTransport : IDisposable
     {
         // Transport emits decoded messages as objects (e.g., ServerSnapshot).

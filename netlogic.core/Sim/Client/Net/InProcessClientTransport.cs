@@ -6,6 +6,7 @@ namespace Client.Net
     /// Deterministic "no real network" transport.
     /// Wraps InProcessNetFeed so client code only depends on IClientTransport.
     /// </summary>
+    [global::System.Obsolete("Legacy object/message transport. Use Net.IClientTransport + InProcessPacketTransportPair.")]
     public sealed class InProcessClientTransport : IClientTransport
     {
         public event Action<object>? OnReceive;
