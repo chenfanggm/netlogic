@@ -7,7 +7,7 @@ namespace Program
 {
     public interface IInputPump
     {
-        void Run(IGameEngine engine, CancellationToken token);
+        void Run(IServerEngine engine, CancellationToken token);
     }
 
     /// <summary>
@@ -21,7 +21,7 @@ namespace Program
         private readonly int _entityId = entityId;
         private readonly TimeSpan _period = period;
 
-        public void Run(IGameEngine engine, CancellationToken token)
+        public void Run(IServerEngine engine, CancellationToken token)
         {
             uint seq = 0;
 

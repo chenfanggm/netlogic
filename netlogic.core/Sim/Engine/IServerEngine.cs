@@ -9,7 +9,7 @@ namespace Sim.Engine
     /// Engine boundary used by outer-ring loops (input/output/host).
     /// Note: only a single thread should call TickOnce (the engine thread).
     /// </summary>
-    public interface IGameEngine
+    public interface IServerEngine
     {
         Game.Game ReadOnlyWorld { get; }
 

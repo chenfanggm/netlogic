@@ -19,7 +19,7 @@ namespace Sim.Engine
     /// - Output formatting/printing (SnapshotFormatter/OutputPump)
     /// - Network transport, ack/replay, session management (NetworkServer)
     /// </summary>
-    public class ServerEngine : IGameEngine
+    public class ServerEngine : IServerEngine
     {
         public Game.Game ReadOnlyWorld => _game;
 

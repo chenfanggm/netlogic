@@ -15,13 +15,13 @@ namespace Program
     /// - Input/output threads may read engine.CurrentServerTick / snapshots via LatestValue.
     /// </summary>
     public sealed class LocalEngineHost(
-        IGameEngine engine,
+        IServerEngine engine,
         TickRunner runner,
         IInputPump input,
         IOutputPump output,
         LatestValue<TickSnapshot> latest)
     {
-        private readonly IGameEngine _engine = engine ?? throw new ArgumentNullException(nameof(engine));
+        private readonly IServerEngine _engine = engine ?? throw new ArgumentNullException(nameof(engine));
         private readonly TickRunner _runner = runner ?? throw new ArgumentNullException(nameof(runner));
         private readonly IInputPump _input = input ?? throw new ArgumentNullException(nameof(input));
         private readonly IOutputPump _output = output ?? throw new ArgumentNullException(nameof(output));
