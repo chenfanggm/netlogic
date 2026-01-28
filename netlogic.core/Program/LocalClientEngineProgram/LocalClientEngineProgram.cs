@@ -52,7 +52,7 @@ namespace com.aqua.netlogic.program
             using TickFrame bootstrapFrame = engine.TickOnce(bootstrapCtx);
 
             // Build baseline once and apply to client
-            BaselineMsg baseline = server.BuildBaseline(
+            BaselineMsg baseline = InProcessServerEmitter.BuildBaseline(
                 serverTick: bootstrapFrame.Tick,
                 world: engine.ReadOnlyWorld);
 
@@ -84,7 +84,7 @@ namespace com.aqua.netlogic.program
                     {
                         lastResyncAtMs = (long)ctx.ServerTimeMs;
 
-                        BaselineMsg resync = server.BuildBaseline(
+                        BaselineMsg resync = InProcessServerEmitter.BuildBaseline(
                             serverTick: engine.CurrentTick,
                             world: engine.ReadOnlyWorld);
 
