@@ -3,13 +3,13 @@ using Client.Protocol;
 
 namespace Client.Net
 {
-    public sealed class NetworkClient2
+    public sealed class NetworkClient
     {
         private readonly IClientTransport _transport;
 
         public event Action<ServerSnapshot>? OnServerSnapshot;
 
-        public NetworkClient2(IClientTransport transport)
+        public NetworkClient(IClientTransport transport)
         {
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
             _transport.OnReceive += OnReceive;

@@ -45,9 +45,9 @@ namespace Program
             // Create in-process feed + client
             // ---------------------
             InProcessNetFeed feed = new InProcessNetFeed();
-            InProcessClientTransport transport = new Client.Net.InProcessClientTransport(feed);
-            NetworkClient2 net = new NetworkClient2(transport);
-            GameClient2 client = new GameClient2(net);
+            InProcessClientTransport transport = new InProcessClientTransport(feed);
+            NetworkClient net = new NetworkClient(transport);
+            GameClient client = new GameClient(net);
 
             // Run one tick to produce initial state
             TickContext bootstrapCtx = new TickContext(serverTimeMs: 0, elapsedMsSinceLastTick: 0);

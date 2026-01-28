@@ -5,17 +5,17 @@ using Client.Protocol;
 namespace Client.Game
 {
     /// <summary>
-    /// GameClient2 = applies decoded messages into ClientModel.
+    /// GameClient = applies decoded messages into ClientModel.
     /// Rendering reads Model.
     /// </summary>
-    public sealed class GameClient2
+    public sealed class GameClient
     {
         public ClientModel Model { get; } = new ClientModel();
 
-        private readonly NetworkClient2 _net;
+        private readonly NetworkClient _net;
 
 
-        public GameClient2(NetworkClient2 net)
+        public GameClient(NetworkClient net)
         {
             _net = net ?? throw new ArgumentNullException(nameof(net));
 

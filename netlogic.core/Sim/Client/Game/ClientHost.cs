@@ -2,18 +2,18 @@ using Client.Net;
 
 namespace Client.Game
 {
-    public sealed class ClientHost2 : IDisposable
+    public sealed class ClientHost : IDisposable
     {
         private readonly IClientTransport _transport;
 
-        public GameClient2 Client { get; }
-        public NetworkClient2 Network { get; }
+        public GameClient Client { get; }
+        public NetworkClient Network { get; }
 
-        public ClientHost2(IClientTransport transport)
+        public ClientHost(IClientTransport transport)
         {
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
-            Network = new NetworkClient2(_transport);
-            Client = new GameClient2(Network);
+            Network = new NetworkClient(_transport);
+            Client = new GameClient(Network);
         }
 
         public void Tick()
