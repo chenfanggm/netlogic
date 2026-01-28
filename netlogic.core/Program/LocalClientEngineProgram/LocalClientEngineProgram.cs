@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Threading;
 using com.aqua.netlogic.sim.clientengine;
 using com.aqua.netlogic.sim.clientengine.protocol;
 using com.aqua.netlogic.net;
@@ -8,6 +11,8 @@ using ServerMessageEncoder = com.aqua.netlogic.sim.networkserver.protocol.Server
 using com.aqua.netlogic.sim.game;
 using com.aqua.netlogic.sim.game.entity;
 using com.aqua.netlogic.sim.game.flow;
+using com.aqua.netlogic.sim.game.snapshot;
+using com.aqua.netlogic.sim.replication;
 using com.aqua.netlogic.sim.systems.gameflowsystem.commands;
 using com.aqua.netlogic.sim.systems.movementsystem.commands;
 using com.aqua.netlogic.sim.timing;
@@ -44,7 +49,7 @@ namespace com.aqua.netlogic.program
             ServerEngine engine = new ServerEngine(world);
 
             // ---------------------
-            // Create in-process emitter + client (NO transport)
+            // Create in-process encoder/decoder + client (NO transport)
             // ---------------------
             ServerMessageEncoder encoder = new ServerMessageEncoder();
             ClientMessageDecoder decoder = new ClientMessageDecoder();
@@ -55,14 +60,13 @@ namespace com.aqua.netlogic.program
             using TickFrame bootstrapFrame = engine.TickOnce(bootstrapCtx);
 
             // Build baseline once and apply to client
-            com.aqua.netlogic.sim.game.snapshot.GameSnapshot bootstrapSnap = engine.BuildSnapshot();
+            GameSnapshot bootstrapSnap = engine.BuildSnapshot();
             BaselineMsg baseline = ServerMessageEncoder.BuildBaseline(
                 bootstrapSnap,
                 bootstrapFrame.Tick,
                 bootstrapFrame.StateHash);
 
-            com.aqua.netlogic.sim.game.snapshot.GameSnapshot snap0 =
-                decoder.DecodeBaselineToSnapshot(baseline, out int t0, out uint h0);
+            GameSnapshot snap0 = decoder.DecodeBaselineToSnapshot(baseline, out int t0, out uint h0);
             client.ApplyBaselineSnapshot(snap0, t0, h0);
 
             // ---------------------
@@ -92,15 +96,14 @@ namespace com.aqua.netlogic.program
                     {
                         lastResyncAtMs = (long)ctx.ServerTimeMs;
 
-                        com.aqua.netlogic.sim.game.snapshot.GameSnapshot resyncSnap = engine.BuildSnapshot();
+                        GameSnapshot resyncSnap = engine.BuildSnapshot();
                         uint resyncHash = engine.ComputeStateHash();
                         BaselineMsg resync = ServerMessageEncoder.BuildBaseline(
                             resyncSnap,
                             engine.CurrentTick,
                             resyncHash);
 
-                        com.aqua.netlogic.sim.game.snapshot.GameSnapshot snap =
-                            decoder.DecodeBaselineToSnapshot(resync, out int t, out uint h);
+                        GameSnapshot snap = decoder.DecodeBaselineToSnapshot(resync, out int t, out uint h);
                         client.ApplyBaselineSnapshot(snap, t, h);
                     }
 
@@ -123,8 +126,7 @@ namespace com.aqua.netlogic.program
                                 opCount,
                                 payload);
 
-                            com.aqua.netlogic.sim.replication.ReplicationUpdate up =
-                                decoder.DecodeServerOpsToUpdate(reliableMsg, isReliableLane: true);
+                            ReplicationUpdate up = decoder.DecodeServerOpsToUpdate(reliableMsg, isReliableLane: true);
                             client.ApplyReplicationUpdate(up);
                         }
                     }
@@ -143,8 +145,7 @@ namespace com.aqua.netlogic.program
                             opCount,
                             payload);
 
-                        com.aqua.netlogic.sim.replication.ReplicationUpdate up =
-                            decoder.DecodeServerOpsToUpdate(unreliableMsg, isReliableLane: false);
+                        ReplicationUpdate up = decoder.DecodeServerOpsToUpdate(unreliableMsg, isReliableLane: false);
                         client.ApplyReplicationUpdate(up);
                     }
 
@@ -184,6 +185,7 @@ namespace com.aqua.netlogic.program
 
                     if (clientFlow == GameFlowState.InRound && ctx.ServerTimeMs - lastPrintAtMs >= 500)
                     {
+                        lastPrintAtMs = (long)ctx.ServerTimeMs;
                         if (client.Model.Entities.TryGetValue(playerEntityId, out EntityState e))
                             Console.WriteLine($"[ClientModel] InRound Entity {playerEntityId} pos=({e.X},{e.Y})");
                     }
