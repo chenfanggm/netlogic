@@ -8,11 +8,11 @@ using Sim.Time;
 
 namespace Program
 {
-    public static class LocalEngineProgram
+    public sealed class LocalEngineProgram : IProgram
     {
-        public static void Run(TimeSpan? maxRunningDuration = null)
+        public void Run(ProgramConfig config)
         {
-            const int tickRateHz = 20;
+            int tickRateHz = config.TickRateHz;
             const int entityId = 1;
             const int connId = 1;
             const int playerEntityId = 1;
@@ -34,8 +34,8 @@ namespace Program
             long lastPrintAtMs = 0;
 
             using CancellationTokenSource cts = new CancellationTokenSource();
-            if (maxRunningDuration.HasValue)
-                cts.CancelAfter(maxRunningDuration.Value);
+            if (config.MaxRunDuration.HasValue)
+                cts.CancelAfter(config.MaxRunDuration.Value);
 
             runner.Run(
                 onTick: (TickContext ctx) =>

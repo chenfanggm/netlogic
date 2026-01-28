@@ -12,10 +12,12 @@ namespace App
             switch (program)
             {
                 case 1:
-                    LocalEngineProgram.Run(maxRunningDuration: TimeSpan.FromSeconds(15));
+                    new LocalEngineProgram().Run(
+                        new ProgramConfig(tickRateHz: 20, maxRunDuration: TimeSpan.FromSeconds(15)));
                     break;
                 case 4:
-                    LocalClientEngineProgram.Run(maxRunningDuration: TimeSpan.FromSeconds(15));
+                    new LocalClientEngineProgram().Run(
+                        new ProgramConfig(tickRateHz: 10, maxRunDuration: TimeSpan.FromSeconds(15)));
                     break;
                 default:
                     throw new ArgumentException("Invalid program");

@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Client2.Game;
 using Client2.Net;
 using Client2.Protocol;
@@ -24,11 +23,10 @@ namespace Program
     /// - server output building (baseline + ops)
     /// - GameClient2 applying baseline + ops to rebuild ClientModel
     /// </summary>
-    public static class LocalClientEngineProgram
+    public sealed class LocalClientEngineProgram : IProgram
     {
-        public static void Run(TimeSpan? maxRunningDuration = null)
+        public void Run(ProgramConfig config)
         {
-            const int tickRateHz = 20;
             const int entityId = 1;
             const int connId = 1;
             const int playerEntityId = 1;
@@ -61,7 +59,7 @@ namespace Program
             // ---------------------
             // Drive ticks
             // ---------------------
-            TickRunner runner = new TickRunner(tickRateHz);
+            TickRunner runner = new TickRunner(config.TickRateHz);
 
             PlayerFlowScript flowScript = new PlayerFlowScript();
             uint clientCmdSeq = 1;
@@ -73,8 +71,8 @@ namespace Program
             long lastResyncAtMs = 0;
 
             using CancellationTokenSource cts = new CancellationTokenSource();
-            if (maxRunningDuration.HasValue)
-                cts.CancelAfter(maxRunningDuration.Value);
+            if (config.MaxRunDuration.HasValue)
+                cts.CancelAfter(config.MaxRunDuration.Value);
 
             runner.Run(
                 onTick: (TickContext ctx) =>
