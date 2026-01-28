@@ -19,7 +19,7 @@ namespace Program
     /// It tests:
     /// - GameEngine determinism loop
     /// - server output building (baseline + ops)
-    /// - DirectGameClient applying baseline + ops to rebuild ClientModel
+    /// - GameClient applying baseline + ops to rebuild ClientModel
     /// </summary>
     public sealed class LocalClientEngineProgram : IProgram
     {
@@ -40,16 +40,16 @@ namespace Program
             GameEngine engine = new GameEngine(world);
 
             // ---------------------
-            // Create "server emitter" + direct client
+            // Create in-process emitter + client (NO transport)
             // ---------------------
             InProcessServerEmitter server = new InProcessServerEmitter();
-            DirectGameClient client = new DirectGameClient();
+            GameClient client = new GameClient();
 
             // Run one tick to produce initial state
             TickContext bootstrapCtx = new TickContext(serverTimeMs: 0, elapsedMsSinceLastTick: 0);
             using TickFrame bootstrapFrame = engine.TickOnce(bootstrapCtx);
 
-            // Send baseline ONCE (post-bootstrap state)
+            // Build baseline once and apply to client
             BaselineMsg baseline = server.BuildBaseline(
                 serverTick: bootstrapFrame.Tick,
                 world: engine.ReadOnlyWorld);
@@ -92,19 +92,20 @@ namespace Program
                     // Tick engine
                     using TickFrame frame = engine.TickOnce(ctx);
 
-                    // Build ops (unreliable + reliable) from engine RepOps and deliver to client.
-                    // Apply reliable first, then unreliable (either order is fine for this harness,
-                    // but reliable-first matches "authoritative control" intuition).
+                    // Build reliable ops from RepOps (entity lifecycle + flow) and apply
                     {
-                        // Reliable lane: entity lifecycle + flow snapshots, only if present
-                        RepOp[] opsArray = frame.Ops.ToArray();
-                        if (server.TryBuildReliableOpsFromRepOps(frame.Tick, frame.StateHash, opsArray, out ServerOpsMsg reliableMsg))
+                        RepOp[] reliableScan = frame.Ops.ToArray(); // emitter expects array for reliable build
+                        if (server.TryBuildReliableOpsFromRepOps(frame.Tick, frame.StateHash, reliableScan, out ServerOpsMsg reliableMsg))
                             client.ApplyServerOps(reliableMsg);
                     }
 
+                    // Build unreliable ops from RepOps (position snapshots) and apply
                     {
-                        // Unreliable lane: position snapshots, latest-wins
-                        ServerOpsMsg unreliableMsg = server.BuildUnreliableOpsFromRepOps(frame.Tick, frame.StateHash, frame.Ops.Span);
+                        ServerOpsMsg unreliableMsg = server.BuildUnreliableOpsFromRepOps(
+                            serverTick: frame.Tick,
+                            stateHash: frame.StateHash,
+                            ops: frame.Ops.Span);
+
                         client.ApplyServerOps(unreliableMsg);
                     }
 
