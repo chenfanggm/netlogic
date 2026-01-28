@@ -8,6 +8,10 @@ namespace Net
         MoveBy = 1,
         FlowFire = 2,
 
+        // Server -> Client (Reliable, entity lifecycle)
+        EntitySpawned = 10,
+        EntityDestroyed = 11,
+
         // Server -> Client (Unreliable)
         PositionSnapshot = 50,
 
@@ -49,6 +53,23 @@ namespace Net
             w.Put(entityId);
             w.Put(x);
             w.Put(y);
+        }
+
+        public static void WriteEntitySpawned(NetDataWriter w, int entityId, int x, int y, int hp)
+        {
+            w.Put((byte)OpType.EntitySpawned);
+            w.Put((ushort)16);
+            w.Put(entityId);
+            w.Put(x);
+            w.Put(y);
+            w.Put(hp);
+        }
+
+        public static void WriteEntityDestroyed(NetDataWriter w, int entityId)
+        {
+            w.Put((byte)OpType.EntityDestroyed);
+            w.Put((ushort)4);
+            w.Put(entityId);
         }
 
         // Payload (32 bytes):

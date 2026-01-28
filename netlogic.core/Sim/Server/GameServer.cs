@@ -311,6 +311,18 @@ namespace Sim.Server
 
                     switch (op.Type)
                     {
+                        case RepOpType.EntitySpawned:
+                            // op.A = entityId, op.B = x, op.C = y, op.D = hp
+                            OpsWriter.WriteEntitySpawned(_opsWriter, op.A, op.B, op.C, op.D);
+                            opCount++;
+                            break;
+
+                        case RepOpType.EntityDestroyed:
+                            // op.A = entityId
+                            OpsWriter.WriteEntityDestroyed(_opsWriter, op.A);
+                            opCount++;
+                            break;
+
                         case RepOpType.FlowFire:
                             // op.A = trigger (byte stored in int), op.B = param0
                             OpsWriter.WriteFlowFire(_opsWriter, (byte)op.A, op.B);

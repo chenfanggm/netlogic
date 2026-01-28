@@ -76,6 +76,16 @@ namespace Client2.Game
                 _entities[id] = new EntityState(id, x, y, 0);
         }
 
+        public void ApplyEntitySpawned(int id, int x, int y, int hp)
+        {
+            _entities[id] = new EntityState(id, x, y, hp);
+        }
+
+        public void ApplyEntityDestroyed(int id)
+        {
+            _entities.Remove(id);
+        }
+
         public sealed class FlowView
         {
             public byte FlowState { get; internal set; }

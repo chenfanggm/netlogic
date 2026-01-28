@@ -131,28 +131,43 @@ namespace Program
             for (int i = 0; i < ops.Length; i++)
             {
                 RepOp op = ops[i];
-                if (op.Type == RepOpType.FlowSnapshot)
+
+                switch (op.Type)
                 {
-                    byte flowState = (byte)(op.A & 0xFF);
-                    byte roundState = (byte)((op.A >> 8) & 0xFF);
-                    byte lastMetTarget = (byte)((op.A >> 16) & 0xFF);
-                    byte cookAttemptsUsed = (byte)((op.A >> 24) & 0xFF);
+                    case RepOpType.EntitySpawned:
+                        OpsWriter.WriteEntitySpawned(_w, op.A, op.B, op.C, op.D);
+                        opCount++;
+                        break;
 
-                    OpsWriter.WriteFlowSnapshot(
-                        _w,
-                        flowState: flowState,
-                        roundState: roundState,
-                        lastMetTarget: lastMetTarget,
-                        cookAttemptsUsed: cookAttemptsUsed,
-                        levelIndex: op.B,
-                        roundIndex: op.C,
-                        selectedChefHatId: op.D,
-                        targetScore: op.E,
-                        cumulativeScore: op.F,
-                        cookResultSeq: op.G,
-                        lastCookScoreDelta: op.H);
+                    case RepOpType.EntityDestroyed:
+                        OpsWriter.WriteEntityDestroyed(_w, op.A);
+                        opCount++;
+                        break;
 
-                    opCount++;
+                    case RepOpType.FlowSnapshot:
+                        byte flowState = (byte)(op.A & 0xFF);
+                        byte roundState = (byte)((op.A >> 8) & 0xFF);
+                        byte lastMetTarget = (byte)((op.A >> 16) & 0xFF);
+                        byte cookAttemptsUsed = (byte)((op.A >> 24) & 0xFF);
+
+                        OpsWriter.WriteFlowSnapshot(
+                            _w,
+                            flowState: flowState,
+                            roundState: roundState,
+                            lastMetTarget: lastMetTarget,
+                            cookAttemptsUsed: cookAttemptsUsed,
+                            levelIndex: op.B,
+                            roundIndex: op.C,
+                            selectedChefHatId: op.D,
+                            targetScore: op.E,
+                            cumulativeScore: op.F,
+                            cookResultSeq: op.G,
+                            lastCookScoreDelta: op.H);
+                        opCount++;
+                        break;
+
+                    default:
+                        break;
                 }
             }
 

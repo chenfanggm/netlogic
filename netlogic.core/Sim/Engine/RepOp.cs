@@ -8,6 +8,10 @@ namespace Sim.Engine
     {
         None = 0,
 
+        // Reliable lane (entity lifecycle)
+        EntitySpawned = 10,
+        EntityDestroyed = 11,
+
         // Unreliable state snapshot (presentation only).
         // Latest-wins; safe to drop or overwrite.
         // MUST NOT affect simulation truth.
@@ -39,6 +43,12 @@ namespace Sim.Engine
 
         public static RepOp PositionSnapshot(int entityId, int x, int y)
             => new RepOp(RepOpType.PositionSnapshot, a: entityId, b: x, c: y);
+
+        public static RepOp EntitySpawned(int entityId, int x, int y, int hp)
+            => new RepOp(RepOpType.EntitySpawned, a: entityId, b: x, c: y, d: hp);
+
+        public static RepOp EntityDestroyed(int entityId)
+            => new RepOp(RepOpType.EntityDestroyed, a: entityId);
 
         public static RepOp FlowFire(byte trigger, int param0 = 0)
             => new RepOp(RepOpType.FlowFire, a: trigger, b: param0);

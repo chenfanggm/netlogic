@@ -9,7 +9,6 @@ namespace Sim.Game
         private readonly Dictionary<int, Entity> _entities = new Dictionary<int, Entity>(128);
 
         // Deterministic iteration order without per-iteration sorting/allocations.
-        // We only insert new ids here (no removal in current game).
         private readonly List<int> _sortedIds = new List<int>(128);
 
         public IEnumerable<Entity> Entities
@@ -52,6 +51,18 @@ namespace Sim.Game
         public bool TryGetEntity(int id, out Entity entity)
         {
             return _entities.TryGetValue(id, out entity!);
+        }
+
+        public bool TryRemoveEntity(int id)
+        {
+            if (!_entities.Remove(id))
+                return false;
+
+            int idx = _sortedIds.BinarySearch(id);
+            if (idx >= 0)
+                _sortedIds.RemoveAt(idx);
+
+            return true;
         }
 
         public EntityState[] ToSnapshot()

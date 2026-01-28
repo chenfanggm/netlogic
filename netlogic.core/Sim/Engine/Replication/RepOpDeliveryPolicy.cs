@@ -15,6 +15,10 @@ namespace Sim.Engine
 
         public static Delivery DeliveryOf(RepOpType type) => type switch
         {
+            // Reliable lane (entity lifecycle)
+            RepOpType.EntitySpawned => Delivery.Reliable,
+            RepOpType.EntityDestroyed => Delivery.Reliable,
+
             // Unreliable lane
             RepOpType.PositionSnapshot => Delivery.Unreliable,
 

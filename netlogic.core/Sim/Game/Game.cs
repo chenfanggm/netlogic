@@ -58,10 +58,21 @@ namespace Sim.Game
 
         public IEnumerable<Entity> Entities => EntityManager.Entities;
 
-        public Entity CreateEntityAt(int x, int y) => EntityManager.CreateEntityAt(x, y);
+        public Entity CreateEntityAt(int x, int y)
+        {
+            Entity e = EntityManager.CreateEntityAt(x, y);
+            if (Replicator != null)
+                Replicator.Record(Sim.Engine.RepOp.EntitySpawned(e.Id, e.X, e.Y, e.Hp));
+            return e;
+        }
 
-        public Entity CreateEntityAt(int entityId, int x, int y) =>
-            EntityManager.CreateEntityAt(entityId, x, y);
+        public Entity CreateEntityAt(int entityId, int x, int y)
+        {
+            Entity e = EntityManager.CreateEntityAt(entityId, x, y);
+            if (Replicator != null)
+                Replicator.Record(Sim.Engine.RepOp.EntitySpawned(e.Id, e.X, e.Y, e.Hp));
+            return e;
+        }
 
         public bool TryGetEntity(int id, out Entity entity) =>
             EntityManager.TryGetEntity(id, out entity);
@@ -73,6 +84,15 @@ namespace Sim.Game
             bool ok = EntityManager.TryMoveEntityBy(entityId, dx, dy, out int newX, out int newY);
             if (ok && Replicator != null)
                 Replicator.Record(Sim.Engine.RepOp.PositionSnapshot(entityId, newX, newY));
+
+            return ok;
+        }
+
+        public bool TryRemoveEntity(int entityId)
+        {
+            bool ok = EntityManager.TryRemoveEntity(entityId);
+            if (ok && Replicator != null)
+                Replicator.Record(Sim.Engine.RepOp.EntityDestroyed(entityId));
 
             return ok;
         }
