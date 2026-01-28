@@ -1,6 +1,4 @@
 using Client.Game;
-using Client.Net;
-using Client.Protocol;
 using Net;
 using Program.FlowScript;
 using Sim.Command;
@@ -21,7 +19,7 @@ namespace Program
     /// It tests:
     /// - GameEngine determinism loop
     /// - server output building (baseline + ops)
-    /// - GameClient2 applying baseline + ops to rebuild ClientModel
+    /// - DirectGameClient applying baseline + ops to rebuild ClientModel
     /// </summary>
     public sealed class LocalClientEngineProgram : IProgram
     {
@@ -42,21 +40,21 @@ namespace Program
             GameEngine engine = new GameEngine(world);
 
             // ---------------------
-            // Create in-process feed + client
+            // Create "server emitter" + direct client
             // ---------------------
-            InProcessNetFeed feed = new InProcessNetFeed();
-            InProcessClientTransport transport = new InProcessClientTransport(feed);
-            NetworkClient net = new NetworkClient(transport);
-            GameClient client = new GameClient(net);
+            InProcessServerEmitter server = new InProcessServerEmitter();
+            DirectGameClient client = new DirectGameClient();
 
             // Run one tick to produce initial state
             TickContext bootstrapCtx = new TickContext(serverTimeMs: 0, elapsedMsSinceLastTick: 0);
             using TickFrame bootstrapFrame = engine.TickOnce(bootstrapCtx);
 
-            // Build initial snapshot and deliver to client
-            ServerSnapshot bootstrapSnapshot = BuildSnapshot(engine, bootstrapFrame);
-            feed.SendFromServer(bootstrapSnapshot);
-            client.Poll();
+            // Send baseline ONCE (post-bootstrap state)
+            BaselineMsg baseline = server.BuildBaseline(
+                serverTick: bootstrapFrame.Tick,
+                world: engine.ReadOnlyWorld);
+
+            client.ApplyBaseline(baseline);
 
             // ---------------------
             // Drive ticks
@@ -83,15 +81,32 @@ namespace Program
                     if ((long)ctx.ServerTimeMs - lastResyncAtMs >= 5000)
                     {
                         lastResyncAtMs = (long)ctx.ServerTimeMs;
+
+                        BaselineMsg resync = server.BuildBaseline(
+                            serverTick: engine.CurrentTick,
+                            world: engine.ReadOnlyWorld);
+
+                        client.ApplyBaseline(resync);
                     }
 
                     // Tick engine
                     using TickFrame frame = engine.TickOnce(ctx);
 
-                    // Build snapshot for this tick and deliver to client
-                    ServerSnapshot snapshot = BuildSnapshot(engine, frame);
-                    feed.SendFromServer(snapshot);
-                    client.Poll();
+                    // Build ops (unreliable + reliable) from engine RepOps and deliver to client.
+                    // Apply reliable first, then unreliable (either order is fine for this harness,
+                    // but reliable-first matches "authoritative control" intuition).
+                    {
+                        // Reliable lane: entity lifecycle + flow snapshots, only if present
+                        RepOp[] opsArray = frame.Ops.ToArray();
+                        if (server.TryBuildReliableOpsFromRepOps(frame.Tick, frame.StateHash, opsArray, out ServerOpsMsg reliableMsg))
+                            client.ApplyServerOps(reliableMsg);
+                    }
+
+                    {
+                        // Unreliable lane: position snapshots, latest-wins
+                        ServerOpsMsg unreliableMsg = server.BuildUnreliableOpsFromRepOps(frame.Tick, frame.StateHash, frame.Ops.Span);
+                        client.ApplyServerOps(unreliableMsg);
+                    }
 
                     GameFlowState clientFlow = (GameFlowState)client.Model.Flow.FlowState;
                     bool leftInRound = (lastClientFlowState == GameFlowState.InRound) && (clientFlow != GameFlowState.InRound);
@@ -188,18 +203,6 @@ namespace Program
                     }
                 },
                 token: cts.Token);
-        }
-
-        private static ServerSnapshot BuildSnapshot(GameEngine engine, TickFrame frame)
-        {
-            Game world = engine.ReadOnlyWorld;
-            return new ServerSnapshot
-            {
-                ServerTick = frame.Tick,
-                StateHash = frame.StateHash,
-                Entities = world.ToSnapshot(),
-                Flow = world.BuildFlowSnapshot()
-            };
         }
     }
 }
