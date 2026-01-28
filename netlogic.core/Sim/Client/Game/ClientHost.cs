@@ -6,14 +6,12 @@ namespace Client.Game
     {
         private readonly IClientTransport _transport;
 
-        public GameClient Client { get; }
-        public NetworkClient Network { get; }
+        public NetworkClient Client { get; }
 
         public ClientHost(IClientTransport transport)
         {
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
-            Network = new NetworkClient(_transport);
-            Client = new GameClient(Network);
+            Client = new NetworkClient(_transport);
         }
 
         public void Tick()

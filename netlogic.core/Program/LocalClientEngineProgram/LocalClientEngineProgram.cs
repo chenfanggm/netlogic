@@ -43,7 +43,7 @@ namespace Program
             // Create in-process emitter + client (NO transport)
             // ---------------------
             InProcessServerEmitter server = new InProcessServerEmitter();
-            GameClient client = new GameClient();
+            ClientEngine client = new ClientEngine();
 
             // Run one tick to produce initial state
             TickContext bootstrapCtx = new TickContext(serverTimeMs: 0, elapsedMsSinceLastTick: 0);
