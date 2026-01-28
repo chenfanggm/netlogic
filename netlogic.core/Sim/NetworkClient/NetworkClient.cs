@@ -1,10 +1,10 @@
 using System;
 using LiteNetLib.Utils;
-using Client.Game;
-using Client.Protocol;
-using Net;
+using com.aqua.netlogic.sim.clientengine;
+using com.aqua.netlogic.sim.clientengine.protocol;
+using com.aqua.netlogic.net;
 
-namespace Client.Net
+namespace com.aqua.netlogic.sim.networkclient
 {
     /// <summary>
     /// NetworkClient = real packet client endpoint.
@@ -20,7 +20,7 @@ namespace Client.Net
     /// </summary>
     public sealed class NetworkClient : IDisposable
     {
-        private readonly global::Net.IClientTransport _transport;
+        private readonly com.aqua.netlogic.net.transport.IClientTransport _transport;
 
         public ClientEngine Engine { get; }
         public ClientModel Model => Engine.Model;
@@ -33,7 +33,7 @@ namespace Client.Net
 
         private readonly NetDataWriter _cmdOpsWriter = new NetDataWriter();
 
-        public NetworkClient(global::Net.IClientTransport transport, int clientTickRateHz = 60, ClientEngine? engine = null)
+        public NetworkClient(com.aqua.netlogic.net.transport.IClientTransport transport, int clientTickRateHz = 60, ClientEngine? engine = null)
         {
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
             if (clientTickRateHz <= 0)

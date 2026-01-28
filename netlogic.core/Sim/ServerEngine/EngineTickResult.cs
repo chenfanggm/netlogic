@@ -1,6 +1,6 @@
-using Sim.Snapshot;
+using com.aqua.netlogic.sim.game.snapshot;
 
-namespace Sim.Engine
+namespace com.aqua.netlogic.sim.serverengine
 {
     /// <summary>
     /// Authoritative engine output for a single fixed server tick.

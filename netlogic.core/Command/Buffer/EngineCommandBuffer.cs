@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
+using com.aqua.netlogic.command;
 
-namespace Sim.Command
+namespace com.aqua.netlogic.command.buffer
 {
     /// <summary>
     /// Single-thread command buffer.

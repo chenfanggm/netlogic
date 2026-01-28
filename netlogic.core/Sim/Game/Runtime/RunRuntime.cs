@@ -1,5 +1,5 @@
 
-namespace Sim.Game.Runtime
+namespace com.aqua.netlogic.sim.game.runtime
 {
     /// <summary>
     /// Authoritative run-wide persistent state.

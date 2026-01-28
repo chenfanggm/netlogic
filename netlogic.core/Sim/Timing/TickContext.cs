@@ -1,6 +1,6 @@
 using System;
 
-namespace Sim.Time
+namespace com.aqua.netlogic.sim.timing
 {
     /// <summary>
     /// Immutable per-tick context created by the TickRunner and consumed by the engine/systems.

@@ -1,4 +1,4 @@
-namespace Sim.Engine
+namespace com.aqua.netlogic.sim.serverengine
 {
     /// <summary>
     /// Render/network-facing op types (NOT internal domain events).

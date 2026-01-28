@@ -1,6 +1,9 @@
 // FILE: netlogic.core/Sim/Systems/IEngineCommandHandler.cs
 // Self-describing handler objects for easy registry.
-namespace Sim.Command
+using com.aqua.netlogic.command;
+using com.aqua.netlogic.sim.game;
+
+namespace com.aqua.netlogic.command.handler
 {
     public interface IEngineCommandHandler<TCommandType>
         where TCommandType : struct, Enum
@@ -11,13 +14,13 @@ namespace Sim.Command
         /// Process a single command and potentially mutate the world.
         /// ConnId is available on command.ConnId.
         /// </summary>
-        void Handle(Game.Game world, EngineCommand<TCommandType> command);
+        void Handle(com.aqua.netlogic.sim.game.Game world, EngineCommand<TCommandType> command);
     }
 
     public interface IEngineCommandHandler<TCommand, TCommandType> : IEngineCommandHandler<TCommandType>
         where TCommand : EngineCommand<TCommandType>
         where TCommandType : struct, Enum
     {
-        void Handle(Game.Game world, TCommand command);
+        void Handle(com.aqua.netlogic.sim.game.Game world, TCommand command);
     }
 }

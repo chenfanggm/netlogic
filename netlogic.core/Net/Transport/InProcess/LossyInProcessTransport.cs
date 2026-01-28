@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 
-namespace Net
+namespace com.aqua.netlogic.net.transport.inprocess
 {
     /// <summary>
     /// In-process transport with configurable packet loss simulation for testing reliability.

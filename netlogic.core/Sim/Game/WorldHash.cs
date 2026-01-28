@@ -1,7 +1,9 @@
-using Sim.Hashing;
-using Sim.Snapshot;
+using System.Collections.Generic;
+using com.aqua.netlogic.sim.utils.hashing;
+using com.aqua.netlogic.sim.game.snapshot;
+using com.aqua.netlogic.sim.game.entity;
 
-namespace Sim.Game
+namespace com.aqua.netlogic.sim.game
 {
     /// <summary>
     /// Deterministic hash of authoritative game state.

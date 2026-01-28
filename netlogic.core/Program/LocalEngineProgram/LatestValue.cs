@@ -1,5 +1,5 @@
 
-namespace Program
+namespace com.aqua.netlogic.program
 {
     /// <summary>
     /// Thread-safe latest value mailbox.

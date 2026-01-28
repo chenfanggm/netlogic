@@ -1,9 +1,9 @@
-using Sim.Game;
-using Sim.Engine;
-using Sim.Command;
-using Sim.System;
+using com.aqua.netlogic.sim.game;
+using com.aqua.netlogic.sim.serverengine;
+using com.aqua.netlogic.command;
+using com.aqua.netlogic.sim.systems.movementsystem.commands;
 
-namespace Program
+namespace com.aqua.netlogic.program
 {
     public interface IInputPump
     {

@@ -1,6 +1,6 @@
-using Sim.Engine;
+using com.aqua.netlogic.sim.serverengine;
 
-namespace Program
+namespace com.aqua.netlogic.program
 {
     public interface IOutputPump
     {

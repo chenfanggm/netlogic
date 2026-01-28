@@ -1,4 +1,4 @@
-namespace Net
+namespace com.aqua.netlogic.net
 {
     /// <summary>
     /// Hash contract/versioning so clients never compare incompatible hashes.

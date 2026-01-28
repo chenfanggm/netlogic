@@ -1,6 +1,6 @@
 using LiteNetLib.Utils;
 
-namespace Net
+namespace com.aqua.netlogic.net
 {
     public enum OpType : byte
     {

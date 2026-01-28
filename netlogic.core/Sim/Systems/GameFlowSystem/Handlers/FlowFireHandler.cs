@@ -1,8 +1,10 @@
-using Sim.Game;
-using Sim.Game.Flow;
-using Sim.System;
+using com.aqua.netlogic.sim.game;
+using com.aqua.netlogic.sim.game.flow;
+using com.aqua.netlogic.sim.systems.gameflowsystem.commands;
+using com.aqua.netlogic.command.handler;
+using com.aqua.netlogic.sim.serverengine;
 
-namespace Sim.Command
+namespace com.aqua.netlogic.sim.systems.gameflowsystem.handlers
 {
     [EngineCommandHandler(typeof(GameFlowSystem))]
     internal sealed class FlowIntentHandler : EngineCommandHandlerBase<FlowIntentEngineCommand, EngineCommandType>
@@ -11,7 +13,7 @@ namespace Sim.Command
         {
         }
 
-        public override void Handle(Game.Game world, FlowIntentEngineCommand command)
+        public override void Handle(com.aqua.netlogic.sim.game.Game world, FlowIntentEngineCommand command)
         {
             if (command.Intent == GameFlowIntent.None)
                 return;

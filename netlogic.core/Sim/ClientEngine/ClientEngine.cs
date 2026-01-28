@@ -1,10 +1,10 @@
 using System;
-using Client.Protocol;
+using com.aqua.netlogic.sim.clientengine.protocol;
 using LiteNetLib.Utils;
-using Net;
-using Sim.Snapshot;
+using com.aqua.netlogic.net;
+using com.aqua.netlogic.sim.game.snapshot;
 
-namespace Client.Game
+namespace com.aqua.netlogic.sim.clientengine
 {
     /// <summary>
     /// ClientEngine = pure client-side state reconstruction core.
@@ -61,14 +61,14 @@ namespace Client.Game
             {
                 remaining--;
 
-                global::Net.OpType opType = OpsReader.ReadOpType(r);
+                com.aqua.netlogic.net.OpType opType = OpsReader.ReadOpType(r);
                 ushort opLen = OpsReader.ReadOpLen(r);
 
                 int startPos = r.Position;
 
                 switch (opType)
                 {
-                    case global::Net.OpType.PositionSnapshot:
+                    case com.aqua.netlogic.net.OpType.PositionSnapshot:
                     {
                         int id = r.GetInt();
                         int x = r.GetInt();
@@ -77,7 +77,7 @@ namespace Client.Game
                         break;
                     }
 
-                    case global::Net.OpType.EntitySpawned:
+                    case com.aqua.netlogic.net.OpType.EntitySpawned:
                     {
                         int id = r.GetInt();
                         int x = r.GetInt();
@@ -87,14 +87,14 @@ namespace Client.Game
                         break;
                     }
 
-                    case global::Net.OpType.EntityDestroyed:
+                    case com.aqua.netlogic.net.OpType.EntityDestroyed:
                     {
                         int id = r.GetInt();
                         Model.ApplyEntityDestroyed(id);
                         break;
                     }
 
-                    case global::Net.OpType.FlowSnapshot:
+                    case com.aqua.netlogic.net.OpType.FlowSnapshot:
                     {
                         // Matches OpsWriter.WriteFlowSnapshot payload layout
                         byte flowState = r.GetByte();
@@ -111,14 +111,14 @@ namespace Client.Game
                         int lastCookScoreDelta = r.GetInt();
 
                         FlowSnapshot flow = new FlowSnapshot(
-                            (Sim.Game.Flow.GameFlowState)flowState,
+                            (com.aqua.netlogic.sim.game.flow.GameFlowState)flowState,
                             levelIndex,
                             roundIndex,
                             selectedChefHatId,
                             targetScore,
                             cumulativeScore,
                             cookAttemptsUsed,
-                            (Sim.Game.Flow.RoundState)roundState,
+                            (com.aqua.netlogic.sim.game.flow.RoundState)roundState,
                             cookResultSeq,
                             lastCookScoreDelta,
                             lastMetTarget != 0);

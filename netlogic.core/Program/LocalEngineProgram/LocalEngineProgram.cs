@@ -1,12 +1,14 @@
-using Program.FlowScript;
-using Sim.Command;
-using Sim.Engine;
-using Sim.Game;
-using Sim.Game.Flow;
-using Sim.System;
-using Sim.Time;
+using com.aqua.netlogic.program.flowscript;
+using com.aqua.netlogic.command;
+using com.aqua.netlogic.sim.serverengine;
+using com.aqua.netlogic.sim.game;
+using com.aqua.netlogic.sim.game.entity;
+using com.aqua.netlogic.sim.game.flow;
+using com.aqua.netlogic.sim.systems.gameflowsystem.commands;
+using com.aqua.netlogic.sim.systems.movementsystem.commands;
+using com.aqua.netlogic.sim.timing;
 
-namespace Program
+namespace com.aqua.netlogic.program
 {
     public sealed class LocalEngineProgram : IProgram
     {

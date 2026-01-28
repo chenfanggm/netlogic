@@ -1,8 +1,8 @@
 using System;
 using MemoryPack;
-using Net.WireState;
+using com.aqua.netlogic.net.wirestate;
 
-namespace Net
+namespace com.aqua.netlogic.net
 {
     // Flags reserved for future:
     // bit0: compressed
@@ -28,7 +28,7 @@ namespace Net
 
         public Hello()
         {
-            ProtocolVersion = Net.ProtocolVersion.Current;
+            ProtocolVersion = com.aqua.netlogic.net.ProtocolVersion.Current;
             ClientTickRateHz = 0;
         }
 
@@ -50,7 +50,7 @@ namespace Net
 
         public Welcome()
         {
-            ProtocolVersion = Net.ProtocolVersion.Current;
+            ProtocolVersion = com.aqua.netlogic.net.ProtocolVersion.Current;
             ServerTickRateHz = 0;
             ServerTick = 0;
             ServerTimeMs = 0;
@@ -106,9 +106,9 @@ namespace Net
 
         public ServerOpsMsg()
         {
-            ProtocolVersion = Net.ProtocolVersion.Current;
-            HashScopeId = HashContract.ScopeId;
-            HashPhase = (byte)HashContract.Phase;
+            ProtocolVersion = com.aqua.netlogic.net.ProtocolVersion.Current;
+            HashScopeId = com.aqua.netlogic.net.HashContract.ScopeId;
+            HashPhase = (byte)com.aqua.netlogic.net.HashContract.Phase;
             ServerTick = 0;
             ServerSeq = 0;
             StateHash = 0;
@@ -152,10 +152,10 @@ namespace Net
 
         public BaselineMsg()
         {
-            ProtocolVersion = Net.ProtocolVersion.Current;
-            HashScopeId = HashContract.ScopeId;
-            HashPhase = (byte)HashContract.Phase;
-            BaselineSchemaId = StateSchema.BaselineSchemaId;
+            ProtocolVersion = com.aqua.netlogic.net.ProtocolVersion.Current;
+            HashScopeId = com.aqua.netlogic.net.HashContract.ScopeId;
+            HashPhase = (byte)com.aqua.netlogic.net.HashContract.Phase;
+            BaselineSchemaId = com.aqua.netlogic.net.StateSchema.BaselineSchemaId;
             ServerTick = 0;
             StateHash = 0;
             Flow = default;

@@ -1,4 +1,4 @@
-namespace Sim.Game.Runtime
+namespace com.aqua.netlogic.sim.game.runtime
 {
     /// <summary>
     /// Tiny deterministic RNG suitable for server simulation.

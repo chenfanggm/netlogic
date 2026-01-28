@@ -1,4 +1,4 @@
-namespace Sim.Command
+namespace com.aqua.netlogic.command.buffer
 {
     /// <summary>
     /// Bundles a scheduled tick, client command sequence, and command list for processing.

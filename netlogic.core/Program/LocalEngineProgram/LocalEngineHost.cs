@@ -1,8 +1,8 @@
 
-using Sim.Engine;
-using Sim.Time;
+using com.aqua.netlogic.sim.serverengine;
+using com.aqua.netlogic.sim.timing;
 
-namespace Program
+namespace com.aqua.netlogic.program
 {
     /// <summary>
     /// Orchestrates the three loops:
@@ -38,7 +38,7 @@ namespace Program
                     // The engine owns authoritative tick advancement.
                     using TickFrame frame = _engine.TickOnce(ctx);
                     TickFrame owned = frame.WithOwnedOps();
-                    Sim.Snapshot.GameSnapshot snap = _engine.BuildSnapshot();
+                    com.aqua.netlogic.sim.game.snapshot.GameSnapshot snap = _engine.BuildSnapshot();
                     _latest.Publish(new TickSnapshot(owned, snap));
                 },
                 token: token))

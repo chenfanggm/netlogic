@@ -1,6 +1,6 @@
 using System;
 
-namespace Net.Time
+namespace com.aqua.netlogic.net.time
 {
     /// <summary>
     /// Estimates server time/tick on the client using Ping/Pong:

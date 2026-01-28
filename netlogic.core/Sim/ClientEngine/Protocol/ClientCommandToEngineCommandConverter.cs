@@ -1,9 +1,12 @@
-using Sim.Game;
-using Sim.Game.Flow;
-using Sim.Command;
-using Sim.System;
+using System.Collections.Generic;
+using com.aqua.netlogic.sim.game;
+using com.aqua.netlogic.sim.game.flow;
+using com.aqua.netlogic.command;
+using com.aqua.netlogic.sim.serverengine;
+using com.aqua.netlogic.sim.systems.gameflowsystem.commands;
+using com.aqua.netlogic.sim.systems.movementsystem.commands;
 
-namespace Client.Protocol
+namespace com.aqua.netlogic.sim.clientengine.protocol
 {
     /// <summary>
     /// Converts client-authored commands into authoritative engine commands.

@@ -1,4 +1,4 @@
-namespace Sim.Game.Flow
+namespace com.aqua.netlogic.sim.game.flow
 {
     /// <summary>
     /// Server-authoritative round phase.

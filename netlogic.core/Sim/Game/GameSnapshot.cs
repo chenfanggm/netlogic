@@ -1,6 +1,6 @@
-using Sim.Engine;
+using com.aqua.netlogic.sim.serverengine;
 
-namespace Sim.Snapshot
+namespace com.aqua.netlogic.sim.game.snapshot
 {
     /// <summary>
     /// Unreliable snapshot payload sent each server tick (or at sampling frequency).

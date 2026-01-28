@@ -1,13 +1,17 @@
-using Sim.Game;
-using Sim.Engine;
+using System;
+using System.Collections.Generic;
+using com.aqua.netlogic.sim.game;
+using com.aqua.netlogic.sim.serverengine;
+using com.aqua.netlogic.sim.serverengine.replication;
 using LiteNetLib.Utils;
-using Net;
-using Client.Protocol;
-using Sim.Server.Reliability;
-using Sim.Command;
-using Sim.Time;
+using com.aqua.netlogic.net;
+using com.aqua.netlogic.net.transport;
+using com.aqua.netlogic.sim.clientengine.protocol;
+using com.aqua.netlogic.sim.networkserver.reliability;
+using com.aqua.netlogic.command;
+using com.aqua.netlogic.sim.timing;
 
-namespace Sim.Server
+namespace com.aqua.netlogic.sim.networkserver
 {
     /// <summary>
     /// Thin network adapter:
@@ -21,7 +25,7 @@ namespace Sim.Server
     /// </summary>
     public sealed class NetworkServer
     {
-        private readonly IServerTransport _transport;
+        private readonly com.aqua.netlogic.net.transport.IServerTransport _transport;
         private readonly ServerEngine _engine;
         private readonly int _tickRateHz;
 
@@ -55,7 +59,7 @@ namespace Sim.Server
         public int CurrentServerTick => _engine.CurrentTick;
         public int TickRateHz => _tickRateHz;
 
-        public NetworkServer(IServerTransport transport, int tickRateHz, Game.Game initialGame)
+        public NetworkServer(com.aqua.netlogic.net.transport.IServerTransport transport, int tickRateHz, com.aqua.netlogic.sim.game.Game initialGame)
         {
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
             if (tickRateHz <= 0)
@@ -228,7 +232,7 @@ namespace Sim.Server
 
         private void SendBaseline(int connId)
         {
-            Sim.Snapshot.GameSnapshot snap = _engine.BuildSnapshot();
+            com.aqua.netlogic.sim.game.snapshot.GameSnapshot snap = _engine.BuildSnapshot();
             uint hash = _engine.ComputeStateHash();
 
             BaselineMsg msg = BaselineBuilder.Build(snap, _engine.CurrentTick, hash);
@@ -281,7 +285,7 @@ namespace Sim.Server
                 int connId = _clients[k];
                 if (_reliableStreams.TryGetValue(connId, out ServerReliableStream? stream) && stream != null)
                 {
-                    byte[] opsPayload = Net.PooledBytes.RentCopy(_opsWriter, out int opsLen);
+                    byte[] opsPayload = com.aqua.netlogic.net.PooledBytes.RentCopy(_opsWriter, out int opsLen);
                     try
                     {
                         stream.AddOpsForTick(frameTick, opCount, opsPayload, opsLen);

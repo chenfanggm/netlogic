@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using Net;
+using com.aqua.netlogic.net;
 
-namespace Sim.Server.State
+namespace com.aqua.netlogic.sim.networkserver.state
 {
     /// <summary>
     /// Tracks last sent entity state per client and builds delta updates containing only changes.

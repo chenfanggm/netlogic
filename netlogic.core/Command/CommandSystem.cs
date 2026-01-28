@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
-using Sim.Game;
+using com.aqua.netlogic.sim.game;
+using com.aqua.netlogic.command.buffer;
+using com.aqua.netlogic.command.sink;
 
 
-namespace Sim.Command
+namespace com.aqua.netlogic.command
 {
     /// <summary>
     /// Central command scheduling and dispatch.
@@ -75,7 +77,7 @@ namespace Sim.Command
         /// <summary>
         /// Execute sinks in stable order.
         /// </summary>
-        public void Execute(int tick, Game.Game world)
+        public void Execute(int tick, com.aqua.netlogic.sim.game.Game world)
         {
             // 1) Dispatch inputs for this tick into sink inboxes (with phases)
             Dispatch(tick);

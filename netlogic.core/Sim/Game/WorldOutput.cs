@@ -1,6 +1,6 @@
-using Sim.Engine;
+using com.aqua.netlogic.sim.serverengine;
 
-namespace Sim.Game
+namespace com.aqua.netlogic.sim.game
 {
     /// <summary>
     /// Transient per-tick output hook, set by the engine.

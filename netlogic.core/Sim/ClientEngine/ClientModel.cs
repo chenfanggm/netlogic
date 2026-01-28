@@ -1,10 +1,10 @@
 using System.Collections.Generic;
-using Client.Protocol;
-using Net;
-using Net.WireState;
-using Sim.Snapshot;
+using com.aqua.netlogic.sim.clientengine.protocol;
+using com.aqua.netlogic.net;
+using com.aqua.netlogic.net.wirestate;
+using com.aqua.netlogic.sim.game.snapshot;
 
-namespace Client.Game
+namespace com.aqua.netlogic.sim.clientengine
 {
     /// <summary>
     /// ClientModel = lightweight rebuildable state for rendering/UI.
@@ -36,14 +36,14 @@ namespace Client.Game
             }
 
             FlowSnapshot flow = new FlowSnapshot(
-                (Sim.Game.Flow.GameFlowState)baseline.Flow.FlowState,
+                (com.aqua.netlogic.sim.game.flow.GameFlowState)baseline.Flow.FlowState,
                 baseline.Flow.LevelIndex,
                 baseline.Flow.RoundIndex,
                 baseline.Flow.SelectedChefHatId,
                 baseline.Flow.TargetScore,
                 baseline.Flow.CumulativeScore,
                 baseline.Flow.CookAttemptsUsed,
-                (Sim.Game.Flow.RoundState)baseline.Flow.RoundState,
+                (com.aqua.netlogic.sim.game.flow.RoundState)baseline.Flow.RoundState,
                 baseline.Flow.CookResultSeq,
                 baseline.Flow.LastCookScoreDelta,
                 baseline.Flow.LastCookMetTarget);

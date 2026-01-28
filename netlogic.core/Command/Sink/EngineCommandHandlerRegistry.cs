@@ -1,7 +1,11 @@
 using System;
-using Sim.Game;
+using com.aqua.netlogic.sim.game;
+using com.aqua.netlogic.command.handler;
+using com.aqua.netlogic.sim.serverengine;
+using com.aqua.netlogic.sim.systems.gameflowsystem.handlers;
+using com.aqua.netlogic.sim.systems.movementsystem.handlers;
 
-namespace Sim.Command
+namespace com.aqua.netlogic.command.sink
 {
     /// <summary>
     /// Explicit, reflection-free registry for mapping systems to their command handlers.

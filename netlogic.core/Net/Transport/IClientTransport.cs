@@ -1,6 +1,6 @@
 using System;
 
-namespace Net
+namespace com.aqua.netlogic.net.transport
 {
     /// <summary>
     /// Client-side transport abstraction for connecting and sending/receiving packets.

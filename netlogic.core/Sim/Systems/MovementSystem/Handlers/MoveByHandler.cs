@@ -1,8 +1,10 @@
 // FILE: netlogic.core/Sim/Systems/MovementSystem/Handlers/MoveByHandler.cs
-using Sim.Game;
-using Sim.System;
+using com.aqua.netlogic.sim.game;
+using com.aqua.netlogic.sim.systems.movementsystem.commands;
+using com.aqua.netlogic.command.handler;
+using com.aqua.netlogic.sim.serverengine;
 
-namespace Sim.Command
+namespace com.aqua.netlogic.sim.systems.movementsystem.handlers
 {
     [EngineCommandHandler(typeof(MovementSystem))]
     internal sealed class MoveByHandler : EngineCommandHandlerBase<MoveByEngineCommand, EngineCommandType>
@@ -11,7 +13,7 @@ namespace Sim.Command
         {
         }
 
-        public override void Handle(Game.Game world, MoveByEngineCommand command)
+        public override void Handle(com.aqua.netlogic.sim.game.Game world, MoveByEngineCommand command)
         {
             world.TryMoveEntityBy(command.EntityId, command.Dx, command.Dy);
         }

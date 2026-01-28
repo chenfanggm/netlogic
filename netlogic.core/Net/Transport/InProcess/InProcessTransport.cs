@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 
-namespace Net
+namespace com.aqua.netlogic.net.transport.inprocess
 {
     /// <summary>
     /// In-process transport implementation using concurrent queues for client-server communication.

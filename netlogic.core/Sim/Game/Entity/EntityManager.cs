@@ -1,6 +1,7 @@
-using Net;
+using System.Collections.Generic;
+using com.aqua.netlogic.net;
 
-namespace Sim.Game
+namespace com.aqua.netlogic.sim.game.entity
 {
     internal sealed class EntityManager
     {

@@ -1,6 +1,6 @@
 using System;
 
-namespace Sim.Engine
+namespace com.aqua.netlogic.sim.serverengine.replication
 {
     internal static class RepOpDeliveryPolicy
     {

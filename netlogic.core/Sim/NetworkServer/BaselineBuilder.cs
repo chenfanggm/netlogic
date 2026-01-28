@@ -1,9 +1,9 @@
-using Net;
-using Net.WireState;
-using Sim.Engine;
-using Sim.Snapshot;
+using com.aqua.netlogic.net;
+using com.aqua.netlogic.net.wirestate;
+using com.aqua.netlogic.sim.serverengine;
+using com.aqua.netlogic.sim.game.snapshot;
 
-namespace Sim.Server
+namespace com.aqua.netlogic.sim.networkserver
 {
     internal static class BaselineBuilder
     {

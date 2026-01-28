@@ -1,6 +1,6 @@
-using Sim.Game.Flow;
+using com.aqua.netlogic.sim.game.flow;
 
-namespace Sim.Game.Runtime
+namespace com.aqua.netlogic.sim.game.runtime
 {
     /// <summary>
     /// Authoritative round runtime state (resets each round).

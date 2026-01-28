@@ -1,9 +1,14 @@
-using Sim.Command;
-using Sim.Game;
-using Sim.Snapshot;
-using Sim.Time;
+using System;
+using System.Collections.Generic;
+using com.aqua.netlogic.command;
+using com.aqua.netlogic.command.sink;
+using com.aqua.netlogic.sim.game;
+using com.aqua.netlogic.sim.game.snapshot;
+using com.aqua.netlogic.sim.systems.gameflowsystem;
+using com.aqua.netlogic.sim.systems.movementsystem;
+using com.aqua.netlogic.sim.timing;
 
-namespace Sim.Engine
+namespace com.aqua.netlogic.sim.serverengine
 {
     /// <summary>
     /// Pure authoritative simulation core (server-side).
@@ -21,7 +26,7 @@ namespace Sim.Engine
     /// </summary>
     public class ServerEngine : IServerEngine
     {
-        public Game.Game ReadOnlyWorld => _game;
+        public com.aqua.netlogic.sim.game.Game ReadOnlyWorld => _game;
 
         public int CurrentTick => _currentTick;
 
@@ -30,7 +35,7 @@ namespace Sim.Engine
         private int _currentTick;
         private double _lastServerTimeMs;
 
-        private readonly Game.Game _game;
+        private readonly com.aqua.netlogic.sim.game.Game _game;
         private readonly CommandSystem<EngineCommandType> _commandSystem;
         private readonly ICommandSink<EngineCommandType>[] _commandSinks;
 
@@ -40,7 +45,7 @@ namespace Sim.Engine
         private FlowSnapshot _lastFlowSnap;
         private bool _hasLastFlowSnap;
 
-        public ServerEngine(Game.Game initialGame)
+        public ServerEngine(com.aqua.netlogic.sim.game.Game initialGame)
         {
             _game = initialGame ?? throw new ArgumentNullException(nameof(initialGame));
 
@@ -100,7 +105,7 @@ namespace Sim.Engine
             _game.SetReplicator(null);
 
             // 5) World hash AFTER applying tick
-            uint worldHash = Sim.Game.WorldHash.Compute(_game);
+            uint worldHash = com.aqua.netlogic.sim.game.WorldHash.Compute(_game);
 
             return new TickFrame(
                 tick: tick,
@@ -125,7 +130,7 @@ namespace Sim.Engine
         /// </summary>
         public uint ComputeStateHash()
         {
-            return Sim.Game.WorldHash.Compute(_game);
+            return com.aqua.netlogic.sim.game.WorldHash.Compute(_game);
         }
 
         private void EmitFlowIfChanged(in FlowSnapshot flow)

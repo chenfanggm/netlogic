@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using com.aqua.netlogic.command;
+using com.aqua.netlogic.sim.game;
 
-namespace Sim.Command
+namespace com.aqua.netlogic.command.sink
 {
     /// <summary>
     /// A gameplay system that can receive routed engine commands for a tick.
@@ -20,6 +22,6 @@ namespace Sim.Command
         void InboxCommand(EngineCommand<TCommandType> command);
 
         /// <summary>Called by ServerEngine in stable order.</summary>
-        void Execute(Game.Game world);
+        void Execute(com.aqua.netlogic.sim.game.Game world);
     }
 }

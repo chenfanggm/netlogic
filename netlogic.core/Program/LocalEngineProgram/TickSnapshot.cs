@@ -1,7 +1,7 @@
-using Sim.Engine;
-using Sim.Snapshot;
+using com.aqua.netlogic.sim.serverengine;
+using com.aqua.netlogic.sim.game.snapshot;
 
-namespace Program
+namespace com.aqua.netlogic.program
 {
     /// <summary>
     /// Debug/harness payload containing tick frame + snapshot.

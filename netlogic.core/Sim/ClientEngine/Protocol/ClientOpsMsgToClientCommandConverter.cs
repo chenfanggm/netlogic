@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using LiteNetLib.Utils;
-using Net;
+using com.aqua.netlogic.net;
 
-namespace Client.Protocol
+namespace com.aqua.netlogic.sim.clientengine.protocol
 {
     public sealed class ClientOpsMsgToClientCommandConverter
     {

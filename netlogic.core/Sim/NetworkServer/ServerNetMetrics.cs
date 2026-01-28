@@ -1,6 +1,6 @@
 using System;
 
-namespace Sim.Server
+namespace com.aqua.netlogic.sim.networkserver
 {
     /// <summary>
     /// Rolling 60-second network health metrics (server side).

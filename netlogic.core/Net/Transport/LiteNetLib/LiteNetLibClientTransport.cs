@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 using LiteNetLib;
 using LiteNetLib.Utils;
 
-namespace Net
+namespace com.aqua.netlogic.net.transport.litenetlib
 {
     /// <summary>
     /// LiteNetLib-based client transport implementation for real UDP networking.

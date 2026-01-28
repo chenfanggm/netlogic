@@ -1,6 +1,6 @@
 using MessagePipe;
 
-namespace com.aqua.system
+namespace com.aqua.netlogic.eventbus
 {
     /// <summary>
     /// MessagePipe-based event manager

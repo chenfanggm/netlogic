@@ -1,4 +1,4 @@
-namespace Sim.Game
+namespace com.aqua.netlogic.sim.game.entity
 {
     public sealed class Entity
     {

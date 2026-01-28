@@ -1,10 +1,13 @@
-using Sim.Game.Runtime;
-using Sim.Game.Flow;
-using Sim.Snapshot;
-using Sim.Engine;
-using Net;
+using System;
+using System.Collections.Generic;
+using com.aqua.netlogic.sim.game.runtime;
+using com.aqua.netlogic.sim.game.flow;
+using com.aqua.netlogic.sim.game.snapshot;
+using com.aqua.netlogic.sim.game.entity;
+using com.aqua.netlogic.sim.serverengine;
+using com.aqua.netlogic.net;
 
-namespace Sim.Game
+namespace com.aqua.netlogic.sim.game
 {
     /// <summary>
     /// The entry for complete game state
@@ -62,7 +65,7 @@ namespace Sim.Game
         {
             Entity e = EntityManager.CreateEntityAt(x, y);
             if (Replicator != null)
-                Replicator.Record(Sim.Engine.RepOp.EntitySpawned(e.Id, e.X, e.Y, e.Hp));
+                Replicator.Record(com.aqua.netlogic.sim.serverengine.RepOp.EntitySpawned(e.Id, e.X, e.Y, e.Hp));
             return e;
         }
 
@@ -70,7 +73,7 @@ namespace Sim.Game
         {
             Entity e = EntityManager.CreateEntityAt(entityId, x, y);
             if (Replicator != null)
-                Replicator.Record(Sim.Engine.RepOp.EntitySpawned(e.Id, e.X, e.Y, e.Hp));
+                Replicator.Record(com.aqua.netlogic.sim.serverengine.RepOp.EntitySpawned(e.Id, e.X, e.Y, e.Hp));
             return e;
         }
 
@@ -83,7 +86,7 @@ namespace Sim.Game
         {
             bool ok = EntityManager.TryMoveEntityBy(entityId, dx, dy, out int newX, out int newY);
             if (ok && Replicator != null)
-                Replicator.Record(Sim.Engine.RepOp.PositionSnapshot(entityId, newX, newY));
+                Replicator.Record(com.aqua.netlogic.sim.serverengine.RepOp.PositionSnapshot(entityId, newX, newY));
 
             return ok;
         }
@@ -92,7 +95,7 @@ namespace Sim.Game
         {
             bool ok = EntityManager.TryRemoveEntity(entityId);
             if (ok && Replicator != null)
-                Replicator.Record(Sim.Engine.RepOp.EntityDestroyed(entityId));
+                Replicator.Record(com.aqua.netlogic.sim.serverengine.RepOp.EntityDestroyed(entityId));
 
             return ok;
         }

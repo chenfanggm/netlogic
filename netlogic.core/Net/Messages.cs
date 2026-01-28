@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using MemoryPack;
 
-namespace Net
+namespace com.aqua.netlogic.net
 {
     /// <summary>
     /// Message type identifiers for network protocol.

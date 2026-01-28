@@ -1,9 +1,9 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
-using Net;
+using com.aqua.netlogic.net;
 
-namespace Sim.Server.Reliability
+namespace com.aqua.netlogic.sim.networkserver.reliability
 {
     /// <summary>
     /// Per-client reliable stream:

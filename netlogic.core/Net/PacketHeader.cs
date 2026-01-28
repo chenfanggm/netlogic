@@ -1,7 +1,7 @@
 using System;
 using System.Buffers.Binary;
 
-namespace Net
+namespace com.aqua.netlogic.net
 {
     /// <summary>
     /// Fixed header that can be read without deserializing payload.

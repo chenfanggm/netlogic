@@ -1,6 +1,6 @@
 using System;
 
-namespace Net
+namespace com.aqua.netlogic.net
 {
     /// <summary>
     /// Network packet representation with connection ID, lane, and payload bytes.

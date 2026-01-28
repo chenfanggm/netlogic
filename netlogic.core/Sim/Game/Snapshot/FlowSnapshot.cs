@@ -1,7 +1,7 @@
 using System;
-using Sim.Game.Flow;
+using com.aqua.netlogic.sim.game.flow;
 
-namespace Sim.Snapshot
+namespace com.aqua.netlogic.sim.game.snapshot
 {
     /// <summary>
     /// Compact authoritative snapshot of game flow + run/level/round runtime.

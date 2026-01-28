@@ -1,7 +1,13 @@
 // FILE: netlogic.core/Sim/Systems/SystemBase.cs
 // Base system with handler registry and tick-local inbox.
 
-namespace Sim.Command
+using System;
+using System.Collections.Generic;
+using com.aqua.netlogic.command;
+using com.aqua.netlogic.command.handler;
+using com.aqua.netlogic.sim.game;
+
+namespace com.aqua.netlogic.command.sink
 {
     public abstract class CommandSinkBase<TCommandType> : ICommandSink<TCommandType>
         where TCommandType : struct, Enum
@@ -61,7 +67,7 @@ namespace Sim.Command
         /// <summary>
         /// Called by ServerEngine in stable order each tick.
         /// </summary>
-        public void Execute(Game.Game world)
+        public void Execute(com.aqua.netlogic.sim.game.Game world)
         {
             for (int i = 0; i < _inbox.Count; i++)
             {
@@ -81,7 +87,7 @@ namespace Sim.Command
         /// If you want per-system additional logic before/after handler execute, do it here.
         /// Most systems can simply rely on command-driven execution.
         /// </summary>
-        protected virtual void ExecuteAfterCommands(Game.Game world) { }
+        protected virtual void ExecuteAfterCommands(com.aqua.netlogic.sim.game.Game world) { }
 
         [Obsolete("Reflection-based handler discovery is disabled. Use EngineCommandHandlerRegistry and explicit registration.", error: true)]
         protected static IEngineCommandHandler<TCommandType>[] DiscoverHandlersForSystem(Type systemType)

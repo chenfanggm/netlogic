@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace Sim.Time
+namespace com.aqua.netlogic.sim.timing
 {
     /// <summary>
     /// Realtime scheduling loop driver.

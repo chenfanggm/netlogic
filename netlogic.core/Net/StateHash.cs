@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using Sim.Game;
+using com.aqua.netlogic.sim.game;
 
-namespace Net
+namespace com.aqua.netlogic.net
 {
     public static class StateHash
     {

@@ -1,4 +1,4 @@
-namespace Client.Protocol
+namespace com.aqua.netlogic.sim.clientengine.protocol
 {
     public enum ClientCommandType : byte
     {

@@ -2,7 +2,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 
-namespace Sim.Engine
+namespace com.aqua.netlogic.sim.serverengine.replication
 {
     internal static class RepOpPartitioner
     {

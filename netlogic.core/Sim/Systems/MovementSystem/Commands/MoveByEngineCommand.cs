@@ -1,7 +1,8 @@
-using Sim.Game;
-using Sim.Command;
+using com.aqua.netlogic.sim.game;
+using com.aqua.netlogic.command;
+using com.aqua.netlogic.sim.serverengine;
 
-namespace Sim.System
+namespace com.aqua.netlogic.sim.systems.movementsystem.commands
 {
     public sealed class MoveByEngineCommand : EngineCommand<EngineCommandType>
     {

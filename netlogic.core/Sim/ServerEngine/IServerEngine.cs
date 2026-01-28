@@ -1,9 +1,10 @@
-using Sim.Game;
-using Sim.Command;
-using Sim.Snapshot;
-using Sim.Time;
+using System.Collections.Generic;
+using com.aqua.netlogic.sim.game;
+using com.aqua.netlogic.command;
+using com.aqua.netlogic.sim.game.snapshot;
+using com.aqua.netlogic.sim.timing;
 
-namespace Sim.Engine
+namespace com.aqua.netlogic.sim.serverengine
 {
     /// <summary>
     /// Engine boundary used by outer-ring loops (input/output/host).
@@ -11,7 +12,7 @@ namespace Sim.Engine
     /// </summary>
     public interface IServerEngine
     {
-        Game.Game ReadOnlyWorld { get; }
+        com.aqua.netlogic.sim.game.Game ReadOnlyWorld { get; }
 
         int CurrentTick { get; }
 

@@ -1,6 +1,6 @@
 using System;
 
-namespace Sim.Command
+namespace com.aqua.netlogic.command
 {
     /// <summary>
     /// Base class for all commands that can be enqueued into <see cref="ServerEngine"/>.

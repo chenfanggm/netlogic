@@ -1,6 +1,6 @@
 using MemoryPack;
 
-namespace Net.WireState
+namespace com.aqua.netlogic.net.wirestate
 {
     [MemoryPackable]
     public readonly partial struct WireFlowState

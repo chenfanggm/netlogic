@@ -1,4 +1,4 @@
-namespace Sim.Game.Flow
+namespace com.aqua.netlogic.sim.game.flow
 {
     /// <summary>
     /// Pure round flow rules. Reads/writes World.Round runtime state.

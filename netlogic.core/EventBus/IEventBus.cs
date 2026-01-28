@@ -1,6 +1,6 @@
 using MessagePipe;
 
-namespace com.aqua.system
+namespace com.aqua.netlogic.eventbus
 {
     /// <summary>
     /// Manages all puzzle-related events

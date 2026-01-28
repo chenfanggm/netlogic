@@ -1,6 +1,6 @@
 using System;
 
-namespace Sim.Engine
+namespace com.aqua.netlogic.sim.serverengine
 {
     /// <summary>
     /// Canonical authoritative output for a single fixed server tick.

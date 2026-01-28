@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Sim.Server.Reliability
+namespace com.aqua.netlogic.sim.networkserver.reliability
 {
     public sealed class ServerReliableOpLog
     {

@@ -1,6 +1,6 @@
 using Stateless;
 
-namespace Sim.Game.Flow
+namespace com.aqua.netlogic.sim.game.flow
 {
     public sealed class GameFlowController
     {

@@ -3,7 +3,7 @@ using System.Buffers;
 using System.Runtime.InteropServices;
 using MemoryPack;
 
-namespace Net
+namespace com.aqua.netlogic.net
 {
     /// <summary>
     /// Fast-path encode helpers that avoid allocating:

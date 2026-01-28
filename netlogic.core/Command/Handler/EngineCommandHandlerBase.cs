@@ -2,9 +2,10 @@
 // Base class that provides safe casting + typed Enqueue.
 
 using System;
-using Sim.Command;
+using com.aqua.netlogic.command;
+using com.aqua.netlogic.sim.game;
 
-namespace Sim.Command
+namespace com.aqua.netlogic.command.handler
 {
     public abstract class EngineCommandHandlerBase<TCommand, TCommandType>(TCommandType commandType)
         : IEngineCommandHandler<TCommand, TCommandType>
@@ -13,7 +14,7 @@ namespace Sim.Command
     {
         public TCommandType CommandType { get; } = commandType;
 
-        public void Handle(Game.Game world, EngineCommand<TCommandType> command)
+        public void Handle(com.aqua.netlogic.sim.game.Game world, EngineCommand<TCommandType> command)
         {
             if (command is TCommand typed)
                 Handle(world, typed);
@@ -21,6 +22,6 @@ namespace Sim.Command
                 throw new InvalidOperationException($"Command {command.Type} is not of type {typeof(TCommand).Name}");
         }
 
-        public abstract void Handle(Game.Game world, TCommand command);
+        public abstract void Handle(com.aqua.netlogic.sim.game.Game world, TCommand command);
     }
 }

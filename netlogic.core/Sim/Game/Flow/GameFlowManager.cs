@@ -1,6 +1,6 @@
-using Sim.Game.Runtime;
+using com.aqua.netlogic.sim.game.runtime;
 
-namespace Sim.Game.Flow
+namespace com.aqua.netlogic.sim.game.flow
 {
     /// <summary>
     /// Owns authoritative flow state and deterministic enter/exit hooks.

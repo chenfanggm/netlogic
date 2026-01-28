@@ -1,4 +1,4 @@
-namespace Net
+namespace com.aqua.netlogic.net
 {
     /// <summary>
     /// Network packet delivery lane (reliable vs unreliable).

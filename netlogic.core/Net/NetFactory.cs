@@ -1,4 +1,8 @@
-namespace Net
+using com.aqua.netlogic.net.transport;
+using com.aqua.netlogic.net.transport.litenetlib;
+using com.aqua.netlogic.net.transport.inprocess;
+
+namespace com.aqua.netlogic.net
 {
     public interface INetFactory
     {

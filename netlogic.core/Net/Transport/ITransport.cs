@@ -1,4 +1,4 @@
-namespace Net
+namespace com.aqua.netlogic.net.transport
 {
     /// <summary>
     /// Non-blocking network endpoint for sending and receiving messages.

@@ -1,4 +1,4 @@
-namespace Program
+namespace com.aqua.netlogic.program
 {
     public interface IProgram
     {

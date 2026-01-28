@@ -1,4 +1,4 @@
-namespace Net
+namespace com.aqua.netlogic.net
 {
     public static class ProtocolVersion
     {

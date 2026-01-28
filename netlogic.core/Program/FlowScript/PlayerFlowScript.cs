@@ -1,7 +1,7 @@
 using System;
-using Sim.Game.Flow;
+using com.aqua.netlogic.sim.game.flow;
 
-namespace Program.FlowScript
+namespace com.aqua.netlogic.program.flowscript
 {
     /// <summary>
     /// Scripted player journey:

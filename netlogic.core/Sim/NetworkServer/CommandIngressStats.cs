@@ -1,4 +1,4 @@
-namespace Sim.Server
+namespace com.aqua.netlogic.sim.networkserver
 {
     public readonly struct CommandIngressStats
     {

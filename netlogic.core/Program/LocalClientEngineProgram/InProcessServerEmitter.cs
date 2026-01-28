@@ -1,11 +1,13 @@
+using System.Collections.Generic;
 using LiteNetLib.Utils;
-using Net;
-using Net.WireState;
-using Sim.Engine;
-using Sim.Game;
-using Sim.Snapshot;
+using com.aqua.netlogic.net;
+using com.aqua.netlogic.net.wirestate;
+using com.aqua.netlogic.sim.serverengine;
+using com.aqua.netlogic.sim.game;
+using com.aqua.netlogic.sim.game.entity;
+using com.aqua.netlogic.sim.game.snapshot;
 
-namespace Program
+namespace com.aqua.netlogic.program
 {
     /// <summary>
     /// Converts ServerEngine outputs into messages that ClientEngine can consume,

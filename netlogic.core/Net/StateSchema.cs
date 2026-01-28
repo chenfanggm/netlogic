@@ -1,4 +1,4 @@
-namespace Net
+namespace com.aqua.netlogic.net
 {
     /// <summary>
     /// Version for baseline snapshot payload layout.

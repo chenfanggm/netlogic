@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 
-namespace Net
+namespace com.aqua.netlogic.net.transport.inprocess
 {
     /// <summary>
     /// In-process packet transport pair for fast development/testing without real network sockets.

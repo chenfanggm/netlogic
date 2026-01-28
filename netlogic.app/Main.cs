@@ -1,6 +1,6 @@
-using Program;
+using com.aqua.netlogic.program;
 
-namespace App
+namespace com.aqua.netlogic.app
 {
     public static class Program
     {

@@ -1,6 +1,8 @@
-using Sim.Game;
+using com.aqua.netlogic.sim.game;
+using com.aqua.netlogic.command.sink;
+using com.aqua.netlogic.sim.serverengine;
 
-namespace Sim.Command
+namespace com.aqua.netlogic.sim.systems.movementsystem
 {
     public sealed class MovementSystem : CommandSinkBase<EngineCommandType>
     {

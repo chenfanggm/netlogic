@@ -2,7 +2,7 @@ using System;
 using System.Buffers;
 using LiteNetLib.Utils;
 
-namespace Net
+namespace com.aqua.netlogic.net
 {
     internal static class PooledBytes
     {

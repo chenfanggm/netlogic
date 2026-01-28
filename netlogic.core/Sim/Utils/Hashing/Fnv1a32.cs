@@ -1,6 +1,6 @@
 using System;
 
-namespace Sim.Hashing
+namespace com.aqua.netlogic.sim.utils.hashing
 {
     /// <summary>
     /// Stable, deterministic 32-bit FNV-1a hash builder.

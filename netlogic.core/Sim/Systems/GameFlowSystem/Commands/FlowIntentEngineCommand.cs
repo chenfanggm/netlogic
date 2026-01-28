@@ -1,8 +1,9 @@
-using Sim.Game;
-using Sim.Game.Flow;
-using Sim.Command;
+using com.aqua.netlogic.sim.game;
+using com.aqua.netlogic.sim.game.flow;
+using com.aqua.netlogic.command;
+using com.aqua.netlogic.sim.serverengine;
 
-namespace Sim.System
+namespace com.aqua.netlogic.sim.systems.gameflowsystem.commands
 {
     /// <summary>
     /// Player intent command for game flow.
