@@ -28,6 +28,8 @@ namespace com.aqua.netlogic.sim.networkclient
 
         private readonly int _clientTickRateHz;
         private bool _sentHello;
+        private bool _wasConnected;
+        private bool _hasBaseline;
 
         private uint _clientCmdSeq = 1;
         private uint _lastAckedReliableSeq = 0;
@@ -45,6 +47,8 @@ namespace com.aqua.netlogic.sim.networkclient
             Engine = engine ?? new ClientEngine();
 
             _sentHello = false;
+            _wasConnected = false;
+            _hasBaseline = false;
         }
 
         public void Start() => _transport.Start();
@@ -57,8 +61,18 @@ namespace com.aqua.netlogic.sim.networkclient
         {
             _transport.Poll();
 
+            bool connected = _transport.IsConnected;
+            if (!connected && _wasConnected)
+            {
+                // connection dropped; reset session state
+                _sentHello = false;
+                _hasBaseline = false;
+                _lastAckedReliableSeq = 0;
+            }
+            _wasConnected = connected;
+
             // Send Hello once when connected.
-            if (_transport.IsConnected && !_sentHello)
+            if (connected && !_sentHello)
             {
                 byte[] helloBytes = MsgCodec.EncodeHello(_clientTickRateHz);
                 _transport.Send(Lane.Reliable, new ArraySegment<byte>(helloBytes, 0, helloBytes.Length));
@@ -77,14 +91,20 @@ namespace com.aqua.netlogic.sim.networkclient
 
                     if (MsgCodec.TryDecodeBaseline(packet.Payload, out BaselineMsg baseline))
                     {
-                        var snap = _decoder.DecodeBaselineToSnapshot(baseline, out int serverTick, out uint stateHash);
+                        com.aqua.netlogic.sim.game.snapshot.GameSnapshot snap =
+                            _decoder.DecodeBaselineToSnapshot(baseline, out int serverTick, out uint stateHash);
                         Engine.ApplyBaselineSnapshot(snap, serverTick, stateHash);
+                        _hasBaseline = true;
                         continue;
                     }
 
                     if (MsgCodec.TryDecodeServerOps(packet.Payload, out ServerOpsMsg relOps))
                     {
-                        var update = _decoder.DecodeServerOpsToUpdate(relOps, isReliableLane: true);
+                        if (!_hasBaseline)
+                            continue;
+
+                        com.aqua.netlogic.sim.replication.ReplicationUpdate update =
+                            _decoder.DecodeServerOpsToUpdate(relOps, isReliableLane: true);
                         Engine.ApplyReplicationUpdate(update);
 
                         // Ack reliable ops stream so server replay window works.
@@ -108,7 +128,11 @@ namespace com.aqua.netlogic.sim.networkclient
                 {
                     if (MsgCodec.TryDecodeServerOps(packet.Payload, out ServerOpsMsg unrelOps))
                     {
-                        var update = _decoder.DecodeServerOpsToUpdate(unrelOps, isReliableLane: false);
+                        if (!_hasBaseline)
+                            continue;
+
+                        com.aqua.netlogic.sim.replication.ReplicationUpdate update =
+                            _decoder.DecodeServerOpsToUpdate(unrelOps, isReliableLane: false);
                         Engine.ApplyReplicationUpdate(update);
                     }
                 }
