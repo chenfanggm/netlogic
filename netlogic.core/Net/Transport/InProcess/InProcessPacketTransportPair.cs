@@ -4,29 +4,29 @@ using System.Collections.Concurrent;
 namespace Net
 {
     /// <summary>
-    /// In-process transport pair for fast development/testing without real network sockets.
+    /// In-process packet transport pair for fast development/testing without real network sockets.
     /// </summary>
-    public sealed class InProcessTransportPair
+    public sealed class InProcessPacketTransportPair
     {
-        public readonly InProcessServerTransport Server;
-        public readonly InProcessClientTransport Client;
+        public readonly InProcessPacketServerTransport Server;
+        public readonly InProcessPacketClientTransport Client;
 
-        public InProcessTransportPair()
+        public InProcessPacketTransportPair()
         {
             ConcurrentQueue<int> connected = new ConcurrentQueue<int>();
 
             ConcurrentQueue<NetPacket> c2s = new ConcurrentQueue<NetPacket>();
             ConcurrentQueue<NetPacket> s2c = new ConcurrentQueue<NetPacket>();
 
-            Server = new InProcessServerTransport(connected, c2s, s2c);
-            Client = new InProcessClientTransport(connected, c2s, s2c);
+            Server = new InProcessPacketServerTransport(connected, c2s, s2c);
+            Client = new InProcessPacketClientTransport(connected, c2s, s2c);
         }
     }
 
     /// <summary>
-    /// In-process server transport implementation using concurrent queues.
+    /// In-process packet server transport implementation using concurrent queues.
     /// </summary>
-    public sealed class InProcessServerTransport(
+    public sealed class InProcessPacketServerTransport(
         ConcurrentQueue<int> connected,
         ConcurrentQueue<NetPacket> c2s,
         ConcurrentQueue<NetPacket> s2c) : IServerTransport
@@ -72,9 +72,9 @@ namespace Net
     }
 
     /// <summary>
-    /// In-process client transport implementation using concurrent queues.
+    /// In-process packet client transport implementation using concurrent queues.
     /// </summary>
-    public sealed class InProcessClientTransport(
+    public sealed class InProcessPacketClientTransport(
         ConcurrentQueue<int> connected,
         ConcurrentQueue<NetPacket> c2s,
         ConcurrentQueue<NetPacket> s2c) : IClientTransport

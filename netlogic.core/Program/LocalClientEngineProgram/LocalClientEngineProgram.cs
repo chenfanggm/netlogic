@@ -44,8 +44,8 @@ namespace Program
             // ---------------------
             // Create in-process feed + client
             // ---------------------
-            Client.Net.InProcessNetFeed feed = new Client.Net.InProcessNetFeed();
-            Client.Net.InProcessClientTransport transport = new Client.Net.InProcessClientTransport(feed);
+            InProcessNetFeed feed = new InProcessNetFeed();
+            InProcessClientTransport transport = new Client.Net.InProcessClientTransport(feed);
             NetworkClient2 net = new NetworkClient2(transport);
             GameClient2 client = new GameClient2(net);
 

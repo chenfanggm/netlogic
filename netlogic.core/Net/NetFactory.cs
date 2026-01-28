@@ -21,7 +21,7 @@ namespace Net
 
     public sealed class InProcessNetFactory : INetFactory
     {
-        private readonly InProcessTransportPair _pair = new InProcessTransportPair();
+        private readonly InProcessPacketTransportPair _pair = new InProcessPacketTransportPair();
 
         public IServerTransport CreateServerTransport()
         {
