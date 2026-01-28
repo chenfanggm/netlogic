@@ -7,7 +7,6 @@ using com.aqua.netlogic.net;
 using com.aqua.netlogic.program.flowscript;
 using com.aqua.netlogic.command;
 using com.aqua.netlogic.sim.serverengine;
-using ServerMessageEncoder = com.aqua.netlogic.sim.networkserver.protocol.ServerMessageEncoder;
 using com.aqua.netlogic.sim.game;
 using com.aqua.netlogic.sim.game.entity;
 using com.aqua.netlogic.sim.game.flow;
