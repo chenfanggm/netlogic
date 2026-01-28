@@ -69,14 +69,6 @@ namespace com.aqua.netlogic.sim.game
             return e;
         }
 
-        public Entity CreateEntityAt(int entityId, int x, int y)
-        {
-            Entity e = EntityManager.CreateEntityAt(entityId, x, y);
-            if (Replicator != null)
-                Replicator.Record(com.aqua.netlogic.sim.serverengine.RepOp.EntitySpawned(e.Id, e.X, e.Y, e.Hp));
-            return e;
-        }
-
         public bool TryGetEntity(int id, out Entity entity) =>
             EntityManager.TryGetEntity(id, out entity);
 
