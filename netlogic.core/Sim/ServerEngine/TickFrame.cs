@@ -1,5 +1,3 @@
-using System;
-
 namespace com.aqua.netlogic.sim.serverengine
 {
     /// <summary>
@@ -7,40 +5,32 @@ namespace com.aqua.netlogic.sim.serverengine
     /// Note: tick frames intentionally do NOT carry engine snapshots (debug-only),
     /// to keep the server path decoupled from internal snapshot types.
     /// </summary>
-    public readonly struct TickFrame : IDisposable
+    public readonly struct TickFrame(int tick, double serverTimeMs, uint worldHash, RepOpBatch ops) : IDisposable
     {
-        public readonly int Tick;
-        public readonly double ServerTimeMs;
+        public readonly int Tick = tick;
+        public readonly double ServerTimeMs = serverTimeMs;
 
         /// <summary>Hash of authoritative world state AFTER this tick.</summary>
-        public readonly uint StateHash;
+        public readonly uint WorldHash = worldHash;
 
         /// <summary>Ordered replication ops for this tick.</summary>
-        public readonly RepOpBatch Ops;
+        public readonly RepOpBatch Ops = ops;
 
-        public TickFrame(int tick, double serverTimeMs, uint stateHash, RepOpBatch ops)
+        public void Dispose()
         {
-            Tick = tick;
-            ServerTimeMs = serverTimeMs;
-            StateHash = stateHash;
-            Ops = ops;
+            Ops.Dispose();
         }
 
         /// <summary>
         /// If this frame uses pooled ops, clone them into an owned array so the frame can be stored long-term.
         /// </summary>
-        public TickFrame WithOwnedOps()
+        public TickFrame Clone()
         {
             if (Ops.Count == 0)
                 return this;
 
             RepOp[] owned = Ops.ToArray();
-            return new TickFrame(Tick, ServerTimeMs, StateHash, RepOpBatch.FromOwnedArray(owned, owned.Length));
-        }
-
-        public void Dispose()
-        {
-            Ops.Dispose();
+            return new TickFrame(Tick, ServerTimeMs, WorldHash, RepOpBatch.FromOwnedArray(owned, owned.Length));
         }
     }
 }

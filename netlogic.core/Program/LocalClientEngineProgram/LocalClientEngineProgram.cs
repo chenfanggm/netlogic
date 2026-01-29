@@ -53,15 +53,14 @@ namespace com.aqua.netlogic.program
             ClientEngine client = new ClientEngine();
 
             // Run one tick to produce initial state
-            TickContext bootstrapCtx = new TickContext(serverTimeMs: 0, elapsedMsSinceLastTick: 0);
-            using TickFrame bootstrapFrame = engine.TickOnce(bootstrapCtx);
+            using TickFrame bootstrapFrame = engine.TickOnce(new TickContext(serverTimeMs: 0, elapsedMsSinceLastTick: 0));
 
             // Build baseline once and apply to client
             GameSnapshot bootstrapSnap = engine.BuildSnapshot();
             BaselineMsg baseline = ServerMessageEncoder.BuildBaseline(
                 bootstrapSnap,
                 bootstrapFrame.Tick,
-                bootstrapFrame.StateHash);
+                bootstrapFrame.WorldHash);
 
             GameSnapshot snap0 = decoder.DecodeBaselineToSnapshot(baseline, out int t0, out uint h0);
             client.ApplyBaselineSnapshot(snap0, t0, h0);
@@ -119,7 +118,7 @@ namespace com.aqua.netlogic.program
                                 (byte)HashContract.Phase,
                                 frame.Tick,
                                 ++reliableSeq,
-                                frame.StateHash,
+                                frame.WorldHash,
                                 opCount,
                                 payload);
 
@@ -138,7 +137,7 @@ namespace com.aqua.netlogic.program
                             (byte)HashContract.Phase,
                             frame.Tick,
                             0,
-                            frame.StateHash,
+                            frame.WorldHash,
                             opCount,
                             payload);
 

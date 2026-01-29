@@ -100,7 +100,7 @@ namespace com.aqua.netlogic.sim.networkserver
             using TickFrame frame = _engine.TickOnce(ctx);
 
             // Hash is produced by the engine as part of the canonical Frame.
-            uint worldHash = frame.StateHash;
+            uint worldHash = frame.WorldHash;
 
             using RepOpPartitioner.PartitionedOps part = RepOpPartitioner.Partition(frame.Ops.Span);
 
