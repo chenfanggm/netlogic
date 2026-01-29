@@ -1,18 +1,18 @@
-using com.aqua.netlogic.sim.clientengine;
-using com.aqua.netlogic.sim.clientengine.protocol;
-using com.aqua.netlogic.net;
+using System;
+using System.Collections.Generic;
+using System.Threading;
 using com.aqua.netlogic.program.flowscript;
 using com.aqua.netlogic.command;
+using com.aqua.netlogic.sim.clientengine;
 using com.aqua.netlogic.sim.serverengine;
 using com.aqua.netlogic.sim.game;
 using com.aqua.netlogic.sim.game.entity;
+using com.aqua.netlogic.net;
 using com.aqua.netlogic.sim.game.flow;
 using com.aqua.netlogic.sim.game.snapshot;
-using com.aqua.netlogic.sim.replication;
 using com.aqua.netlogic.sim.systems.gameflowsystem.commands;
 using com.aqua.netlogic.sim.systems.movementsystem.commands;
 using com.aqua.netlogic.sim.timing;
-using com.aqua.netlogic.sim.networkserver.protocol;
 
 namespace com.aqua.netlogic.program
 {
@@ -20,12 +20,13 @@ namespace com.aqua.netlogic.program
     /// In-process full-stack WITHOUT:
     /// - network transport
     /// - reliable stream replay/ack
+    /// - wire encode/decode
     /// - rendering
     ///
     /// It tests:
     /// - ServerEngine determinism loop
-    /// - server output building (baseline + ops)
-    /// - ClientEngine applying baseline + ops to rebuild ClientModel
+    /// - ServerEngine output (TickFrame + GameSnapshot)
+    /// - ClientEngine consuming ServerEngine outputs directly
     /// </summary>
     public sealed class LocalClientEngineProgram : IProgram
     {
@@ -41,29 +42,19 @@ namespace com.aqua.netlogic.program
             int playerEntityId = playerEntity.Id;
 
             // ---------------------
-            // Create engine
+            // Create engine + client
             // ---------------------
             ServerEngine engine = new ServerEngine(world);
-
-            // ---------------------
-            // Create in-process encoder/decoder + client (NO transport)
-            // ---------------------
-            ServerMessageEncoder encoder = new ServerMessageEncoder();
-            ClientMessageDecoder decoder = new ClientMessageDecoder();
             ClientEngine client = new ClientEngine();
 
-            // Run one tick to produce initial state
-            using TickFrame bootstrapFrame = engine.TickOnce(new TickContext(serverTimeMs: 0, elapsedMsSinceLastTick: 0));
+            // ---------------------
+            // Bootstrap baseline (direct snapshot, no encode/decode)
+            // ---------------------
+            TickContext bootstrapCtx = new TickContext(serverTimeMs: 0, elapsedMsSinceLastTick: 0);
+            using TickFrame bootstrapFrame = engine.TickOnce(bootstrapCtx);
 
-            // Build baseline once and apply to client
             GameSnapshot bootstrapSnap = engine.BuildSnapshot();
-            BaselineMsg baseline = ServerMessageEncoder.BuildBaseline(
-                bootstrapSnap,
-                bootstrapFrame.Tick,
-                bootstrapFrame.WorldHash);
-
-            GameSnapshot snap0 = decoder.DecodeBaselineToSnapshot(baseline, out int t0, out uint h0);
-            client.ApplyBaselineSnapshot(snap0, t0, h0);
+            client.ApplyBaselineSnapshot(bootstrapSnap, bootstrapFrame.Tick, bootstrapFrame.StateHash);
 
             // ---------------------
             // Drive ticks
@@ -72,7 +63,6 @@ namespace com.aqua.netlogic.program
 
             PlayerFlowScript flowScript = new PlayerFlowScript();
             uint clientCmdSeq = 1;
-            uint reliableSeq = 0;
             GameFlowState lastClientFlowState = (GameFlowState)255;
             bool exitingInRound = false;
             long exitMenuAtMs = -1;
@@ -87,64 +77,23 @@ namespace com.aqua.netlogic.program
             runner.Run(
                 onTick: (TickContext ctx) =>
                 {
-                    // Periodic resync every 5 seconds (for testing correctness)
+                    // Optional periodic resync every 5 seconds (tests correctness).
                     if ((long)ctx.ServerTimeMs - lastResyncAtMs >= 5000)
                     {
                         lastResyncAtMs = (long)ctx.ServerTimeMs;
 
                         GameSnapshot resyncSnap = engine.BuildSnapshot();
                         uint resyncHash = engine.ComputeStateHash();
-                        BaselineMsg resync = ServerMessageEncoder.BuildBaseline(
-                            resyncSnap,
-                            engine.CurrentTick,
-                            resyncHash);
-
-                        GameSnapshot snap = decoder.DecodeBaselineToSnapshot(resync, out int t, out uint h);
-                        client.ApplyBaselineSnapshot(snap, t, h);
+                        client.ApplyBaselineSnapshot(resyncSnap, engine.CurrentTick, resyncHash);
                     }
 
                     // Tick engine
                     using TickFrame frame = engine.TickOnce(ctx);
 
-                    // Build reliable ops from RepOps (entity lifecycle + flow) and apply
-                    {
-                        encoder.EncodeReliableRepOpsToWriter(frame.Ops.Span, out ushort opCount);
-                        if (opCount > 0)
-                        {
-                            byte[] payload = encoder.Writer.CopyData();
-                            ServerOpsMsg reliableMsg = new ServerOpsMsg(
-                                ProtocolVersion.Current,
-                                HashContract.ScopeId,
-                                (byte)HashContract.Phase,
-                                frame.Tick,
-                                ++reliableSeq,
-                                frame.WorldHash,
-                                opCount,
-                                payload);
+                    // Apply ServerEngine output directly (TickFrame implements IReplicationFrame)
+                    client.ApplyFrame(frame);
 
-                            ReplicationUpdate up = decoder.DecodeServerOpsToUpdate(reliableMsg, isReliableLane: true);
-                            client.ApplyReplicationUpdate(up);
-                        }
-                    }
-
-                    // Build unreliable ops from RepOps (position snapshots) and apply
-                    {
-                        encoder.EncodeUnreliablePositionSnapshotsToWriter(frame.Ops.Span, out ushort opCount);
-                        byte[] payload = (opCount == 0) ? Array.Empty<byte>() : encoder.Writer.CopyData();
-                        ServerOpsMsg unreliableMsg = new ServerOpsMsg(
-                            ProtocolVersion.Current,
-                            HashContract.ScopeId,
-                            (byte)HashContract.Phase,
-                            frame.Tick,
-                            0,
-                            frame.WorldHash,
-                            opCount,
-                            payload);
-
-                        ReplicationUpdate up = decoder.DecodeServerOpsToUpdate(unreliableMsg, isReliableLane: false);
-                        client.ApplyReplicationUpdate(up);
-                    }
-
+                    // Drive flow script using client-reconstructed model
                     GameFlowState clientFlow = (GameFlowState)client.Model.Flow.FlowState;
                     bool leftInRound = (lastClientFlowState == GameFlowState.InRound) && (clientFlow != GameFlowState.InRound);
                     bool enteredMainMenuAfterVictory = (lastClientFlowState == GameFlowState.RunVictory) && (clientFlow == GameFlowState.MainMenu);
@@ -224,23 +173,11 @@ namespace com.aqua.netlogic.program
                             requestedClientTick: engine.CurrentTick + 1,
                             clientCmdSeq: clientCmdSeq++,
                             commands: cmds);
-
-                        exitAfterVictoryAtMs = -1;
                     }
 
-                    if (clientFlow == GameFlowState.Exit)
-                        cts.Cancel();
-
-                    if (clientFlow != lastClientFlowState || ctx.ServerTimeMs - lastPrintAtMs >= 500)
-                    {
-                        lastClientFlowState = clientFlow;
-                        lastPrintAtMs = (long)ctx.ServerTimeMs;
-
-                        Console.WriteLine(
-                            $"[ClientModel] t={ctx.ServerTimeMs:0} serverTick={client.Model.LastServerTick} Flow={clientFlow}");
-                    }
+                    lastClientFlowState = clientFlow;
                 },
-                token: cts.Token);
+                cts.Token);
         }
     }
 }

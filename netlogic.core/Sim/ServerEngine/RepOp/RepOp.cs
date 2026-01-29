@@ -1,45 +1,16 @@
 namespace com.aqua.netlogic.sim.serverengine
 {
     /// <summary>
-    /// Render/network-facing op types (NOT internal domain events).
-    /// Keep stable; extend conservatively.
-    /// </summary>
-    public enum RepOpType : byte
-    {
-        None = 0,
-
-        // Reliable lane (entity lifecycle)
-        EntitySpawned = 10,
-        EntityDestroyed = 11,
-
-        // Unreliable state snapshot (presentation only).
-        // Latest-wins; safe to drop or overwrite.
-        // MUST NOT affect simulation truth.
-        PositionSnapshot = 50,
-
-        // Reliable lane (authoritative flow/UI control)
-        FlowFire = 60,
-        FlowSnapshot = 61,
-    }
-
-    /// <summary>
     /// Fixed-width replication op for codec friendliness.
     /// A..H are ints so you can pack bytes into A etc.
     /// </summary>
-    public readonly struct RepOp
+    public readonly struct RepOp(
+        RepOpType type,
+        int a = 0, int b = 0, int c = 0, int d = 0,
+        int e = 0, int f = 0, int g = 0, int h = 0)
     {
-        public readonly RepOpType Type;
-        public readonly int A, B, C, D, E, F, G, H;
-
-        public RepOp(
-            RepOpType type,
-            int a = 0, int b = 0, int c = 0, int d = 0,
-            int e = 0, int f = 0, int g = 0, int h = 0)
-        {
-            Type = type;
-            A = a; B = b; C = c; D = d;
-            E = e; F = f; G = g; H = h;
-        }
+        public readonly RepOpType Type = type;
+        public readonly int A = a, B = b, C = c, D = d, E = e, F = f, G = g, H = h;
 
         public static RepOp PositionSnapshot(int entityId, int x, int y)
             => new RepOp(RepOpType.PositionSnapshot, a: entityId, b: x, c: y);

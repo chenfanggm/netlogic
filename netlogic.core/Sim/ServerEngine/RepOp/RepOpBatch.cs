@@ -41,9 +41,9 @@ namespace com.aqua.netlogic.sim.serverengine
         public RepOp[] ToArray()
         {
             if (_buffer == null || _count == 0)
-                return Array.Empty<RepOp>();
+                return [];
 
-            var copy = new RepOp[_count];
+            RepOp[] copy = new RepOp[_count];
             Array.Copy(_buffer, 0, copy, 0, _count);
             return copy;
         }
