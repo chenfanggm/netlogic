@@ -135,6 +135,16 @@ namespace com.aqua.netlogic.program
                             Console.WriteLine($"[ClientModel] InRound Entity {playerEntityId} pos=({e.X},{e.Y})");
                     }
 
+                    // Log flow state transitions and periodic heartbeat (like the old harness).
+                    if (clientFlow != lastClientFlowState || ctx.ServerTimeMs - lastPrintAtMs >= 500)
+                    {
+                        lastPrintAtMs = (long)ctx.ServerTimeMs;
+                        lastClientFlowState = clientFlow;
+
+                        Console.WriteLine(
+                            $"[ClientModel] t={ctx.ServerTimeMs:0} serverTick={client.Model.LastServerTick} Flow={clientFlow}");
+                    }
+
                     if (leftInRound && clientFlow != GameFlowState.MainMenu && clientFlow != GameFlowState.RunVictory)
                     {
                         exitingInRound = true;
@@ -174,8 +184,6 @@ namespace com.aqua.netlogic.program
                             clientCmdSeq: clientCmdSeq++,
                             commands: cmds);
                     }
-
-                    lastClientFlowState = clientFlow;
                 },
                 cts.Token);
         }
