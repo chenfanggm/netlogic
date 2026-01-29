@@ -184,6 +184,10 @@ namespace com.aqua.netlogic.program
                             clientCmdSeq: clientCmdSeq++,
                             commands: cmds);
                     }
+
+                    // End the harness once flow reaches Exit.
+                    if (clientFlow == GameFlowState.Exit)
+                        cts.Cancel();
                 },
                 cts.Token);
         }
