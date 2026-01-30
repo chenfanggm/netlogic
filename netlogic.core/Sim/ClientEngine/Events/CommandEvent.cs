@@ -2,7 +2,7 @@ using System;
 using com.aqua.netlogic.command;
 using com.aqua.netlogic.sim.serverengine;
 
-namespace com.aqua.netlogic.command.ingress
+namespace com.aqua.netlogic.command.events
 {
     /// <summary>
     /// Event payload for client-authored command submission.

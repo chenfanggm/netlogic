@@ -2,7 +2,7 @@ using MessagePipe;
 using Microsoft.Extensions.DependencyInjection;
 using com.aqua.netlogic.program.flowscript;
 using com.aqua.netlogic.eventbus;
-using com.aqua.netlogic.command.ingress;
+using com.aqua.netlogic.command.events;
 using com.aqua.netlogic.sim.clientengine;
 using com.aqua.netlogic.sim.serverengine;
 using com.aqua.netlogic.sim.game;
@@ -49,11 +49,11 @@ namespace com.aqua.netlogic.program
             // ---------------------
             RenderSimulator renderSim = new RenderSimulator
             {
-                LastClientFlowState = (GameFlowState)255,
                 ExitingInRound = false,
                 ExitMenuAtMs = -1,
                 ExitAfterVictoryAtMs = -1,
                 LastPrintAtMs = 0,
+                LastServerTimeMs = 0,
             };
 
             // ---------------------
@@ -96,11 +96,12 @@ namespace com.aqua.netlogic.program
                 cts.CancelAfter(config.MaxRunDuration.Value);
             TickRunner runner = new TickRunner(config.TickRateHz);
             runner.Run(onTick: (TickContext ctx) =>
-                OnTick(ctx, serverEngine, clientEngine, eventBus, playerEntityId, flowScript, renderSim, cts),
+                OnTick(config, ctx, serverEngine, clientEngine, eventBus, playerEntityId, flowScript, renderSim, cts),
                 cts.Token);
         }
 
         private static void OnTick(
+            ProgramConfig config,
             TickContext ctx,
             ServerEngine serverEngine,
             ClientEngine clientEngine,
@@ -114,7 +115,7 @@ namespace com.aqua.netlogic.program
             using TickResult result = serverEngine.TickOnce(ctx);
 
             // Apply ServerEngine output directly to ClientEngine.
-            renderSim.ResetFlowFlags();
+            renderSim.LastServerTimeMs = ctx.ServerTimeMs;
             clientEngine.Apply(result);
 
             // Drive flow script using client-reconstructed model
@@ -142,13 +143,6 @@ namespace com.aqua.netlogic.program
                     Console.WriteLine($"[ClientModel] InRound Entity {playerEntityId} pos=({e.X},{e.Y})");
             }
 
-            if (renderSim.LeftInRoundThisTick && clientFlowState != GameFlowState.MainMenu && clientFlowState != GameFlowState.RunVictory)
-            {
-                renderSim.ExitingInRound = true;
-                eventBus.Publish(new CommandEvent(
-                    new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)));
-            }
-
             if (renderSim.ExitingInRound && clientFlowState == GameFlowState.MainMenu)
             {
                 if (renderSim.ExitMenuAtMs < 0)
@@ -157,17 +151,13 @@ namespace com.aqua.netlogic.program
                     cts.Cancel();
             }
 
-            if (renderSim.EnteredMainMenuAfterVictoryThisTick)
-                renderSim.ExitAfterVictoryAtMs = ctx.ServerTimeMs + 1000;
-
             if (renderSim.ExitAfterVictoryAtMs > 0 && ctx.ServerTimeMs >= renderSim.ExitAfterVictoryAtMs)
-            {
                 eventBus.Publish(new CommandEvent(
                     new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)));
-            }
 
-            // End the harness once flow reaches Exit.
-            if (clientFlowState == GameFlowState.Exit)
+            // End the harness once flow reaches Exit or max run duration is reached
+            if (clientFlowState == GameFlowState.Exit
+            || (config.MaxRunDuration.HasValue && TimeSpan.FromMilliseconds(ctx.ServerTimeMs) >= config.MaxRunDuration.Value))
                 cts.Cancel();
         }
 

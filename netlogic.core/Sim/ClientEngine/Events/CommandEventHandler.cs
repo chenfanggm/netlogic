@@ -2,7 +2,7 @@ using MessagePipe;
 using com.aqua.netlogic.sim.clientengine;
 using com.aqua.netlogic.sim.clientengine.command;
 
-namespace com.aqua.netlogic.command.ingress
+namespace com.aqua.netlogic.command.events
 {
     public sealed class CommandEventHandler : IMessageHandler<CommandEvent>
     {
