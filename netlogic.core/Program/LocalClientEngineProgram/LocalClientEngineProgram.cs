@@ -35,7 +35,7 @@ namespace com.aqua.netlogic.program
         public void Run(ProgramConfig config)
         {
             // ---------------------
-            // Create authoritative world
+            // Authoritative world
             // ---------------------
             Game world = new Game();
             Entity playerEntity = world.CreateEntityAt(x: 0, y: 0);
@@ -82,6 +82,7 @@ namespace com.aqua.netlogic.program
             DisposableBagBuilder disposableBag = DisposableBag.CreateBuilder();
             disposableBag.Add(eventBus.Subscribe(serviceProvider.GetRequiredService<FlowStateTransitionEventHandler>()));
             disposableBag.Add(eventBus.Subscribe(serviceProvider.GetRequiredService<CommandEventHandler>()));
+            using IDisposable disposable = disposableBag.Build();
 
             // ---------------------
             // Client Engine
