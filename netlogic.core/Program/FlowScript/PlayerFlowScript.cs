@@ -33,36 +33,6 @@ namespace com.aqua.netlogic.program.flowscript
             _playerEntityId = playerEntityId;
         }
 
-        private void LogInRoundState(GameFlowState gameFlowState, double nowMs)
-        {
-            if (gameFlowState != GameFlowState.InRound || nowMs - _lastPrintAtMs < 500)
-                return;
-
-            _lastPrintAtMs = nowMs;
-            if (_clientEngine == null)
-                return;
-
-            if (_clientEngine.Model.Entities.TryGetValue(_playerEntityId, out EntityState e))
-                Console.WriteLine($"[ClientModel] InRound Entity {_playerEntityId} pos=({e.X},{e.Y})");
-        }
-
-        private void ExitAfterVictoryIfNeeded(double nowMs)
-        {
-            if (_renderSim == null)
-                return;
-
-            if (_renderSim.ExitAfterVictoryAtMs > 0 && nowMs >= _renderSim.ExitAfterVictoryAtMs)
-                _eventBus.Publish(new CommandEvent(
-                    new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)));
-        }
-
-        public void Reset()
-        {
-            _roundState.Reset();
-            _selectedHat = false;
-            _wasInRound = false;
-        }
-
         /// <summary>
         /// Call once per tick.
         /// </summary>
@@ -162,6 +132,36 @@ namespace com.aqua.netlogic.program.flowscript
 
             LogInRoundState(gameFlowState, nowMs);
             ExitAfterVictoryIfNeeded(nowMs);
+        }
+
+        private void LogInRoundState(GameFlowState gameFlowState, double nowMs)
+        {
+            if (gameFlowState != GameFlowState.InRound || nowMs - _lastPrintAtMs < 500)
+                return;
+
+            _lastPrintAtMs = nowMs;
+            if (_clientEngine == null)
+                return;
+
+            if (_clientEngine.Model.Entities.TryGetValue(_playerEntityId, out EntityState e))
+                Console.WriteLine($"[ClientModel] InRound Entity {_playerEntityId} pos=({e.X},{e.Y})");
+        }
+
+        private void ExitAfterVictoryIfNeeded(double nowMs)
+        {
+            if (_renderSim == null)
+                return;
+
+            if (_renderSim.ExitAfterVictoryAtMs > 0 && nowMs >= _renderSim.ExitAfterVictoryAtMs)
+                _eventBus.Publish(new CommandEvent(
+                    new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)));
+        }
+
+        public void Reset()
+        {
+            _roundState.Reset();
+            _selectedHat = false;
+            _wasInRound = false;
         }
     }
 }
