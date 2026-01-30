@@ -24,7 +24,7 @@ namespace com.aqua.netlogic.program
     ///
     /// It tests:
     /// - ServerEngine determinism loop
-    /// - ServerEngine output (TickFrame + GameSnapshot)
+    /// - ServerEngine output (TickResult + GameSnapshot)
     /// - ClientEngine consuming ServerEngine outputs directly
     /// </summary>
     public sealed class LocalClientEngineProgram : IProgram
@@ -50,8 +50,8 @@ namespace com.aqua.netlogic.program
             // Bootstrap baseline (direct snapshot, no encode/decode)
             // ---------------------
             TickContext bootstrapCtx = new TickContext(serverTimeMs: 0, elapsedMsSinceLastTick: 0);
-            using TickFrame bootstrapFrame = serverEngine.TickOnce(bootstrapCtx, includeSnapshot: true);
-            clientEngine.ApplyFrame(bootstrapFrame);
+            using TickResult bootstrapResult = serverEngine.TickOnce(bootstrapCtx, includeSnapshot: true);
+            clientEngine.Apply(bootstrapResult);
 
             // ---------------------
             // Drive ticks
@@ -87,10 +87,10 @@ namespace com.aqua.netlogic.program
             CancellationTokenSource cts)
         {
             // Tick engine
-            using TickFrame frame = serverEngine.TickOnce(ctx);
+            using TickResult result = serverEngine.TickOnce(ctx);
 
-            // Apply ServerEngine output directly (TickFrame implements IReplicationFrame)
-            clientEngine.ApplyFrame(frame);
+            // Apply ServerEngine output directly (TickResult implements IReplicationFrame)
+            clientEngine.Apply(result);
 
             // Drive flow script using client-reconstructed model
             GameFlowState clientFlow = (GameFlowState)clientEngine.Model.Flow.FlowState;

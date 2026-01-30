@@ -36,8 +36,8 @@ namespace com.aqua.netlogic.program
                 onTick: ctx =>
                 {
                     // The engine owns authoritative tick advancement.
-                    using TickFrame frame = _engine.TickOnce(ctx);
-                    TickFrame owned = frame.Clone();
+                    using TickResult result = _engine.TickOnce(ctx);
+                    TickResult owned = result.Clone();
                     com.aqua.netlogic.sim.game.snapshot.GameSnapshot snap = _engine.BuildSnapshot();
                     _latest.Publish(new TickSnapshot(owned, snap));
                 },

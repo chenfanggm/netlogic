@@ -78,7 +78,7 @@ namespace com.aqua.netlogic.sim.serverengine
         /// <summary>
         /// Execute exactly one authoritative tick.
         /// </summary>
-        public TickFrame TickOnce(TickContext ctx, bool includeSnapshot = false)
+        public TickResult TickOnce(TickContext ctx, bool includeSnapshot = false)
         {
             int tick = ++_currentTick;
             _lastServerTimeMs = ctx.ServerTimeMs;
@@ -109,7 +109,7 @@ namespace com.aqua.netlogic.sim.serverengine
 
             GameSnapshot? snapshot = includeSnapshot ? _game.Snapshot(tick, worldHash) : null;
 
-            return new TickFrame(
+            return new TickResult(
                 tick: tick,
                 serverTimeMs: _lastServerTimeMs,
                 stateHash: worldHash,
@@ -119,7 +119,7 @@ namespace com.aqua.netlogic.sim.serverengine
 
         /// <summary>
         /// Builds an engine snapshot for baseline building / debug tools.
-        /// This is intentionally NOT part of TickFrame to avoid coupling server tick output
+        /// This is intentionally NOT part of TickResult to avoid coupling server tick output
         /// to internal snapshot structures.
         /// </summary>
         public GameSnapshot BuildSnapshot()

@@ -21,7 +21,7 @@ namespace com.aqua.netlogic.sim.networkserver
     /// - Converts ClientCommand[] -> EngineCommand[]
     /// - Feeds ServerEngine
     /// - Calls TickOnce()
-    /// - Hashes + encodes TickFrame into wire packets (Reliable + Unreliable)
+    /// - Hashes + encodes TickResult into wire packets (Reliable + Unreliable)
     /// </summary>
     public sealed class NetworkServer
     {
@@ -97,24 +97,24 @@ namespace com.aqua.netlogic.sim.networkserver
         {
             _lastServerTimeMs = ctx.ServerTimeMs;
             _netMetrics.Tick(ctx.ServerTimeMs);
-            using TickFrame frame = _engine.TickOnce(ctx);
+            using TickResult result = _engine.TickOnce(ctx);
 
-            // Hash is produced by the engine as part of the canonical Frame.
-            uint worldHash = frame.StateHash;
+            // Hash is produced by the engine as part of the canonical Result.
+            uint worldHash = result.StateHash;
 
-            using RepOpPartitioner.PartitionedOps part = RepOpPartitioner.Partition(frame.Ops.Span);
+            using RepOpPartitioner.PartitionedOps part = RepOpPartitioner.Partition(result.Ops.Span);
 
             RunPeriodicBaselines(CurrentServerTick);
             MaybePrintNetMetrics(CurrentServerTick);
 
             // Reliable lane: only reliable RepOps (e.g., FlowFire) are encoded here.
-            ConsumeReliableOps(frame.Tick, part.Reliable);
+            ConsumeReliableOps(result.Tick, part.Reliable);
 
             // Flush reliable streams (ack/replay lives here).
-            FlushReliableStreams(frame.Tick, worldHash);
+            FlushReliableStreams(result.Tick, worldHash);
 
             // Unreliable lane: positions (latest-wins).
-            SendUnreliableSnapshotToAll(frame.Tick, worldHash, part.Unreliable);
+            SendUnreliableSnapshotToAll(result.Tick, worldHash, part.Unreliable);
         }
 
         // -------------------------

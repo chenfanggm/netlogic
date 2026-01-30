@@ -26,14 +26,22 @@ namespace com.aqua.netlogic.sim.clientengine
         }
 
         /// <summary>
-        /// Contract entrypoint: apply a TickFrame that may include a baseline snapshot.
+        /// Contract entrypoint: apply a baseline snapshot payload.
         /// </summary>
-        public void ApplyFrame(in TickFrame frame)
+        public void Apply(in BaselineResult baseline)
         {
-            if (frame.Snapshot != null)
-                ApplyBaselineSnapshot(frame.Snapshot);
+            ApplyBaselineSnapshot(baseline.Snapshot);
+        }
 
-            ApplyFrame<TickFrame>(frame);
+        /// <summary>
+        /// Contract entrypoint: apply a TickResult that may include a baseline snapshot.
+        /// </summary>
+        public void Apply(in TickResult result)
+        {
+            if (result.Snapshot != null)
+                ApplyBaselineSnapshot(result.Snapshot);
+
+            ApplyReplicationFrame<TickResult>(result);
         }
 
         /// <summary>
@@ -44,9 +52,9 @@ namespace com.aqua.netlogic.sim.clientengine
         /// - deterministic tests
         /// - replay tools (already decoded)
         ///
-        /// Baselines remain explicit via ApplyBaselineSnapshot.
+        /// Baselines remain explicit via Apply(BaselineResult).
         /// </summary>
-        public void ApplyFrame<TFrame>(in TFrame frame) where TFrame : struct, IReplicationFrame
+        private void ApplyReplicationFrame<TFrame>(in TFrame frame) where TFrame : struct, IReplicationFrame
         {
             ReadOnlySpan<RepOp> ops = frame.Ops.Span;
 

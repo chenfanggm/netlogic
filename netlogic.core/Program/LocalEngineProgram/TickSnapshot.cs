@@ -4,16 +4,16 @@ using com.aqua.netlogic.sim.game.snapshot;
 namespace com.aqua.netlogic.program
 {
     /// <summary>
-    /// Debug/harness payload containing tick frame + snapshot.
+    /// Debug/harness payload containing tick result + snapshot.
     /// </summary>
     public readonly struct TickSnapshot
     {
-        public readonly TickFrame Frame;
+        public readonly TickResult Result;
         public readonly GameSnapshot Snapshot;
 
-        public TickSnapshot(TickFrame frame, GameSnapshot snapshot)
+        public TickSnapshot(TickResult result, GameSnapshot snapshot)
         {
-            Frame = frame;
+            Result = result;
             Snapshot = snapshot;
         }
     }

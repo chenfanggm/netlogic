@@ -10,7 +10,7 @@ namespace com.aqua.netlogic.sim.serverengine
     /// Also implements IReplicationFrame so ClientEngine can consume ServerEngine output
     /// directly without any encode/decode step.
     /// </summary>
-    public readonly struct TickFrame : IDisposable, IReplicationFrame
+    public readonly struct TickResult : IDisposable, IReplicationFrame
     {
         public readonly int Tick;
         public readonly double ServerTimeMs;
@@ -30,7 +30,7 @@ namespace com.aqua.netlogic.sim.serverengine
         uint IReplicationFrame.StateHash => StateHash;
         RepOpBatch IReplicationFrame.Ops => Ops;
 
-        public TickFrame(
+        public TickResult(
             int tick,
             double serverTimeMs,
             uint stateHash,
@@ -45,15 +45,15 @@ namespace com.aqua.netlogic.sim.serverengine
         }
 
         /// <summary>
-        /// If this frame uses pooled ops, clone them into an owned array so the frame can be stored long-term.
+        /// If this result uses pooled ops, clone them into an owned array so the result can be stored long-term.
         /// </summary>
-        public TickFrame WithOwnedOps()
+        public TickResult WithOwnedOps()
         {
             if (Ops.Count == 0)
                 return this;
 
             RepOp[] owned = Ops.ToArray();
-            return new TickFrame(
+            return new TickResult(
                 Tick,
                 ServerTimeMs,
                 StateHash,
@@ -64,7 +64,7 @@ namespace com.aqua.netlogic.sim.serverengine
         /// <summary>
         /// Backwards-compat alias for WithOwnedOps().
         /// </summary>
-        public TickFrame Clone() => WithOwnedOps();
+        public TickResult Clone() => WithOwnedOps();
 
         public void Dispose()
         {

@@ -24,14 +24,14 @@ namespace com.aqua.netlogic.program
         public string Format(TickSnapshot r, int entityId)
         {
             GameSnapshot snap = r.Snapshot;
-            TickFrame frame = r.Frame;
+            TickResult result = r.Result;
 
             FlowSnapshot flow = snap.Flow;
 
             if (_pos.TryGetEntityPos(snap, entityId, out int x, out int y))
             {
                 return
-                    $"Tick={frame.Tick} TimeMs={frame.ServerTimeMs} " +
+                    $"Tick={result.Tick} TimeMs={result.ServerTimeMs} " +
                     $"Entity{entityId}=({x},{y}) " +
                     $"Flow={flow.FlowState} L{flow.LevelIndex} R{flow.RoundIndex} " +
                     $"RoundState={flow.RoundState} Score={flow.CumulativeScore}/{flow.TargetScore} " +
@@ -39,7 +39,7 @@ namespace com.aqua.netlogic.program
             }
 
             return
-                $"Tick={frame.Tick} TimeMs={frame.ServerTimeMs} " +
+                $"Tick={result.Tick} TimeMs={result.ServerTimeMs} " +
                 $"Entity{entityId}=<not found> Flow={flow.FlowState}";
         }
     }

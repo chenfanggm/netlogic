@@ -2,6 +2,7 @@ using System;
 using LiteNetLib.Utils;
 using com.aqua.netlogic.sim.clientengine;
 using com.aqua.netlogic.sim.clientengine.protocol;
+using com.aqua.netlogic.sim.serverengine;
 using com.aqua.netlogic.net;
 
 namespace com.aqua.netlogic.sim.networkclient
@@ -91,9 +92,8 @@ namespace com.aqua.netlogic.sim.networkclient
 
                     if (MsgCodec.TryDecodeBaseline(packet.Payload, out BaselineMsg baseline))
                     {
-                        com.aqua.netlogic.sim.game.snapshot.GameSnapshot snap =
-                            _decoder.DecodeBaselineToSnapshot(baseline);
-                        Engine.ApplyBaselineSnapshot(snap);
+                        BaselineResult baselineResult = _decoder.DecodeBaselineToResult(baseline);
+                        Engine.Apply(baselineResult);
                         _hasBaseline = true;
                         continue;
                     }
