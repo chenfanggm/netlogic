@@ -26,6 +26,17 @@ namespace com.aqua.netlogic.sim.clientengine
         }
 
         /// <summary>
+        /// Contract entrypoint: apply a TickFrame that may include a baseline snapshot.
+        /// </summary>
+        public void ApplyFrame(in TickFrame frame)
+        {
+            if (frame.Snapshot != null)
+                ApplyBaselineSnapshot(frame.Snapshot, frame.Tick, frame.StateHash);
+
+            ApplyFrame<TickFrame>(frame);
+        }
+
+        /// <summary>
         /// Contract entrypoint: apply one authoritative replication frame (ServerEngine output) directly.
         ///
         /// This bypasses wire encode/decode and is ideal for:

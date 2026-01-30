@@ -78,7 +78,7 @@ namespace com.aqua.netlogic.sim.serverengine
         /// <summary>
         /// Execute exactly one authoritative tick.
         /// </summary>
-        public TickFrame TickOnce(TickContext ctx)
+        public TickFrame TickOnce(TickContext ctx, bool includeSnapshot = false)
         {
             int tick = ++_currentTick;
             _lastServerTimeMs = ctx.ServerTimeMs;
@@ -107,11 +107,14 @@ namespace com.aqua.netlogic.sim.serverengine
             // 5) World hash AFTER applying tick
             uint worldHash = com.aqua.netlogic.sim.game.WorldHash.Compute(_game);
 
+            GameSnapshot? snapshot = includeSnapshot ? BuildSnapshot() : null;
+
             return new TickFrame(
                 tick: tick,
                 serverTimeMs: _lastServerTimeMs,
                 stateHash: worldHash,
-                ops: ops);
+                ops: ops,
+                snapshot: snapshot);
         }
 
         /// <summary>

@@ -44,17 +44,15 @@ namespace com.aqua.netlogic.program
             // ---------------------
             // Create engine + client
             // ---------------------
-            ServerEngine engine = new ServerEngine(world);
-            ClientEngine client = new ClientEngine();
+            ServerEngine serverEngine = new ServerEngine(world);
+            ClientEngine clientEngine = new ClientEngine();
 
             // ---------------------
             // Bootstrap baseline (direct snapshot, no encode/decode)
             // ---------------------
             TickContext bootstrapCtx = new TickContext(serverTimeMs: 0, elapsedMsSinceLastTick: 0);
-            using TickFrame bootstrapFrame = engine.TickOnce(bootstrapCtx);
-
-            GameSnapshot bootstrapSnap = engine.BuildSnapshot();
-            client.ApplyBaselineSnapshot(bootstrapSnap, bootstrapFrame.Tick, bootstrapFrame.StateHash);
+            using TickFrame bootstrapFrame = serverEngine.TickOnce(bootstrapCtx, includeSnapshot: true);
+            clientEngine.ApplyFrame(bootstrapFrame);
 
             // ---------------------
             // Drive ticks
@@ -82,19 +80,19 @@ namespace com.aqua.netlogic.program
                     {
                         lastResyncAtMs = (long)ctx.ServerTimeMs;
 
-                        GameSnapshot resyncSnap = engine.BuildSnapshot();
-                        uint resyncHash = engine.ComputeStateHash();
-                        client.ApplyBaselineSnapshot(resyncSnap, engine.CurrentTick, resyncHash);
+                        GameSnapshot resyncSnap = serverEngine.BuildSnapshot();
+                        uint resyncHash = serverEngine.ComputeStateHash();
+                        clientEngine.ApplyBaselineSnapshot(resyncSnap, serverEngine.CurrentTick, resyncHash);
                     }
 
                     // Tick engine
-                    using TickFrame frame = engine.TickOnce(ctx);
+                    using TickFrame frame = serverEngine.TickOnce(ctx);
 
                     // Apply ServerEngine output directly (TickFrame implements IReplicationFrame)
-                    client.ApplyFrame(frame);
+                    clientEngine.ApplyFrame(frame);
 
                     // Drive flow script using client-reconstructed model
-                    GameFlowState clientFlow = (GameFlowState)client.Model.Flow.FlowState;
+                    GameFlowState clientFlow = (GameFlowState)clientEngine.Model.Flow.FlowState;
                     bool leftInRound = (lastClientFlowState == GameFlowState.InRound) && (clientFlow != GameFlowState.InRound);
                     bool enteredMainMenuAfterVictory = (lastClientFlowState == GameFlowState.RunVictory) && (clientFlow == GameFlowState.MainMenu);
 
@@ -108,9 +106,9 @@ namespace com.aqua.netlogic.program
                                 new FlowIntentEngineCommand(intent, param0)
                             ];
 
-                            engine.EnqueueCommands(
+                            serverEngine.EnqueueCommands(
                                 connId: playerConnId,
-                                requestedClientTick: engine.CurrentTick + 1,
+                                requestedClientTick: serverEngine.CurrentTick + 1,
                                 clientCmdSeq: clientCmdSeq++,
                                 commands: cmds);
                         },
@@ -121,9 +119,9 @@ namespace com.aqua.netlogic.program
                                 new MoveByEngineCommand(entityId: playerEntityId, dx: 1, dy: 0)
                             ];
 
-                            engine.EnqueueCommands(
+                            serverEngine.EnqueueCommands(
                                 connId: playerConnId,
-                                requestedClientTick: engine.CurrentTick + 1,
+                                requestedClientTick: serverEngine.CurrentTick + 1,
                                 clientCmdSeq: clientCmdSeq++,
                                 commands: cmds);
                         });
@@ -131,7 +129,7 @@ namespace com.aqua.netlogic.program
                     if (clientFlow == GameFlowState.InRound && ctx.ServerTimeMs - lastPrintAtMs >= 500)
                     {
                         lastPrintAtMs = (long)ctx.ServerTimeMs;
-                        if (client.Model.Entities.TryGetValue(playerEntityId, out EntityState e))
+                        if (clientEngine.Model.Entities.TryGetValue(playerEntityId, out EntityState e))
                             Console.WriteLine($"[ClientModel] InRound Entity {playerEntityId} pos=({e.X},{e.Y})");
                     }
 
@@ -142,7 +140,7 @@ namespace com.aqua.netlogic.program
                         lastClientFlowState = clientFlow;
 
                         Console.WriteLine(
-                            $"[ClientModel] t={ctx.ServerTimeMs:0} serverTick={client.Model.LastServerTick} Flow={clientFlow}");
+                            $"[ClientModel] t={ctx.ServerTimeMs:0} serverTick={clientEngine.Model.LastServerTick} Flow={clientFlow}");
                     }
 
                     if (leftInRound && clientFlow != GameFlowState.MainMenu && clientFlow != GameFlowState.RunVictory)
@@ -153,9 +151,9 @@ namespace com.aqua.netlogic.program
                             new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)
                         ];
 
-                        engine.EnqueueCommands(
+                        serverEngine.EnqueueCommands(
                             connId: playerConnId,
-                            requestedClientTick: engine.CurrentTick + 1,
+                            requestedClientTick: serverEngine.CurrentTick + 1,
                             clientCmdSeq: clientCmdSeq++,
                             commands: cmds);
                     }
@@ -178,9 +176,9 @@ namespace com.aqua.netlogic.program
                             new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)
                         ];
 
-                        engine.EnqueueCommands(
+                        serverEngine.EnqueueCommands(
                             connId: playerConnId,
-                            requestedClientTick: engine.CurrentTick + 1,
+                            requestedClientTick: serverEngine.CurrentTick + 1,
                             clientCmdSeq: clientCmdSeq++,
                             commands: cmds);
                     }

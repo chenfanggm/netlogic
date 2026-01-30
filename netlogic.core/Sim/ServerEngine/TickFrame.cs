@@ -1,4 +1,5 @@
 using System;
+using com.aqua.netlogic.sim.game.snapshot;
 using com.aqua.netlogic.sim.replication;
 
 namespace com.aqua.netlogic.sim.serverengine
@@ -20,18 +21,27 @@ namespace com.aqua.netlogic.sim.serverengine
         /// <summary>Ordered replication ops for this tick.</summary>
         public readonly RepOpBatch Ops;
 
+        /// <summary>Optional snapshot captured for this tick.</summary>
+        public readonly GameSnapshot? Snapshot;
+
         // IReplicationFrame (explicit) - keeps the contract stable even if fields change.
         int IReplicationFrame.Tick => Tick;
         double IReplicationFrame.ServerTimeMs => ServerTimeMs;
         uint IReplicationFrame.StateHash => StateHash;
         RepOpBatch IReplicationFrame.Ops => Ops;
 
-        public TickFrame(int tick, double serverTimeMs, uint stateHash, RepOpBatch ops)
+        public TickFrame(
+            int tick,
+            double serverTimeMs,
+            uint stateHash,
+            RepOpBatch ops,
+            GameSnapshot? snapshot = null)
         {
             Tick = tick;
             ServerTimeMs = serverTimeMs;
             StateHash = stateHash;
             Ops = ops;
+            Snapshot = snapshot;
         }
 
         /// <summary>
@@ -43,7 +53,12 @@ namespace com.aqua.netlogic.sim.serverengine
                 return this;
 
             RepOp[] owned = Ops.ToArray();
-            return new TickFrame(Tick, ServerTimeMs, StateHash, RepOpBatch.FromOwnedArray(owned, owned.Length));
+            return new TickFrame(
+                Tick,
+                ServerTimeMs,
+                StateHash,
+                RepOpBatch.FromOwnedArray(owned, owned.Length),
+                Snapshot);
         }
 
         /// <summary>
