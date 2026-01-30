@@ -16,13 +16,13 @@ namespace com.aqua.netlogic.program
     /// </summary>
     public sealed class LocalEngineHost(
         IServerEngine engine,
-        TickRunner runner,
+        ServerTickRunner runner,
         IInputPump input,
         IOutputPump output,
         LatestValue<TickSnapshot> latest)
     {
         private readonly IServerEngine _engine = engine ?? throw new ArgumentNullException(nameof(engine));
-        private readonly TickRunner _runner = runner ?? throw new ArgumentNullException(nameof(runner));
+        private readonly ServerTickRunner _runner = runner ?? throw new ArgumentNullException(nameof(runner));
         private readonly IInputPump _input = input ?? throw new ArgumentNullException(nameof(input));
         private readonly IOutputPump _output = output ?? throw new ArgumentNullException(nameof(output));
         private readonly LatestValue<TickSnapshot> _latest = latest ?? throw new ArgumentNullException(nameof(latest));

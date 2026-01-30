@@ -27,7 +27,7 @@ namespace com.aqua.netlogic.sim.serverengine
         void EnqueueServerCommands(
             List<EngineCommand<EngineCommandType>> commands, int requestedTick = -1);
 
-        TickResult TickOnce(TickContext ctx, bool includeSnapshot = false);
+        TickResult TickOnce(ServerTickContext ctx, bool includeSnapshot = false);
 
         GameSnapshot BuildSnapshot();
 

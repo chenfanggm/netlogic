@@ -93,7 +93,7 @@ namespace com.aqua.netlogic.sim.networkserver
             ProcessPackets();
         }
 
-        public void TickOnce(TickContext ctx)
+        public void TickOnce(ServerTickContext ctx)
         {
             _lastServerTimeMs = ctx.ServerTimeMs;
             _netMetrics.Tick(ctx.ServerTimeMs);

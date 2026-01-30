@@ -6,7 +6,7 @@ namespace com.aqua.netlogic.sim.timing
     /// Realtime scheduling loop driver.
     /// Owns Stopwatch/deadlines and decides when to invoke the tick callback.
     /// </summary>
-    public sealed class TickRunner
+    public sealed class ServerTickRunner
     {
         public int TickRateHz { get; }
         public double TickDurationMs { get; }
@@ -19,7 +19,7 @@ namespace com.aqua.netlogic.sim.timing
         // Prevent death spirals if server falls behind.
         private readonly int _maxCatchUpTicksPerLoop;
 
-        public TickRunner(int tickRateHz, int maxCatchUpTicksPerLoop = 5)
+        public ServerTickRunner(int tickRateHz, int maxCatchUpTicksPerLoop = 5)
         {
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(tickRateHz);
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxCatchUpTicksPerLoop);
@@ -34,7 +34,7 @@ namespace com.aqua.netlogic.sim.timing
         /// Runs until token cancellation. Calls onTick one or more times per loop to catch up.
         /// The callback receives TickContext with timing data only.
         /// </summary>
-        public void Run(Action<TickContext> onTick, CancellationToken token)
+        public void Run(Action<ServerTickContext> onTick, CancellationToken token)
         {
             ArgumentNullException.ThrowIfNull(onTick);
 
@@ -59,8 +59,8 @@ namespace com.aqua.netlogic.sim.timing
                 while (executed < _maxCatchUpTicksPerLoop && remainingMsAfterWait <= 0 && !token.IsCancellationRequested)
                 {
                     double nowMs = _sw.Elapsed.TotalMilliseconds;
-                    double elapsedSinceLastTickMs = nowMs - _lastTickAtMs;
-                    onTick(new TickContext(nowMs, elapsedSinceLastTickMs));
+                    double deltaMs = nowMs - _lastTickAtMs;
+                    onTick(new ServerTickContext(nowMs, deltaMs));
                     _lastTickAtMs = nowMs;
                     CommitNextTick();
                     executed++;

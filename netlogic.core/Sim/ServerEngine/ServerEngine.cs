@@ -78,7 +78,7 @@ namespace com.aqua.netlogic.sim.serverengine
         /// <summary>
         /// Execute exactly one authoritative tick.
         /// </summary>
-        public TickResult TickOnce(TickContext ctx, bool includeSnapshot = false)
+        public TickResult TickOnce(ServerTickContext ctx, bool includeSnapshot = false)
         {
             int tick = ++_currentTick;
             _lastServerTimeMs = ctx.ServerTimeMs;

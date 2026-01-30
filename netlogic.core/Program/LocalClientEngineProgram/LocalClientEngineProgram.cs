@@ -88,8 +88,8 @@ namespace com.aqua.netlogic.program
             using CancellationTokenSource cts = new CancellationTokenSource();
             if (config.MaxRunDuration.HasValue)
                 cts.CancelAfter(config.MaxRunDuration.Value);
-            TickRunner runner = new TickRunner(config.TickRateHz);
-            runner.Run(onTick: (TickContext ctx) =>
+            ServerTickRunner runner = new ServerTickRunner(config.TickRateHz);
+            runner.Run(onTick: (ServerTickContext ctx) =>
             {
                 // Tick engine
                 using TickResult result = serverEngine.TickOnce(ctx);
@@ -101,9 +101,7 @@ namespace com.aqua.netlogic.program
                 // Drive flow script using client-reconstructed model
                 GameFlowState clientFlowState = (GameFlowState)clientEngine.Model.Flow.FlowState;
 
-                flowScript.Step(
-                    clientFlowState,
-                    ctx.ServerTimeMs);
+                flowScript.Step(clientFlowState, ctx.ServerTimeMs);
 
                 // End the harness once flow reaches Exit or max run duration is reached
                 if (clientFlowState == GameFlowState.Exit
