@@ -81,7 +81,7 @@ namespace com.aqua.netlogic.sim.serverengine
         public TickResult TickOnce(ServerTickContext ctx, bool includeSnapshot = false)
         {
             int tick = ++_currentTick;
-            _lastServerTimeMs = ctx.ServerTimeMs;
+            _lastServerTimeMs = ctx.NowMs;
 
             _replication.BeginTick(tick);
 

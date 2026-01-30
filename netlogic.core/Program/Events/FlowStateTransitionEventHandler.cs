@@ -9,12 +9,10 @@ namespace com.aqua.netlogic.program
 {
     internal sealed class FlowStateTransitionEventHandler : IMessageHandler<GameFlowStateTransitionEvent>
     {
-        private readonly RenderSimulator _state;
         private readonly IEventBus _eventBus;
 
-        public FlowStateTransitionEventHandler(RenderSimulator state, IEventBus eventBus)
+        public FlowStateTransitionEventHandler(IEventBus eventBus)
         {
-            _state = state;
             _eventBus = eventBus;
         }
 
@@ -32,11 +30,6 @@ namespace com.aqua.netlogic.program
                     new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)));
             }
 
-            if (message.From == GameFlowState.RunVictory
-                && message.To == GameFlowState.MainMenu)
-            {
-                _state.ExitAfterVictoryAtMs = _state.LastServerTimeMs + 1000;
-            }
         }
     }
 }

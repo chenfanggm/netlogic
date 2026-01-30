@@ -95,8 +95,8 @@ namespace com.aqua.netlogic.sim.networkserver
 
         public void TickOnce(ServerTickContext ctx)
         {
-            _lastServerTimeMs = ctx.ServerTimeMs;
-            _netMetrics.Tick(ctx.ServerTimeMs);
+            _lastServerTimeMs = ctx.NowMs;
+            _netMetrics.Tick(ctx.NowMs);
             using TickResult result = _engine.TickOnce(ctx);
 
             // Hash is produced by the engine as part of the canonical Result.

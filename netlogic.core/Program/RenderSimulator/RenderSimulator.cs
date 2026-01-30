@@ -8,7 +8,6 @@ namespace com.aqua.netlogic.program
     /// </summary>
     public sealed class RenderSimulator
     {
-        public double ExitAfterVictoryAtMs;
         public double LastServerTimeMs;
     }
 }

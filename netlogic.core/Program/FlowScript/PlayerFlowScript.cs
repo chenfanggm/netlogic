@@ -117,8 +117,10 @@ namespace com.aqua.netlogic.program.flowscript
 
                 case GameFlowState.RunVictory:
                     if (!_completedRun)
+                    {
                         _eventBus.Publish(new CommandEvent(
                             new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)));
+                    }
                     _completedRun = true;
                     Reset();
                     break;
@@ -128,7 +130,6 @@ namespace com.aqua.netlogic.program.flowscript
             }
 
             LogInRoundState(gameFlowState, nowMs);
-            ExitAfterVictoryIfNeeded(nowMs);
         }
 
         private void LogInRoundState(GameFlowState gameFlowState, double nowMs)
@@ -139,13 +140,6 @@ namespace com.aqua.netlogic.program.flowscript
             _lastPrintAtMs = nowMs;
             if (_clientEngine.Model.Entities.TryGetValue(_playerEntityId, out EntityState e))
                 Console.WriteLine($"[ClientModel] InRound Entity {_playerEntityId} pos=({e.X},{e.Y})");
-        }
-
-        private void ExitAfterVictoryIfNeeded(double nowMs)
-        {
-            if (_renderSim.ExitAfterVictoryAtMs > 0 && nowMs >= _renderSim.ExitAfterVictoryAtMs)
-                _eventBus.Publish(new CommandEvent(
-                    new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)));
         }
 
         public void Reset()

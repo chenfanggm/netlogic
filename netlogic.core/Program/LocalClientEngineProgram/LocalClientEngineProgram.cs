@@ -46,7 +46,6 @@ namespace com.aqua.netlogic.program
             // ---------------------
             RenderSimulator renderSim = new RenderSimulator
             {
-                ExitAfterVictoryAtMs = -1,
                 LastServerTimeMs = 0,
             };
 
@@ -95,17 +94,17 @@ namespace com.aqua.netlogic.program
                 using TickResult result = serverEngine.TickOnce(ctx);
 
                 // Apply ServerEngine output directly to ClientEngine.
-                renderSim.LastServerTimeMs = ctx.ServerTimeMs;
+                renderSim.LastServerTimeMs = result.ServerTimeMs;
                 clientEngine.Apply(result);
 
                 // Drive flow script using client-reconstructed model
                 GameFlowState clientFlowState = (GameFlowState)clientEngine.Model.Flow.FlowState;
 
-                flowScript.Step(clientFlowState, ctx.ServerTimeMs);
+                flowScript.Step(clientFlowState, ctx.NowMs);
 
                 // End the harness once flow reaches Exit or max run duration is reached
                 if (clientFlowState == GameFlowState.Exit
-                || (config.MaxRunDuration.HasValue && TimeSpan.FromMilliseconds(ctx.ServerTimeMs) >= config.MaxRunDuration.Value))
+                || (config.MaxRunDuration.HasValue && TimeSpan.FromMilliseconds(ctx.NowMs) >= config.MaxRunDuration.Value))
                     cts.Cancel();
             }, cts.Token);
         }
