@@ -107,7 +107,8 @@ namespace com.aqua.netlogic.sim.serverengine
             // 5) World hash AFTER applying tick
             uint worldHash = com.aqua.netlogic.sim.game.WorldHash.Compute(_game);
 
-            GameSnapshot? snapshot = includeSnapshot ? _game.Snapshot(tick, worldHash) : null;
+            bool shouldIncludeSnapshot = includeSnapshot || tick == 1;
+            GameSnapshot? snapshot = shouldIncludeSnapshot ? _game.Snapshot(tick, worldHash) : null;
 
             return new TickResult(
                 tick: tick,

@@ -88,13 +88,6 @@ namespace com.aqua.netlogic.program
             clientEngine.PlayerConnId = 1;
 
             // ---------------------
-            // Bootstrap
-            // ---------------------
-            TickContext bootstrapCtx = new TickContext(serverTimeMs: 0, elapsedMsSinceLastTick: 0);
-            using TickResult bootstrapResult = serverEngine.TickOnce(bootstrapCtx, includeSnapshot: true);
-            clientEngine.Apply(bootstrapResult);
-
-            // ---------------------
             // Drive ticks
             // ---------------------
             PlayerFlowScript flowScript = new PlayerFlowScript();
@@ -102,9 +95,9 @@ namespace com.aqua.netlogic.program
             if (config.MaxRunDuration.HasValue)
                 cts.CancelAfter(config.MaxRunDuration.Value);
             TickRunner runner = new TickRunner(config.TickRateHz);
-            runner.Run(
-                   onTick: (TickContext ctx) => OnTick(ctx, serverEngine, clientEngine, eventBus, playerEntityId, flowScript, renderSim, cts),
-                   cts.Token);
+            runner.Run(onTick: (TickContext ctx) =>
+                OnTick(ctx, serverEngine, clientEngine, eventBus, playerEntityId, flowScript, renderSim, cts),
+                cts.Token);
         }
 
         private static void OnTick(
