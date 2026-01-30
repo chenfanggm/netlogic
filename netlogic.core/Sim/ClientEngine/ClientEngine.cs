@@ -23,6 +23,18 @@ namespace com.aqua.netlogic.sim.clientengine
 
         public ClientModel Model { get; } = new ClientModel();
 
+        /// <summary>
+        /// Client's lead (in ticks) when estimating requested tick for commands.
+        /// Last known server tick + InputLeadTicks = requestedClientTick hint.
+        /// </summary>
+        private int _inputLeadTicks = 1;
+
+        /// <summary>
+        /// Client's best guess of when a command should take effect (server tick domain).
+        /// Uses only last known server tick + lead; no server clock access.
+        /// </summary>
+        public int EstimateRequestedTick() => Model.LastServerTick + _inputLeadTicks;
+
         public ClientEngine(IEventBus eventBus)
         {
             _eventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));

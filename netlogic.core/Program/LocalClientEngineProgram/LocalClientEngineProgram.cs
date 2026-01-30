@@ -122,8 +122,6 @@ namespace com.aqua.netlogic.program
 
             // Drive flow script using client-reconstructed model
             GameFlowState clientFlow = (GameFlowState)clientEngine.Model.Flow.FlowState;
-            bool leftInRound = renderSim.LeftInRoundThisTick;
-            bool enteredMainMenuAfterVictory = renderSim.EnteredMainMenuAfterVictoryThisTick;
 
             flowScript.Step(
                 clientFlow,
@@ -137,7 +135,7 @@ namespace com.aqua.netlogic.program
 
                     serverEngine.EnqueueCommands(
                         connId: playerConnId,
-                        requestedClientTick: serverEngine.CurrentTick + 1,
+                        requestedClientTick: clientEngine.EstimateRequestedTick(),
                         clientCmdSeq: renderSim.ClientCmdSeq++,
                         commands: cmds);
                 },
@@ -150,7 +148,7 @@ namespace com.aqua.netlogic.program
 
                     serverEngine.EnqueueCommands(
                         connId: playerConnId,
-                        requestedClientTick: serverEngine.CurrentTick + 1,
+                        requestedClientTick: clientEngine.EstimateRequestedTick(),
                         clientCmdSeq: renderSim.ClientCmdSeq++,
                         commands: cmds);
                 });
@@ -171,7 +169,7 @@ namespace com.aqua.netlogic.program
                     $"[ClientModel] t={ctx.ServerTimeMs:0} serverTick={clientEngine.Model.LastServerTick} Flow={clientFlow}");
             }
 
-            if (leftInRound && clientFlow != GameFlowState.MainMenu && clientFlow != GameFlowState.RunVictory)
+            if (renderSim.LeftInRoundThisTick && clientFlow != GameFlowState.MainMenu && clientFlow != GameFlowState.RunVictory)
             {
                 renderSim.ExitingInRound = true;
                 List<EngineCommand<EngineCommandType>> cmds =
@@ -181,7 +179,7 @@ namespace com.aqua.netlogic.program
 
                 serverEngine.EnqueueCommands(
                     connId: playerConnId,
-                    requestedClientTick: serverEngine.CurrentTick + 1,
+                    requestedClientTick: clientEngine.EstimateRequestedTick(),
                     clientCmdSeq: renderSim.ClientCmdSeq++,
                     commands: cmds);
             }
@@ -194,7 +192,7 @@ namespace com.aqua.netlogic.program
                     cts.Cancel();
             }
 
-            if (enteredMainMenuAfterVictory)
+            if (renderSim.EnteredMainMenuAfterVictoryThisTick)
                 renderSim.ExitAfterVictoryAtMs = ctx.ServerTimeMs + 1000;
 
             if (renderSim.ExitAfterVictoryAtMs > 0 && ctx.ServerTimeMs >= renderSim.ExitAfterVictoryAtMs)
@@ -206,7 +204,7 @@ namespace com.aqua.netlogic.program
 
                 serverEngine.EnqueueCommands(
                     connId: playerConnId,
-                    requestedClientTick: serverEngine.CurrentTick + 1,
+                    requestedClientTick: clientEngine.EstimateRequestedTick(),
                     clientCmdSeq: renderSim.ClientCmdSeq++,
                     commands: cmds);
             }
