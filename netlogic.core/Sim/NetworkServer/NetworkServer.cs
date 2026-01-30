@@ -233,9 +233,8 @@ namespace com.aqua.netlogic.sim.networkserver
         private void SendBaseline(int connId)
         {
             com.aqua.netlogic.sim.game.snapshot.GameSnapshot snap = _engine.BuildSnapshot();
-            uint hash = _engine.ComputeStateHash();
 
-            BaselineMsg msg = ServerMessageEncoder.BuildBaseline(snap, _engine.CurrentTick, hash);
+            BaselineMsg msg = ServerMessageEncoder.BuildBaseline(snap, _engine.CurrentTick);
             byte[] bytes = MsgCodec.EncodeBaseline(msg);
 
             SendPacket(connId, Lane.Reliable, bytes);

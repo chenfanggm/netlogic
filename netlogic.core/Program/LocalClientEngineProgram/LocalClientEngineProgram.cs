@@ -57,137 +57,158 @@ namespace com.aqua.netlogic.program
             // ---------------------
             // Drive ticks
             // ---------------------
-            TickRunner runner = new TickRunner(config.TickRateHz);
+            TickHarnessState harnessState = new TickHarnessState
+            {
+                ClientCmdSeq = 0,
+                LastClientFlowState = (GameFlowState)255,
+                ExitingInRound = false,
+                ExitMenuAtMs = -1,
+                ExitAfterVictoryAtMs = -1,
+                LastPrintAtMs = 0,
+                LastResyncAtMs = 0,
+            };
 
             PlayerFlowScript flowScript = new PlayerFlowScript();
-            uint clientCmdSeq = 0;
-            GameFlowState lastClientFlowState = (GameFlowState)255;
-            bool exitingInRound = false;
-            double exitMenuAtMs = -1;
-            double exitAfterVictoryAtMs = -1;
-            double lastPrintAtMs = 0;
-            double lastResyncAtMs = 0;
-
             using CancellationTokenSource cts = new CancellationTokenSource();
             if (config.MaxRunDuration.HasValue)
                 cts.CancelAfter(config.MaxRunDuration.Value);
-
+            TickRunner runner = new TickRunner(config.TickRateHz);
             runner.Run(
-                onTick: (TickContext ctx) =>
-                {
-                    // Optional periodic resync every 5 seconds (tests correctness).
-                    if (ctx.ServerTimeMs - lastResyncAtMs >= 5000)
-                    {
-                        lastResyncAtMs = ctx.ServerTimeMs;
-
-                        GameSnapshot resyncSnap = serverEngine.BuildSnapshot();
-                        uint resyncHash = serverEngine.ComputeStateHash();
-                        clientEngine.ApplyBaselineSnapshot(resyncSnap, serverEngine.CurrentTick, resyncHash);
-                    }
-
-                    // Tick engine
-                    using TickFrame frame = serverEngine.TickOnce(ctx);
-
-                    // Apply ServerEngine output directly (TickFrame implements IReplicationFrame)
-                    clientEngine.ApplyFrame(frame);
-
-                    // Drive flow script using client-reconstructed model
-                    GameFlowState clientFlow = (GameFlowState)clientEngine.Model.Flow.FlowState;
-                    bool leftInRound = (lastClientFlowState == GameFlowState.InRound) && (clientFlow != GameFlowState.InRound);
-                    bool enteredMainMenuAfterVictory = (lastClientFlowState == GameFlowState.RunVictory) && (clientFlow == GameFlowState.MainMenu);
-
-                    flowScript.Step(
-                        clientFlow,
-                        ctx.ServerTimeMs,
-                        fireIntent: (intent, param0) =>
-                        {
-                            List<EngineCommand<EngineCommandType>> cmds =
-                            [
-                                new FlowIntentEngineCommand(intent, param0)
-                            ];
-
-                            serverEngine.EnqueueCommands(
-                                connId: playerConnId,
-                                requestedClientTick: serverEngine.CurrentTick + 1,
-                                clientCmdSeq: clientCmdSeq++,
-                                commands: cmds);
-                        },
-                        move: () =>
-                        {
-                            List<EngineCommand<EngineCommandType>> cmds =
-                            [
-                                new MoveByEngineCommand(entityId: playerEntityId, dx: 1, dy: 0)
-                            ];
-
-                            serverEngine.EnqueueCommands(
-                                connId: playerConnId,
-                                requestedClientTick: serverEngine.CurrentTick + 1,
-                                clientCmdSeq: clientCmdSeq++,
-                                commands: cmds);
-                        });
-
-                    if (clientFlow == GameFlowState.InRound && ctx.ServerTimeMs - lastPrintAtMs >= 500)
-                    {
-                        lastPrintAtMs = ctx.ServerTimeMs;
-                        if (clientEngine.Model.Entities.TryGetValue(playerEntityId, out EntityState e))
-                            Console.WriteLine($"[ClientModel] InRound Entity {playerEntityId} pos=({e.X},{e.Y})");
-                    }
-
-                    // Log flow state transitions and periodic heartbeat (like the old harness).
-                    if (clientFlow != lastClientFlowState || ctx.ServerTimeMs - lastPrintAtMs >= 500)
-                    {
-                        lastPrintAtMs = ctx.ServerTimeMs;
-                        lastClientFlowState = clientFlow;
-
-                        Console.WriteLine(
-                            $"[ClientModel] t={ctx.ServerTimeMs:0} serverTick={clientEngine.Model.LastServerTick} Flow={clientFlow}");
-                    }
-
-                    if (leftInRound && clientFlow != GameFlowState.MainMenu && clientFlow != GameFlowState.RunVictory)
-                    {
-                        exitingInRound = true;
-                        List<EngineCommand<EngineCommandType>> cmds =
-                        [
-                            new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)
-                        ];
-
-                        serverEngine.EnqueueCommands(
-                            connId: playerConnId,
-                            requestedClientTick: serverEngine.CurrentTick + 1,
-                            clientCmdSeq: clientCmdSeq++,
-                            commands: cmds);
-                    }
-
-                    if (exitingInRound && clientFlow == GameFlowState.MainMenu)
-                    {
-                        if (exitMenuAtMs < 0)
-                            exitMenuAtMs = ctx.ServerTimeMs + 1000;
-                        else if (ctx.ServerTimeMs >= exitMenuAtMs)
-                            cts.Cancel();
-                    }
-
-                    if (enteredMainMenuAfterVictory)
-                        exitAfterVictoryAtMs = ctx.ServerTimeMs + 1000;
-
-                    if (exitAfterVictoryAtMs > 0 && ctx.ServerTimeMs >= exitAfterVictoryAtMs)
-                    {
-                        List<EngineCommand<EngineCommandType>> cmds =
-                        [
-                            new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)
-                        ];
-
-                        serverEngine.EnqueueCommands(
-                            connId: playerConnId,
-                            requestedClientTick: serverEngine.CurrentTick + 1,
-                            clientCmdSeq: clientCmdSeq++,
-                            commands: cmds);
-                    }
-
-                    // End the harness once flow reaches Exit.
-                    if (clientFlow == GameFlowState.Exit)
-                        cts.Cancel();
-                },
+                onTick: (TickContext ctx) => OnTick(ctx, serverEngine, clientEngine, playerConnId, playerEntityId, flowScript, harnessState, cts),
                 cts.Token);
+        }
+
+        private static void OnTick(
+            TickContext ctx,
+            ServerEngine serverEngine,
+            ClientEngine clientEngine,
+            int playerConnId,
+            int playerEntityId,
+            PlayerFlowScript flowScript,
+            TickHarnessState state,
+            CancellationTokenSource cts)
+        {
+            // Optional periodic resync every 5 seconds (tests correctness).
+            if (ctx.ServerTimeMs - state.LastResyncAtMs >= 5000)
+            {
+                state.LastResyncAtMs = ctx.ServerTimeMs;
+
+                GameSnapshot resyncSnap = serverEngine.BuildSnapshot();
+                clientEngine.ApplyBaselineSnapshot(resyncSnap, serverEngine.CurrentTick);
+            }
+
+            // Tick engine
+            using TickFrame frame = serverEngine.TickOnce(ctx);
+
+            // Apply ServerEngine output directly (TickFrame implements IReplicationFrame)
+            clientEngine.ApplyFrame(frame);
+
+            // Drive flow script using client-reconstructed model
+            GameFlowState clientFlow = (GameFlowState)clientEngine.Model.Flow.FlowState;
+            bool leftInRound = (state.LastClientFlowState == GameFlowState.InRound) && (clientFlow != GameFlowState.InRound);
+            bool enteredMainMenuAfterVictory = (state.LastClientFlowState == GameFlowState.RunVictory) && (clientFlow == GameFlowState.MainMenu);
+
+            flowScript.Step(
+                clientFlow,
+                ctx.ServerTimeMs,
+                fireIntent: (intent, param0) =>
+                {
+                    List<EngineCommand<EngineCommandType>> cmds =
+                    [
+                        new FlowIntentEngineCommand(intent, param0)
+                    ];
+
+                    serverEngine.EnqueueCommands(
+                        connId: playerConnId,
+                        requestedClientTick: serverEngine.CurrentTick + 1,
+                        clientCmdSeq: state.ClientCmdSeq++,
+                        commands: cmds);
+                },
+                move: () =>
+                {
+                    List<EngineCommand<EngineCommandType>> cmds =
+                    [
+                        new MoveByEngineCommand(entityId: playerEntityId, dx: 1, dy: 0)
+                    ];
+
+                    serverEngine.EnqueueCommands(
+                        connId: playerConnId,
+                        requestedClientTick: serverEngine.CurrentTick + 1,
+                        clientCmdSeq: state.ClientCmdSeq++,
+                        commands: cmds);
+                });
+
+            if (clientFlow == GameFlowState.InRound && ctx.ServerTimeMs - state.LastPrintAtMs >= 500)
+            {
+                state.LastPrintAtMs = ctx.ServerTimeMs;
+                if (clientEngine.Model.Entities.TryGetValue(playerEntityId, out EntityState e))
+                    Console.WriteLine($"[ClientModel] InRound Entity {playerEntityId} pos=({e.X},{e.Y})");
+            }
+
+            // Log flow state transitions and periodic heartbeat (like the old harness).
+            if (clientFlow != state.LastClientFlowState || ctx.ServerTimeMs - state.LastPrintAtMs >= 500)
+            {
+                state.LastPrintAtMs = ctx.ServerTimeMs;
+                state.LastClientFlowState = clientFlow;
+
+                Console.WriteLine(
+                    $"[ClientModel] t={ctx.ServerTimeMs:0} serverTick={clientEngine.Model.LastServerTick} Flow={clientFlow}");
+            }
+
+            if (leftInRound && clientFlow != GameFlowState.MainMenu && clientFlow != GameFlowState.RunVictory)
+            {
+                state.ExitingInRound = true;
+                List<EngineCommand<EngineCommandType>> cmds =
+                [
+                    new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)
+                ];
+
+                serverEngine.EnqueueCommands(
+                    connId: playerConnId,
+                    requestedClientTick: serverEngine.CurrentTick + 1,
+                    clientCmdSeq: state.ClientCmdSeq++,
+                    commands: cmds);
+            }
+
+            if (state.ExitingInRound && clientFlow == GameFlowState.MainMenu)
+            {
+                if (state.ExitMenuAtMs < 0)
+                    state.ExitMenuAtMs = ctx.ServerTimeMs + 1000;
+                else if (ctx.ServerTimeMs >= state.ExitMenuAtMs)
+                    cts.Cancel();
+            }
+
+            if (enteredMainMenuAfterVictory)
+                state.ExitAfterVictoryAtMs = ctx.ServerTimeMs + 1000;
+
+            if (state.ExitAfterVictoryAtMs > 0 && ctx.ServerTimeMs >= state.ExitAfterVictoryAtMs)
+            {
+                List<EngineCommand<EngineCommandType>> cmds =
+                [
+                    new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)
+                ];
+
+                serverEngine.EnqueueCommands(
+                    connId: playerConnId,
+                    requestedClientTick: serverEngine.CurrentTick + 1,
+                    clientCmdSeq: state.ClientCmdSeq++,
+                    commands: cmds);
+            }
+
+            // End the harness once flow reaches Exit.
+            if (clientFlow == GameFlowState.Exit)
+                cts.Cancel();
+        }
+
+        private sealed class TickHarnessState
+        {
+            public uint ClientCmdSeq;
+            public GameFlowState LastClientFlowState;
+            public bool ExitingInRound;
+            public double ExitMenuAtMs;
+            public double ExitAfterVictoryAtMs;
+            public double LastPrintAtMs;
+            public double LastResyncAtMs;
         }
     }
 }

@@ -19,10 +19,10 @@ namespace com.aqua.netlogic.sim.clientengine
     {
         public ClientModel Model { get; } = new ClientModel();
 
-        internal void ApplyBaselineSnapshot(GameSnapshot snapshot, int serverTick, uint stateHash)
+        internal void ApplyBaselineSnapshot(GameSnapshot snapshot, int serverTick)
         {
             if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
-            Model.ResetFromSnapshot(snapshot, serverTick, stateHash);
+            Model.ResetFromSnapshot(snapshot, serverTick);
         }
 
         /// <summary>
@@ -31,7 +31,7 @@ namespace com.aqua.netlogic.sim.clientengine
         public void ApplyFrame(in TickFrame frame)
         {
             if (frame.Snapshot != null)
-                ApplyBaselineSnapshot(frame.Snapshot, frame.Tick, frame.StateHash);
+                ApplyBaselineSnapshot(frame.Snapshot, frame.Tick);
 
             ApplyFrame<TickFrame>(frame);
         }

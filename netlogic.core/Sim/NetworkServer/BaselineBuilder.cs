@@ -7,7 +7,7 @@ namespace com.aqua.netlogic.sim.networkserver
 {
     internal static class BaselineBuilder
     {
-        public static BaselineMsg Build(GameSnapshot snap, int serverTick, uint stateHash)
+        public static BaselineMsg Build(GameSnapshot snap, int serverTick)
         {
             FlowSnapshot flow = snap.Flow;
             WireFlowState wireFlow = new WireFlowState(
@@ -37,7 +37,7 @@ namespace com.aqua.netlogic.sim.networkserver
                 (byte)HashContract.Phase,
                 StateSchema.BaselineSchemaId,
                 serverTick,
-                stateHash,
+                snap.StateHash,
                 wireFlow,
                 wireEnts);
         }

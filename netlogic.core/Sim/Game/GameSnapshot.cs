@@ -6,9 +6,10 @@ namespace com.aqua.netlogic.sim.game.snapshot
     /// Unreliable snapshot payload sent each server tick (or at sampling frequency).
     /// Combines flow runtime + entity positions.
     /// </summary>
-    public sealed class GameSnapshot(FlowSnapshot flow, SampleEntityPos[] entities)
+    public sealed class GameSnapshot(FlowSnapshot flow, SampleEntityPos[] entities, uint stateHash)
     {
         public readonly FlowSnapshot Flow = flow;
         public readonly SampleEntityPos[] Entities = entities;
+        public readonly uint StateHash = stateHash;
     }
 }
