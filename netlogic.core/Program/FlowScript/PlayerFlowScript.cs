@@ -1,8 +1,6 @@
-using System;
 using com.aqua.netlogic.command.events;
 using com.aqua.netlogic.eventbus;
 using com.aqua.netlogic.net;
-using com.aqua.netlogic.program;
 using com.aqua.netlogic.sim.clientengine;
 using com.aqua.netlogic.sim.game.flow;
 using com.aqua.netlogic.sim.systems.gameflowsystem.commands;
@@ -16,15 +14,15 @@ namespace com.aqua.netlogic.program.flowscript
     /// </summary>
     public sealed class PlayerFlowScript
     {
-        private readonly ClientEngine? _clientEngine;
-        private readonly RenderSimulator? _renderSim;
+        private readonly IEventBus _eventBus;
+        private readonly ClientEngine _clientEngine;
+        private readonly RenderSimulator _renderSim;
         private readonly int _playerEntityId;
         private readonly RoundState _roundState = new RoundState();
         private double _lastPrintAtMs;
         private bool _selectedHat;
         private bool _wasInRound;
         private bool _completedRun;
-        private readonly IEventBus _eventBus;
 
         public PlayerFlowScript(IEventBus eventBus, ClientEngine clientEngine,
             RenderSimulator renderSim, int playerEntityId)
