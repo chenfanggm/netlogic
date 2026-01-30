@@ -16,7 +16,6 @@ namespace com.aqua.netlogic.program.flowscript
     {
         private readonly IEventBus _eventBus;
         private readonly ClientEngine _clientEngine;
-        private readonly RenderSimulator _renderSim;
         private readonly int _playerEntityId;
         private readonly RoundState _roundState = new RoundState();
         private double _lastPrintAtMs;
@@ -24,12 +23,10 @@ namespace com.aqua.netlogic.program.flowscript
         private bool _wasInRound;
         private bool _completedRun;
 
-        public PlayerFlowScript(IEventBus eventBus, ClientEngine clientEngine,
-            RenderSimulator renderSim, int playerEntityId)
+        public PlayerFlowScript(IEventBus eventBus, ClientEngine clientEngine, int playerEntityId)
         {
             _eventBus = eventBus;
             _clientEngine = clientEngine;
-            _renderSim = renderSim;
             _playerEntityId = playerEntityId;
         }
 

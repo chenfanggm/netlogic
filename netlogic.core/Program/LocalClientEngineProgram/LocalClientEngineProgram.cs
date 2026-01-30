@@ -42,14 +42,6 @@ namespace com.aqua.netlogic.program
             ServerEngine serverEngine = new ServerEngine(world);
 
             // ---------------------
-            // Render Simulator
-            // ---------------------
-            RenderSimulator renderSim = new RenderSimulator
-            {
-                LastServerTimeMs = 0,
-            };
-
-            // ---------------------
             // Service Container
             // ---------------------
             ServiceCollection services = new ServiceCollection();
@@ -57,7 +49,6 @@ namespace com.aqua.netlogic.program
             services.AddSingleton<IEventBus, MessagePipeEventBus>();
             services.AddSingleton<IServerEngine>(serverEngine);
             services.AddSingleton<IClientCommandDispatcher, ClientCommandToServerEngineDispatcher>();
-            services.AddSingleton(renderSim);
             services.AddSingleton<ClientEngine>();
             services.AddTransient<CommandEventHandler>();
             services.AddTransient<FlowStateTransitionEventHandler>();
@@ -83,7 +74,7 @@ namespace com.aqua.netlogic.program
             // ---------------------
             // Drive ticks
             // ---------------------
-            PlayerFlowScript flowScript = new PlayerFlowScript(eventBus, clientEngine, renderSim, playerEntityId);
+            PlayerFlowScript flowScript = new PlayerFlowScript(eventBus, clientEngine, playerEntityId);
             using CancellationTokenSource cts = new CancellationTokenSource();
             if (config.MaxRunDuration.HasValue)
                 cts.CancelAfter(config.MaxRunDuration.Value);
@@ -94,7 +85,6 @@ namespace com.aqua.netlogic.program
                 using TickResult result = serverEngine.TickOnce(ctx);
 
                 // Apply ServerEngine output directly to ClientEngine.
-                renderSim.LastServerTimeMs = result.ServerTimeMs;
                 clientEngine.Apply(result);
 
                 // Drive flow script using client-reconstructed model
