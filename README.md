@@ -18,5 +18,10 @@ Core promise:
 ---
 
 ## 🧱 High-Level Architecture (Current Ownership Boundaries)
-
-
+### Server Control Flow
+ServerEngine (proactive) -> TickOnce (generate TickResult, optional Baseline + replicated RepOps) -> Commands (consume, as intent, buffer per tick) -> RepOps (data action) -> ServerModel (mutate)
+### Client Control Flow
+ClientEngine (reactive) -> TickResult (consume) -> ClientModel (mutate) + Event (notify presentation layer) -> Presentation
+### Player Control Flow
+Commands (enqueue) -> ServerEngine (buffer commands)
+                                                       
