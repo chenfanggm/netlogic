@@ -118,10 +118,10 @@ namespace com.aqua.netlogic.program
             clientEngine.Apply(result);
 
             // Drive flow script using client-reconstructed model
-            GameFlowState clientFlow = (GameFlowState)clientEngine.Model.Flow.FlowState;
+            GameFlowState clientFlowState = (GameFlowState)clientEngine.Model.Flow.FlowState;
 
             flowScript.Step(
-                clientFlow,
+                clientFlowState,
                 ctx.ServerTimeMs,
                 fireIntent: (intent, param0) =>
                 {
@@ -134,30 +134,22 @@ namespace com.aqua.netlogic.program
                         new MoveByEngineCommand(entityId: playerEntityId, dx: 1, dy: 0)));
                 });
 
-            if (clientFlow == GameFlowState.InRound && ctx.ServerTimeMs - renderSim.LastPrintAtMs >= 500)
+            // InRound, log state every 500ms
+            if (clientFlowState == GameFlowState.InRound && ctx.ServerTimeMs - renderSim.LastPrintAtMs >= 500)
             {
                 renderSim.LastPrintAtMs = ctx.ServerTimeMs;
                 if (clientEngine.Model.Entities.TryGetValue(playerEntityId, out EntityState e))
                     Console.WriteLine($"[ClientModel] InRound Entity {playerEntityId} pos=({e.X},{e.Y})");
             }
 
-            // Log flow state transitions and periodic heartbeat (like the old harness).
-            if (renderSim.FlowStateChangedThisTick || ctx.ServerTimeMs - renderSim.LastPrintAtMs >= 500)
-            {
-                renderSim.LastPrintAtMs = ctx.ServerTimeMs;
-
-                Console.WriteLine(
-                    $"[ClientModel] t={ctx.ServerTimeMs:0} serverTick={clientEngine.Model.LastServerTick} Flow={clientFlow}");
-            }
-
-            if (renderSim.LeftInRoundThisTick && clientFlow != GameFlowState.MainMenu && clientFlow != GameFlowState.RunVictory)
+            if (renderSim.LeftInRoundThisTick && clientFlowState != GameFlowState.MainMenu && clientFlowState != GameFlowState.RunVictory)
             {
                 renderSim.ExitingInRound = true;
                 eventBus.Publish(new CommandEvent(
                     new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)));
             }
 
-            if (renderSim.ExitingInRound && clientFlow == GameFlowState.MainMenu)
+            if (renderSim.ExitingInRound && clientFlowState == GameFlowState.MainMenu)
             {
                 if (renderSim.ExitMenuAtMs < 0)
                     renderSim.ExitMenuAtMs = ctx.ServerTimeMs + 1000;
@@ -175,7 +167,7 @@ namespace com.aqua.netlogic.program
             }
 
             // End the harness once flow reaches Exit.
-            if (clientFlow == GameFlowState.Exit)
+            if (clientFlowState == GameFlowState.Exit)
                 cts.Cancel();
         }
 
