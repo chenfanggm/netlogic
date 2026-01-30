@@ -26,19 +26,4 @@ namespace com.aqua.netlogic.sim.serverengine
         // RemoveEntity = 20,
         // SpawnEntity = 21,
     }
-
-    /// <summary>
-    /// Domain-level discrete op (NOT byte[] payload).
-    /// Keep this deterministic and codec-friendly.
-    /// </summary>
-    public readonly struct EngineOp(EngineOpType type, int a = 0, int b = 0, int c = 0, int d = 0)
-    {
-        public readonly EngineOpType Type = type;
-
-        // Generic payload fields (keep small; add specialized structs later if needed).
-        public readonly int A = a;
-        public readonly int B = b;
-        public readonly int C = c;
-        public readonly int D = d;
-    }
 }

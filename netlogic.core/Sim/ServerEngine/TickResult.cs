@@ -23,6 +23,8 @@ namespace com.aqua.netlogic.sim.serverengine
         /// <summary>Optional snapshot captured for this tick.</summary>
         public readonly GameSnapshot? Snapshot;
 
+        public bool HasSnapshot => Snapshot != null;
+
         public TickResult(
             int tick,
             double serverTimeMs,

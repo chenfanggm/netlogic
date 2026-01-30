@@ -51,7 +51,6 @@ namespace com.aqua.netlogic.program
             // ---------------------
             RenderSimulator renderSim = new RenderSimulator
             {
-                ClientCmdSeq = 0,
                 LastClientFlowState = (GameFlowState)255,
                 ExitingInRound = false,
                 ExitMenuAtMs = -1,
@@ -68,7 +67,7 @@ namespace com.aqua.netlogic.program
             services.AddSingleton<IServerEngine>(serverEngine);
             services.AddSingleton<ICommander, ServerEngineCommander>();
             services.AddSingleton(renderSim);
-            services.AddTransient<ClientEngine>();
+            services.AddSingleton<ClientEngine>();
             services.AddTransient<CommandEventHandler>();
             services.AddTransient<FlowStateTransitionEventHandler>();
 

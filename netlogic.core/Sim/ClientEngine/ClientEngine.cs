@@ -34,10 +34,21 @@ namespace com.aqua.netlogic.sim.clientengine
         private int _inputLeadTicks = 1;
 
         /// <summary>
+        /// Set true after the first baseline/snapshot has been applied.
+        /// </summary>
+        private bool _hasBaseline;
+
+        /// <summary>
         /// Client's best guess of when a command should take effect (server tick domain).
         /// Uses only last known server tick + lead; no server clock access.
         /// </summary>
-        public int EstimateRequestedTick() => Model.LastServerTick + _inputLeadTicks;
+        public int EstimateRequestedTick()
+        {
+            int baseTick = Model.LastServerTick;
+            if (baseTick < 0)
+                baseTick = 0;
+            return baseTick + _inputLeadTicks;
+        }
 
         public uint NextClientCmdSeq() => _clientCmdSeq++;
 
@@ -50,6 +61,7 @@ namespace com.aqua.netlogic.sim.clientengine
         {
             if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
             Model.ResetFromSnapshot(snapshot);
+            _hasBaseline = true;
         }
 
         /// <summary>
@@ -65,8 +77,18 @@ namespace com.aqua.netlogic.sim.clientengine
         /// </summary>
         public void Apply(in TickResult result)
         {
+            if (_hasBaseline && result.Tick <= Model.LastServerTick)
+                return;
+
             if (result.Snapshot != null)
+            {
                 ApplyBaselineSnapshot(result.Snapshot);
+            }
+            else
+            {
+                if (!_hasBaseline)
+                    return;
+            }
 
             ApplyReplicationResult(result);
         }
@@ -92,35 +114,106 @@ namespace com.aqua.netlogic.sim.clientengine
                 return;
             }
 
-            // Partition by delivery semantics (parity with the network path).
-            RepOp[] reliable = FilterReliable(ops);
-            if (reliable.Length > 0)
+            ApplyReplicationUpdateFiltered(
+                serverTick: result.Tick,
+                stateHash: result.StateHash,
+                isReliable: true,
+                ops: ops);
+
+            ApplyReplicationUpdateFiltered(
+                serverTick: result.Tick,
+                stateHash: result.StateHash,
+                isReliable: false,
+                ops: ops);
+
+            Model.LastServerTick = result.Tick;
+            Model.LastStateHash = result.StateHash;
+        }
+
+        private void ApplyReplicationUpdateFiltered(
+            int serverTick,
+            uint stateHash,
+            bool isReliable,
+            ReadOnlySpan<RepOp> ops)
+        {
+            bool any = false;
+
+            for (int i = 0; i < ops.Length; i++)
             {
-                ApplyReplicationUpdate(new ReplicationUpdate(
-                    serverTick: result.Tick,
-                    serverSeq: 0,
-                    stateHash: result.StateHash,
-                    isReliable: true,
-                    ops: reliable));
+                RepOp op = ops[i];
+
+                if (isReliable)
+                {
+                    if (!IsReliableType(op.Type))
+                        continue;
+                }
+                else
+                {
+                    if (op.Type != RepOpType.PositionSnapshot)
+                        continue;
+                }
+
+                any = true;
+
+                switch (op.Type)
+                {
+                    case RepOpType.PositionSnapshot:
+                        Model.ApplyPositionSnapshot(op.A, op.B, op.C);
+                        break;
+
+                    case RepOpType.EntitySpawned:
+                        Model.ApplyEntitySpawned(op.A, op.B, op.C, op.D);
+                        break;
+
+                    case RepOpType.EntityDestroyed:
+                        Model.ApplyEntityDestroyed(op.A);
+                        break;
+
+                    case RepOpType.FlowSnapshot:
+                        {
+                            GameFlowState previousFlowState = (GameFlowState)Model.Flow.FlowState;
+                            byte flowState = (byte)(op.A & 0xFF);
+                            byte roundState = (byte)((op.A >> 8) & 0xFF);
+                            byte lastCookMetTarget = (byte)((op.A >> 16) & 0xFF);
+                            byte cookAttemptsUsed = (byte)((op.A >> 24) & 0xFF);
+
+                            FlowSnapshot flow = new FlowSnapshot(
+                                (GameFlowState)flowState,
+                                op.B, // levelIndex
+                                op.C, // roundIndex
+                                op.D, // selectedChefHatId
+                                op.E, // targetScore
+                                op.F, // cumulativeScore
+                                cookAttemptsUsed,
+                                (com.aqua.netlogic.sim.game.flow.RoundState)roundState,
+                                op.G, // cookResultSeq
+                                op.H, // lastCookScoreDelta
+                                lastCookMetTarget != 0);
+
+                            Model.Flow.ApplyFlowSnapshot(flow);
+                            if (flow.FlowState != previousFlowState)
+                            {
+                                _eventBus.Publish(new GameFlowStateTransitionEvent(
+                                    previousFlowState,
+                                    flow.FlowState,
+                                    serverTick));
+                            }
+                            break;
+                        }
+
+                    case RepOpType.FlowFire:
+                        break;
+
+                    default:
+                        break;
+                }
             }
 
-            RepOp[] unreliable = FilterUnreliable(ops);
-            if (unreliable.Length > 0)
-            {
-                ApplyReplicationUpdate(new ReplicationUpdate(
-                    serverTick: result.Tick,
-                    serverSeq: 0,
-                    stateHash: result.StateHash,
-                    isReliable: false,
-                    ops: unreliable));
-            }
+            if (!any)
+                return;
 
-            // If no partition matched, still advance metadata.
-            if (reliable.Length == 0 && unreliable.Length == 0)
-            {
-                Model.LastServerTick = result.Tick;
-                Model.LastStateHash = result.StateHash;
-            }
+            Model.LastServerTick = serverTick;
+            Model.LastStateHash = stateHash;
         }
 
         internal void ApplyReplicationUpdate(ReplicationUpdate update)
@@ -190,52 +283,6 @@ namespace com.aqua.netlogic.sim.clientengine
 
             Model.LastServerTick = update.ServerTick;
             Model.LastStateHash = update.StateHash;
-        }
-
-        private static RepOp[] FilterReliable(ReadOnlySpan<RepOp> ops)
-        {
-            int count = 0;
-            for (int i = 0; i < ops.Length; i++)
-            {
-                if (IsReliableType(ops[i].Type))
-                    count++;
-            }
-
-            if (count == 0)
-                return Array.Empty<RepOp>();
-
-            RepOp[] dst = new RepOp[count];
-            int w = 0;
-            for (int i = 0; i < ops.Length; i++)
-            {
-                RepOp op = ops[i];
-                if (IsReliableType(op.Type))
-                    dst[w++] = op;
-            }
-            return dst;
-        }
-
-        private static RepOp[] FilterUnreliable(ReadOnlySpan<RepOp> ops)
-        {
-            int count = 0;
-            for (int i = 0; i < ops.Length; i++)
-            {
-                if (ops[i].Type == RepOpType.PositionSnapshot)
-                    count++;
-            }
-
-            if (count == 0)
-                return Array.Empty<RepOp>();
-
-            RepOp[] dst = new RepOp[count];
-            int w = 0;
-            for (int i = 0; i < ops.Length; i++)
-            {
-                RepOp op = ops[i];
-                if (op.Type == RepOpType.PositionSnapshot)
-                    dst[w++] = op;
-            }
-            return dst;
         }
 
         private static bool IsReliableType(RepOpType t)
