@@ -6,7 +6,7 @@ namespace com.aqua.netlogic.program
     /// Simulates the render layer without drawing. It tracks flow transitions
     /// and timing flags that would normally be used by UI state.
     /// </summary>
-    internal sealed class RenderSimulator
+    public sealed class RenderSimulator
     {
         public double ExitAfterVictoryAtMs;
         public double LastServerTimeMs;

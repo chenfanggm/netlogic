@@ -11,10 +11,6 @@ namespace com.aqua.netlogic.app
         {
             switch (program)
             {
-                case 1:
-                    new LocalEngineProgram().Run(
-                        new ProgramConfig(tickRateHz: 20, maxRunDuration: TimeSpan.FromSeconds(15)));
-                    break;
                 case 4:
                     new LocalClientEngineProgram().Run(
                         new ProgramConfig(tickRateHz: 10, maxRunDuration: TimeSpan.FromSeconds(15)));
