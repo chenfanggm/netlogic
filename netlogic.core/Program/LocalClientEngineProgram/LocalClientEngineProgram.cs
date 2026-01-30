@@ -1,11 +1,11 @@
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using MessagePipe;
 using Microsoft.Extensions.DependencyInjection;
 using com.aqua.netlogic.program.flowscript;
 using com.aqua.netlogic.command;
 using com.aqua.netlogic.eventbus;
+using com.aqua.netlogic.command.ingress;
 using com.aqua.netlogic.sim.clientengine;
 using com.aqua.netlogic.sim.serverengine;
 using com.aqua.netlogic.sim.game;
@@ -35,28 +35,6 @@ namespace com.aqua.netlogic.program
         public void Run(ProgramConfig config)
         {
             // ---------------------
-            // Service Container
-            // ---------------------
-            ServiceCollection services = new ServiceCollection();
-            services.AddMessagePipe();
-            services.AddSingleton<IEventBus, MessagePipeEventBus>();
-            services.AddTransient<ClientEngine>();
-
-
-            IServiceProvider serviceProvider = services.BuildServiceProvider();
-            GlobalMessagePipe.SetProvider(serviceProvider);
-
-            // ---------------------
-            // Event Bus
-            // ---------------------
-            IEventBus eventBus = serviceProvider.GetRequiredService<IEventBus>();
-
-            // ---------------------
-            // Client Engine
-            // ---------------------
-            ClientEngine clientEngine = serviceProvider.GetRequiredService<ClientEngine>();
-
-            // ---------------------
             // Create authoritative world
             // ---------------------
             Game world = new Game();
@@ -69,9 +47,8 @@ namespace com.aqua.netlogic.program
             ServerEngine serverEngine = new ServerEngine(world);
 
             // ---------------------
-            // Bootstrap baseline (direct snapshot, no encode/decode)
+            // Render Simulator
             // ---------------------
-            const int playerConnId = 1;
             RenderSimulator renderSim = new RenderSimulator
             {
                 ClientCmdSeq = 0,
@@ -81,7 +58,36 @@ namespace com.aqua.netlogic.program
                 ExitAfterVictoryAtMs = -1,
                 LastPrintAtMs = 0,
             };
-            using IDisposable flowTransitionSub = eventBus.Subscribe(new FlowStateTransitionHandler(renderSim));
+
+            // ---------------------
+            // Service Container
+            // ---------------------
+            ServiceCollection services = new ServiceCollection();
+            services.AddMessagePipe();
+            services.AddSingleton<IEventBus, MessagePipeEventBus>();
+            services.AddSingleton<IServerEngine>(serverEngine);
+            services.AddSingleton<ICommander, ServerEngineCommander>();
+            services.AddSingleton(renderSim);
+            services.AddTransient<ClientEngine>();
+            services.AddTransient<CommandEventHandler>();
+            services.AddTransient<FlowStateTransitionEventHandler>();
+
+            IServiceProvider serviceProvider = services.BuildServiceProvider();
+            GlobalMessagePipe.SetProvider(serviceProvider);
+
+            // ---------------------
+            // Event Bus
+            // ---------------------
+            IEventBus eventBus = serviceProvider.GetRequiredService<IEventBus>();
+            DisposableBagBuilder disposableBag = DisposableBag.CreateBuilder();
+            disposableBag.Add(eventBus.Subscribe(serviceProvider.GetRequiredService<FlowStateTransitionEventHandler>()));
+            disposableBag.Add(eventBus.Subscribe(serviceProvider.GetRequiredService<CommandEventHandler>()));
+
+            // ---------------------
+            // Client Engine
+            // ---------------------
+            ClientEngine clientEngine = serviceProvider.GetRequiredService<ClientEngine>();
+            clientEngine.PlayerConnId = 1;
 
             // ---------------------
             // Bootstrap
@@ -99,7 +105,7 @@ namespace com.aqua.netlogic.program
                 cts.CancelAfter(config.MaxRunDuration.Value);
             TickRunner runner = new TickRunner(config.TickRateHz);
             runner.Run(
-                   onTick: (TickContext ctx) => OnTick(ctx, serverEngine, clientEngine, playerConnId, playerEntityId, flowScript, renderSim, cts),
+                   onTick: (TickContext ctx) => OnTick(ctx, serverEngine, clientEngine, eventBus, playerEntityId, flowScript, renderSim, cts),
                    cts.Token);
         }
 
@@ -107,7 +113,7 @@ namespace com.aqua.netlogic.program
             TickContext ctx,
             ServerEngine serverEngine,
             ClientEngine clientEngine,
-            int playerConnId,
+            IEventBus eventBus,
             int playerEntityId,
             PlayerFlowScript flowScript,
             RenderSimulator renderSim,
@@ -128,29 +134,13 @@ namespace com.aqua.netlogic.program
                 ctx.ServerTimeMs,
                 fireIntent: (intent, param0) =>
                 {
-                    List<EngineCommand<EngineCommandType>> cmds =
-                    [
-                        new FlowIntentEngineCommand(intent, param0)
-                    ];
-
-                    serverEngine.EnqueueCommands(
-                        connId: playerConnId,
-                        requestedClientTick: clientEngine.EstimateRequestedTick(),
-                        clientCmdSeq: renderSim.ClientCmdSeq++,
-                        commands: cmds);
+                    eventBus.Publish(new CommandEvent(
+                        new FlowIntentEngineCommand(intent, param0)));
                 },
                 move: () =>
                 {
-                    List<EngineCommand<EngineCommandType>> cmds =
-                    [
-                        new MoveByEngineCommand(entityId: playerEntityId, dx: 1, dy: 0)
-                    ];
-
-                    serverEngine.EnqueueCommands(
-                        connId: playerConnId,
-                        requestedClientTick: clientEngine.EstimateRequestedTick(),
-                        clientCmdSeq: renderSim.ClientCmdSeq++,
-                        commands: cmds);
+                    eventBus.Publish(new CommandEvent(
+                        new MoveByEngineCommand(entityId: playerEntityId, dx: 1, dy: 0)));
                 });
 
             if (clientFlow == GameFlowState.InRound && ctx.ServerTimeMs - renderSim.LastPrintAtMs >= 500)
@@ -172,16 +162,8 @@ namespace com.aqua.netlogic.program
             if (renderSim.LeftInRoundThisTick && clientFlow != GameFlowState.MainMenu && clientFlow != GameFlowState.RunVictory)
             {
                 renderSim.ExitingInRound = true;
-                List<EngineCommand<EngineCommandType>> cmds =
-                [
-                    new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)
-                ];
-
-                serverEngine.EnqueueCommands(
-                    connId: playerConnId,
-                    requestedClientTick: clientEngine.EstimateRequestedTick(),
-                    clientCmdSeq: renderSim.ClientCmdSeq++,
-                    commands: cmds);
+                eventBus.Publish(new CommandEvent(
+                    new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)));
             }
 
             if (renderSim.ExitingInRound && clientFlow == GameFlowState.MainMenu)
@@ -197,16 +179,8 @@ namespace com.aqua.netlogic.program
 
             if (renderSim.ExitAfterVictoryAtMs > 0 && ctx.ServerTimeMs >= renderSim.ExitAfterVictoryAtMs)
             {
-                List<EngineCommand<EngineCommandType>> cmds =
-                [
-                    new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)
-                ];
-
-                serverEngine.EnqueueCommands(
-                    connId: playerConnId,
-                    requestedClientTick: clientEngine.EstimateRequestedTick(),
-                    clientCmdSeq: renderSim.ClientCmdSeq++,
-                    commands: cmds);
+                eventBus.Publish(new CommandEvent(
+                    new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)));
             }
 
             // End the harness once flow reaches Exit.

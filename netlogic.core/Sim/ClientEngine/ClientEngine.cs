@@ -23,6 +23,10 @@ namespace com.aqua.netlogic.sim.clientengine
 
         public ClientModel Model { get; } = new ClientModel();
 
+        public int PlayerConnId { get; set; } = -1;
+
+        private uint _clientCmdSeq = 1;
+
         /// <summary>
         /// Client's lead (in ticks) when estimating requested tick for commands.
         /// Last known server tick + InputLeadTicks = requestedClientTick hint.
@@ -34,6 +38,8 @@ namespace com.aqua.netlogic.sim.clientengine
         /// Uses only last known server tick + lead; no server clock access.
         /// </summary>
         public int EstimateRequestedTick() => Model.LastServerTick + _inputLeadTicks;
+
+        public uint NextClientCmdSeq() => _clientCmdSeq++;
 
         public ClientEngine(IEventBus eventBus)
         {
@@ -164,7 +170,7 @@ namespace com.aqua.netlogic.sim.clientengine
                                 Model.Flow.ApplyFlowSnapshot(flow);
                                 if (flow.FlowState != previousFlowState)
                                 {
-                                    _eventBus.Publish(new GameFlowStateTransition(
+                                    _eventBus.Publish(new GameFlowStateTransitionEvent(
                                         previousFlowState,
                                         flow.FlowState,
                                         update.ServerTick));

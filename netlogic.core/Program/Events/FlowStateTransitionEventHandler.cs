@@ -1,18 +1,19 @@
 using MessagePipe;
+using com.aqua.netlogic.eventbus;
 using com.aqua.netlogic.sim.game.flow;
 
 namespace com.aqua.netlogic.program
 {
-    internal sealed class FlowStateTransitionHandler : IMessageHandler<GameFlowStateTransition>
+    internal sealed class FlowStateTransitionEventHandler : IMessageHandler<GameFlowStateTransitionEvent>
     {
         private readonly RenderSimulator _state;
 
-        public FlowStateTransitionHandler(RenderSimulator state)
+        public FlowStateTransitionEventHandler(RenderSimulator state)
         {
             _state = state;
         }
 
-        public void Handle(GameFlowStateTransition message)
+        public void Handle(GameFlowStateTransitionEvent message)
         {
             _state.FlowStateChangedThisTick = true;
             _state.LeftInRoundThisTick |= message.From == GameFlowState.InRound
