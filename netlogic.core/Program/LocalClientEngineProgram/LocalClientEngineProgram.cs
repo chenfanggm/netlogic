@@ -9,7 +9,6 @@ using com.aqua.netlogic.sim.game;
 using com.aqua.netlogic.sim.game.entity;
 using com.aqua.netlogic.net;
 using com.aqua.netlogic.sim.game.flow;
-using com.aqua.netlogic.sim.game.snapshot;
 using com.aqua.netlogic.sim.systems.gameflowsystem.commands;
 using com.aqua.netlogic.sim.systems.movementsystem.commands;
 using com.aqua.netlogic.sim.timing;
@@ -65,7 +64,6 @@ namespace com.aqua.netlogic.program
                 ExitMenuAtMs = -1,
                 ExitAfterVictoryAtMs = -1,
                 LastPrintAtMs = 0,
-                LastResyncAtMs = 0,
             };
 
             PlayerFlowScript flowScript = new PlayerFlowScript();
@@ -88,15 +86,6 @@ namespace com.aqua.netlogic.program
             TickHarnessState state,
             CancellationTokenSource cts)
         {
-            // Optional periodic resync every 5 seconds (tests correctness).
-            if (ctx.ServerTimeMs - state.LastResyncAtMs >= 5000)
-            {
-                state.LastResyncAtMs = ctx.ServerTimeMs;
-
-                GameSnapshot resyncSnap = serverEngine.BuildSnapshot();
-                clientEngine.ApplyBaselineSnapshot(resyncSnap);
-            }
-
             // Tick engine
             using TickFrame frame = serverEngine.TickOnce(ctx);
 
@@ -208,7 +197,6 @@ namespace com.aqua.netlogic.program
             public double ExitMenuAtMs;
             public double ExitAfterVictoryAtMs;
             public double LastPrintAtMs;
-            public double LastResyncAtMs;
         }
     }
 }
