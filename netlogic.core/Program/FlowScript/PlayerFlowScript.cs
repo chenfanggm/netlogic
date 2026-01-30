@@ -9,8 +9,8 @@ namespace com.aqua.netlogic.program.flowscript
     /// </summary>
     public sealed class PlayerFlowScript
     {
-        private long _enteredInRoundAtMs = -1;
-        private long _lastMoveAtMs = -1;
+        private double _enteredInRoundAtMs = -1;
+        private double _lastMoveAtMs = -1;
         private int _cookCyclesCompleted;
         private bool _waitingForContinue;
         private bool _selectedHat;
@@ -34,7 +34,7 @@ namespace com.aqua.netlogic.program.flowscript
         /// </summary>
         public void Step(
             GameFlowState flowState,
-            long nowMs,
+            double nowMs,
             Action<GameFlowIntent, int> fireIntent,
             Action move)
         {

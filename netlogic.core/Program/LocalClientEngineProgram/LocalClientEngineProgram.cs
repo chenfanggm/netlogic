@@ -60,13 +60,13 @@ namespace com.aqua.netlogic.program
             TickRunner runner = new TickRunner(config.TickRateHz);
 
             PlayerFlowScript flowScript = new PlayerFlowScript();
-            uint clientCmdSeq = 1;
+            uint clientCmdSeq = 0;
             GameFlowState lastClientFlowState = (GameFlowState)255;
             bool exitingInRound = false;
-            long exitMenuAtMs = -1;
-            long exitAfterVictoryAtMs = -1;
-            long lastPrintAtMs = 0;
-            long lastResyncAtMs = 0;
+            double exitMenuAtMs = -1;
+            double exitAfterVictoryAtMs = -1;
+            double lastPrintAtMs = 0;
+            double lastResyncAtMs = 0;
 
             using CancellationTokenSource cts = new CancellationTokenSource();
             if (config.MaxRunDuration.HasValue)
@@ -76,9 +76,9 @@ namespace com.aqua.netlogic.program
                 onTick: (TickContext ctx) =>
                 {
                     // Optional periodic resync every 5 seconds (tests correctness).
-                    if ((long)ctx.ServerTimeMs - lastResyncAtMs >= 5000)
+                    if (ctx.ServerTimeMs - lastResyncAtMs >= 5000)
                     {
-                        lastResyncAtMs = (long)ctx.ServerTimeMs;
+                        lastResyncAtMs = ctx.ServerTimeMs;
 
                         GameSnapshot resyncSnap = serverEngine.BuildSnapshot();
                         uint resyncHash = serverEngine.ComputeStateHash();
@@ -98,7 +98,7 @@ namespace com.aqua.netlogic.program
 
                     flowScript.Step(
                         clientFlow,
-                        (long)ctx.ServerTimeMs,
+                        ctx.ServerTimeMs,
                         fireIntent: (intent, param0) =>
                         {
                             List<EngineCommand<EngineCommandType>> cmds =
@@ -128,7 +128,7 @@ namespace com.aqua.netlogic.program
 
                     if (clientFlow == GameFlowState.InRound && ctx.ServerTimeMs - lastPrintAtMs >= 500)
                     {
-                        lastPrintAtMs = (long)ctx.ServerTimeMs;
+                        lastPrintAtMs = ctx.ServerTimeMs;
                         if (clientEngine.Model.Entities.TryGetValue(playerEntityId, out EntityState e))
                             Console.WriteLine($"[ClientModel] InRound Entity {playerEntityId} pos=({e.X},{e.Y})");
                     }
@@ -136,7 +136,7 @@ namespace com.aqua.netlogic.program
                     // Log flow state transitions and periodic heartbeat (like the old harness).
                     if (clientFlow != lastClientFlowState || ctx.ServerTimeMs - lastPrintAtMs >= 500)
                     {
-                        lastPrintAtMs = (long)ctx.ServerTimeMs;
+                        lastPrintAtMs = ctx.ServerTimeMs;
                         lastClientFlowState = clientFlow;
 
                         Console.WriteLine(
@@ -161,15 +161,15 @@ namespace com.aqua.netlogic.program
                     if (exitingInRound && clientFlow == GameFlowState.MainMenu)
                     {
                         if (exitMenuAtMs < 0)
-                            exitMenuAtMs = (long)ctx.ServerTimeMs + 1000;
-                        else if ((long)ctx.ServerTimeMs >= exitMenuAtMs)
+                            exitMenuAtMs = ctx.ServerTimeMs + 1000;
+                        else if (ctx.ServerTimeMs >= exitMenuAtMs)
                             cts.Cancel();
                     }
 
                     if (enteredMainMenuAfterVictory)
-                        exitAfterVictoryAtMs = (long)ctx.ServerTimeMs + 1000;
+                        exitAfterVictoryAtMs = ctx.ServerTimeMs + 1000;
 
-                    if (exitAfterVictoryAtMs > 0 && (long)ctx.ServerTimeMs >= exitAfterVictoryAtMs)
+                    if (exitAfterVictoryAtMs > 0 && ctx.ServerTimeMs >= exitAfterVictoryAtMs)
                     {
                         List<EngineCommand<EngineCommandType>> cmds =
                         [
