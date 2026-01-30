@@ -26,11 +26,8 @@ namespace com.aqua.netlogic.program.flowscript
         private bool _completedRun;
         private readonly IEventBus _eventBus;
 
-        public PlayerFlowScript(
-            IEventBus eventBus,
-            ClientEngine clientEngine,
-            RenderSimulator? renderSim,
-            int playerEntityId)
+        public PlayerFlowScript(IEventBus eventBus, ClientEngine clientEngine,
+            RenderSimulator renderSim, int playerEntityId)
         {
             _eventBus = eventBus;
             _clientEngine = clientEngine;
