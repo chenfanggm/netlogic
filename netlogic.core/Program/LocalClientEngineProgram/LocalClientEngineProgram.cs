@@ -30,6 +30,8 @@ namespace com.aqua.netlogic.program
     /// </summary>
     public sealed class LocalClientEngineProgram : IProgram
     {
+        private double _lastPrintAtMs;
+
         public void Run(ProgramConfig config)
         {
             // ---------------------
@@ -49,10 +51,7 @@ namespace com.aqua.netlogic.program
             // ---------------------
             RenderSimulator renderSim = new RenderSimulator
             {
-                ExitingInRound = false,
-                ExitMenuAtMs = -1,
                 ExitAfterVictoryAtMs = -1,
-                LastPrintAtMs = 0,
                 LastServerTimeMs = 0,
             };
 
@@ -100,7 +99,7 @@ namespace com.aqua.netlogic.program
                 cts.Token);
         }
 
-        private static void OnTick(
+        private void OnTick(
             ProgramConfig config,
             TickContext ctx,
             ServerEngine serverEngine,
@@ -136,19 +135,11 @@ namespace com.aqua.netlogic.program
                 });
 
             // InRound, log state every 500ms
-            if (clientFlowState == GameFlowState.InRound && ctx.ServerTimeMs - renderSim.LastPrintAtMs >= 500)
+            if (clientFlowState == GameFlowState.InRound && ctx.ServerTimeMs - _lastPrintAtMs >= 500)
             {
-                renderSim.LastPrintAtMs = ctx.ServerTimeMs;
+                _lastPrintAtMs = ctx.ServerTimeMs;
                 if (clientEngine.Model.Entities.TryGetValue(playerEntityId, out EntityState e))
                     Console.WriteLine($"[ClientModel] InRound Entity {playerEntityId} pos=({e.X},{e.Y})");
-            }
-
-            if (renderSim.ExitingInRound && clientFlowState == GameFlowState.MainMenu)
-            {
-                if (renderSim.ExitMenuAtMs < 0)
-                    renderSim.ExitMenuAtMs = ctx.ServerTimeMs + 1000;
-                else if (ctx.ServerTimeMs >= renderSim.ExitMenuAtMs)
-                    cts.Cancel();
             }
 
             if (renderSim.ExitAfterVictoryAtMs > 0 && ctx.ServerTimeMs >= renderSim.ExitAfterVictoryAtMs)

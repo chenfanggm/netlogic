@@ -8,11 +8,7 @@ namespace com.aqua.netlogic.program
     /// </summary>
     internal sealed class RenderSimulator
     {
-        public GameFlowState LastClientFlowState;
-        public bool ExitingInRound;
-        public double ExitMenuAtMs;
         public double ExitAfterVictoryAtMs;
-        public double LastPrintAtMs;
         public double LastServerTimeMs;
     }
 }

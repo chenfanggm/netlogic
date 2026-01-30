@@ -20,8 +20,6 @@ namespace com.aqua.netlogic.program
 
         public void Handle(GameFlowStateTransitionEvent message)
         {
-            _state.LastClientFlowState = message.To;
-
             Console.WriteLine(
                 $"[ClientModel] serverTick={message.ServerTick} FlowTo={message.To}");
 
@@ -30,7 +28,6 @@ namespace com.aqua.netlogic.program
                 && message.To != GameFlowState.MainMenu
                 && message.To != GameFlowState.RunVictory)
             {
-                _state.ExitingInRound = true;
                 _eventBus.Publish(new CommandEvent(
                     new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)));
             }
