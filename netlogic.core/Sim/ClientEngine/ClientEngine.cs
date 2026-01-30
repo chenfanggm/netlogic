@@ -41,7 +41,7 @@ namespace com.aqua.netlogic.sim.clientengine
             if (result.Snapshot != null)
                 ApplyBaselineSnapshot(result.Snapshot);
 
-            ApplyReplicationFrame<TickResult>(result);
+            ApplyReplicationResult(result);
         }
 
         /// <summary>
@@ -54,14 +54,14 @@ namespace com.aqua.netlogic.sim.clientengine
         ///
         /// Baselines remain explicit via Apply(BaselineResult).
         /// </summary>
-        private void ApplyReplicationFrame<TFrame>(in TFrame frame) where TFrame : struct, IReplicationFrame
+        private void ApplyReplicationResult(in TickResult result)
         {
-            ReadOnlySpan<RepOp> ops = frame.Ops.Span;
+            ReadOnlySpan<RepOp> ops = result.Ops.Span;
 
             if (ops.Length == 0)
             {
-                Model.LastServerTick = frame.Tick;
-                Model.LastStateHash = frame.StateHash;
+                Model.LastServerTick = result.Tick;
+                Model.LastStateHash = result.StateHash;
                 return;
             }
 
@@ -70,9 +70,9 @@ namespace com.aqua.netlogic.sim.clientengine
             if (reliable.Length > 0)
             {
                 ApplyReplicationUpdate(new ReplicationUpdate(
-                    serverTick: frame.Tick,
+                    serverTick: result.Tick,
                     serverSeq: 0,
-                    stateHash: frame.StateHash,
+                    stateHash: result.StateHash,
                     isReliable: true,
                     ops: reliable));
             }
@@ -81,9 +81,9 @@ namespace com.aqua.netlogic.sim.clientengine
             if (unreliable.Length > 0)
             {
                 ApplyReplicationUpdate(new ReplicationUpdate(
-                    serverTick: frame.Tick,
+                    serverTick: result.Tick,
                     serverSeq: 0,
-                    stateHash: frame.StateHash,
+                    stateHash: result.StateHash,
                     isReliable: false,
                     ops: unreliable));
             }
@@ -91,8 +91,8 @@ namespace com.aqua.netlogic.sim.clientengine
             // If no partition matched, still advance metadata.
             if (reliable.Length == 0 && unreliable.Length == 0)
             {
-                Model.LastServerTick = frame.Tick;
-                Model.LastStateHash = frame.StateHash;
+                Model.LastServerTick = result.Tick;
+                Model.LastStateHash = result.StateHash;
             }
         }
 

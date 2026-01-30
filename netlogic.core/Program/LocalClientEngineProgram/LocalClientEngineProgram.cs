@@ -89,7 +89,7 @@ namespace com.aqua.netlogic.program
             // Tick engine
             using TickResult result = serverEngine.TickOnce(ctx);
 
-            // Apply ServerEngine output directly (TickResult implements IReplicationFrame)
+            // Apply ServerEngine output directly.
             clientEngine.Apply(result);
 
             // Drive flow script using client-reconstructed model

@@ -7,10 +7,9 @@ namespace com.aqua.netlogic.sim.serverengine
     /// <summary>
     /// Canonical authoritative output for a single fixed server tick.
     ///
-    /// Also implements IReplicationFrame so ClientEngine can consume ServerEngine output
-    /// directly without any encode/decode step.
+    /// ClientEngine can consume ServerEngine output directly without any encode/decode step.
     /// </summary>
-    public readonly struct TickResult : IDisposable, IReplicationFrame
+    public readonly struct TickResult : IDisposable
     {
         public readonly int Tick;
         public readonly double ServerTimeMs;
@@ -23,12 +22,6 @@ namespace com.aqua.netlogic.sim.serverengine
 
         /// <summary>Optional snapshot captured for this tick.</summary>
         public readonly GameSnapshot? Snapshot;
-
-        // IReplicationFrame (explicit) - keeps the contract stable even if fields change.
-        int IReplicationFrame.Tick => Tick;
-        double IReplicationFrame.ServerTimeMs => ServerTimeMs;
-        uint IReplicationFrame.StateHash => StateHash;
-        RepOpBatch IReplicationFrame.Ops => Ops;
 
         public TickResult(
             int tick,
