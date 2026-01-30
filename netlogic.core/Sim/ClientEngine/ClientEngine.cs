@@ -19,7 +19,7 @@ namespace com.aqua.netlogic.sim.clientengine
     {
         public ClientModel Model { get; } = new ClientModel();
 
-        public void ApplyBaselineSnapshot(GameSnapshot snapshot, int serverTick, uint stateHash)
+        internal void ApplyBaselineSnapshot(GameSnapshot snapshot, int serverTick, uint stateHash)
         {
             if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
             Model.ResetFromSnapshot(snapshot, serverTick, stateHash);
@@ -88,7 +88,7 @@ namespace com.aqua.netlogic.sim.clientengine
             }
         }
 
-        public void ApplyReplicationUpdate(ReplicationUpdate update)
+        internal void ApplyReplicationUpdate(ReplicationUpdate update)
         {
             RepOp[] ops = update.Ops;
             if (ops != null && ops.Length > 0)
@@ -118,7 +118,7 @@ namespace com.aqua.netlogic.sim.clientengine
                                 byte lastCookMetTarget = (byte)((op.A >> 16) & 0xFF);
                                 byte cookAttemptsUsed = (byte)((op.A >> 24) & 0xFF);
 
-                                var flow = new FlowSnapshot(
+                                FlowSnapshot flow = new FlowSnapshot(
                                     (com.aqua.netlogic.sim.game.flow.GameFlowState)flowState,
                                     op.B, // levelIndex
                                     op.C, // roundIndex
