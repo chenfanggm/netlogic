@@ -42,6 +42,7 @@ namespace com.aqua.netlogic.sim.networkclient
             com.aqua.netlogic.net.transport.IClientTransport transport,
             int clientTickRateHz = 60,
             ClientEngine? engine = null,
+            ClientModel? model = null,
             com.aqua.netlogic.eventbus.IEventBus? eventBus = null)
         {
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
@@ -49,7 +50,9 @@ namespace com.aqua.netlogic.sim.networkclient
                 throw new ArgumentOutOfRangeException(nameof(clientTickRateHz));
 
             _clientTickRateHz = clientTickRateHz;
-            Engine = engine ?? new ClientEngine(eventBus ?? new com.aqua.netlogic.eventbus.MessagePipeEventBus());
+            Engine = engine ?? new ClientEngine(
+                eventBus ?? new com.aqua.netlogic.eventbus.MessagePipeEventBus(),
+                model ?? new ClientModel());
 
             _sentHello = false;
             _wasConnected = false;

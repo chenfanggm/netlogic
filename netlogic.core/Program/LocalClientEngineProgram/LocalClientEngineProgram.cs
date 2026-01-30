@@ -49,6 +49,7 @@ namespace com.aqua.netlogic.program
             services.AddSingleton<IEventBus, MessagePipeEventBus>();
             services.AddSingleton<IServerEngine>(serverEngine);
             services.AddSingleton<IClientCommandDispatcher, ClientCommandToServerEngineDispatcher>();
+            services.AddSingleton<ClientModel>();
             services.AddSingleton<ClientEngine>();
             services.AddTransient<CommandEventHandler>();
             services.AddTransient<FlowStateTransitionEventHandler>();
@@ -69,12 +70,13 @@ namespace com.aqua.netlogic.program
             // Client Engine
             // ---------------------
             ClientEngine clientEngine = serviceProvider.GetRequiredService<ClientEngine>();
+            ClientModel clientModel = serviceProvider.GetRequiredService<ClientModel>();
             clientEngine.PlayerConnId = 1;
 
             // ---------------------
             // Drive ticks
             // ---------------------
-            PlayerFlowScript flowScript = new PlayerFlowScript(eventBus, clientEngine, playerEntityId);
+            PlayerFlowScript flowScript = new PlayerFlowScript(eventBus, clientModel, playerEntityId);
             using CancellationTokenSource cts = new CancellationTokenSource();
             if (config.MaxRunDuration.HasValue)
                 cts.CancelAfter(config.MaxRunDuration.Value);
@@ -83,18 +85,15 @@ namespace com.aqua.netlogic.program
             {
                 // Tick engine
                 using TickResult result = serverEngine.TickOnce(ctx);
-
-                // Apply ServerEngine output directly to ClientEngine.
+                // Update client model
                 clientEngine.Apply(result);
+                // Simulate player movement
+                flowScript.Step();
 
-                // Drive flow script using client-reconstructed model
-                GameFlowState clientFlowState = (GameFlowState)clientEngine.Model.Flow.FlowState;
-
-                flowScript.Step(clientFlowState, ctx.NowMs);
-
-                // End the harness once flow reaches Exit or max run duration is reached
-                if (clientFlowState == GameFlowState.Exit
-                || (config.MaxRunDuration.HasValue && TimeSpan.FromMilliseconds(ctx.NowMs) >= config.MaxRunDuration.Value))
+                // Exit check (End the harness once flow reaches Exit or max run duration is reached)
+                GameFlowState clientFlowState = (GameFlowState)clientModel.Flow.FlowState;
+                if (clientFlowState == GameFlowState.Exit || (config.MaxRunDuration.HasValue
+                    && TimeSpan.FromMilliseconds(ctx.NowMs) >= config.MaxRunDuration.Value))
                     cts.Cancel();
             }, cts.Token);
         }

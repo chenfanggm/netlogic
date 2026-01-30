@@ -15,7 +15,7 @@ namespace com.aqua.netlogic.program.flowscript
     public sealed class PlayerFlowScript
     {
         private readonly IEventBus _eventBus;
-        private readonly ClientEngine _clientEngine;
+        private readonly ClientModel _clientModel;
         private readonly int _playerEntityId;
         private readonly RoundState _roundState = new RoundState();
         private double _lastPrintAtMs;
@@ -23,18 +23,20 @@ namespace com.aqua.netlogic.program.flowscript
         private bool _wasInRound;
         private bool _completedRun;
 
-        public PlayerFlowScript(IEventBus eventBus, ClientEngine clientEngine, int playerEntityId)
+        public PlayerFlowScript(IEventBus eventBus, ClientModel clientModel, int playerEntityId)
         {
             _eventBus = eventBus;
-            _clientEngine = clientEngine;
+            _clientModel = clientModel;
             _playerEntityId = playerEntityId;
         }
 
         /// <summary>
         /// Call once per tick.
         /// </summary>
-        public void Step(GameFlowState gameFlowState, double nowMs)
+        public void Step()
         {
+            GameFlowState gameFlowState = (GameFlowState)_clientModel.Flow.FlowState;
+            double nowMs = _clientModel.NowMs;
             if (_completedRun) return;
 
             bool inRound = gameFlowState == GameFlowState.InRound;
@@ -135,7 +137,7 @@ namespace com.aqua.netlogic.program.flowscript
                 return;
 
             _lastPrintAtMs = nowMs;
-            if (_clientEngine.Model.Entities.TryGetValue(_playerEntityId, out EntityState e))
+            if (_clientModel.Entities.TryGetValue(_playerEntityId, out EntityState e))
                 Console.WriteLine($"[ClientModel] InRound Entity {_playerEntityId} pos=({e.X},{e.Y})");
         }
 

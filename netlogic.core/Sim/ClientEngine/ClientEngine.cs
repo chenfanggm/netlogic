@@ -10,7 +10,7 @@ namespace com.aqua.netlogic.sim.clientengine
 {
     /// <summary>
     /// ClientEngine = pure client-side state reconstruction core.
-    /// Owns ClientModel.
+    /// Uses ClientModel (injected).
     ///
     /// Consumes only client-facing replication primitives:
     /// - GameSnapshot (baseline)
@@ -22,7 +22,7 @@ namespace com.aqua.netlogic.sim.clientengine
     {
         private readonly IEventBus _eventBus;
 
-        public ClientModel Model { get; } = new ClientModel();
+        public ClientModel Model { get; }
 
         public int PlayerConnId { get; set; } = -1;
 
@@ -60,9 +60,10 @@ namespace com.aqua.netlogic.sim.clientengine
 
         public uint NextClientCmdSeq() => _clientCmdSeq++;
 
-        public ClientEngine(IEventBus eventBus)
+        public ClientEngine(IEventBus eventBus, ClientModel model)
         {
             _eventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
+            Model = model ?? throw new ArgumentNullException(nameof(model));
             Model.LastServerTick = -1;
         }
 
@@ -86,6 +87,8 @@ namespace com.aqua.netlogic.sim.clientengine
         /// </summary>
         public void Apply(in TickResult result)
         {
+            Model.NowMs = result.ServerTimeMs;
+
             if (_hasBaseline && _lastAppliedTick >= 0 && result.Tick <= _lastAppliedTick)
                 return;
 

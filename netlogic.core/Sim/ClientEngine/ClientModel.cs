@@ -14,6 +14,7 @@ namespace com.aqua.netlogic.sim.clientengine
     {
         public int LastServerTick { get; internal set; }
         public uint LastStateHash { get; internal set; }
+        public double NowMs { get; internal set; }
 
         private readonly Dictionary<int, EntityState> _entities = new Dictionary<int, EntityState>();
         public IReadOnlyDictionary<int, EntityState> Entities => _entities;
