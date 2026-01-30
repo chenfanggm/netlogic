@@ -72,7 +72,7 @@ namespace com.aqua.netlogic.program
             // Bootstrap baseline (direct snapshot, no encode/decode)
             // ---------------------
             const int playerConnId = 1;
-            TickHarnessState harnessState = new TickHarnessState
+            RenderSimulator renderSim = new RenderSimulator
             {
                 ClientCmdSeq = 0,
                 LastClientFlowState = (GameFlowState)255,
@@ -81,7 +81,7 @@ namespace com.aqua.netlogic.program
                 ExitAfterVictoryAtMs = -1,
                 LastPrintAtMs = 0,
             };
-            using IDisposable flowTransitionSub = eventBus.Subscribe(new FlowStateTransitionHandler(harnessState));
+            using IDisposable flowTransitionSub = eventBus.Subscribe(new FlowStateTransitionHandler(renderSim));
 
             // ---------------------
             // Bootstrap
@@ -99,7 +99,7 @@ namespace com.aqua.netlogic.program
                 cts.CancelAfter(config.MaxRunDuration.Value);
             TickRunner runner = new TickRunner(config.TickRateHz);
             runner.Run(
-                   onTick: (TickContext ctx) => OnTick(ctx, serverEngine, clientEngine, playerConnId, playerEntityId, flowScript, harnessState, cts),
+                   onTick: (TickContext ctx) => OnTick(ctx, serverEngine, clientEngine, playerConnId, playerEntityId, flowScript, renderSim, cts),
                    cts.Token);
         }
 
@@ -110,20 +110,20 @@ namespace com.aqua.netlogic.program
             int playerConnId,
             int playerEntityId,
             PlayerFlowScript flowScript,
-            TickHarnessState state,
+            RenderSimulator renderSim,
             CancellationTokenSource cts)
         {
             // Tick engine
             using TickResult result = serverEngine.TickOnce(ctx);
 
             // Apply ServerEngine output directly to ClientEngine.
-            state.ResetFlowFlags();
+            renderSim.ResetFlowFlags();
             clientEngine.Apply(result);
 
             // Drive flow script using client-reconstructed model
             GameFlowState clientFlow = (GameFlowState)clientEngine.Model.Flow.FlowState;
-            bool leftInRound = state.LeftInRoundThisTick;
-            bool enteredMainMenuAfterVictory = state.EnteredMainMenuAfterVictoryThisTick;
+            bool leftInRound = renderSim.LeftInRoundThisTick;
+            bool enteredMainMenuAfterVictory = renderSim.EnteredMainMenuAfterVictoryThisTick;
 
             flowScript.Step(
                 clientFlow,
@@ -138,7 +138,7 @@ namespace com.aqua.netlogic.program
                     serverEngine.EnqueueCommands(
                         connId: playerConnId,
                         requestedClientTick: serverEngine.CurrentTick + 1,
-                        clientCmdSeq: state.ClientCmdSeq++,
+                        clientCmdSeq: renderSim.ClientCmdSeq++,
                         commands: cmds);
                 },
                 move: () =>
@@ -151,21 +151,21 @@ namespace com.aqua.netlogic.program
                     serverEngine.EnqueueCommands(
                         connId: playerConnId,
                         requestedClientTick: serverEngine.CurrentTick + 1,
-                        clientCmdSeq: state.ClientCmdSeq++,
+                        clientCmdSeq: renderSim.ClientCmdSeq++,
                         commands: cmds);
                 });
 
-            if (clientFlow == GameFlowState.InRound && ctx.ServerTimeMs - state.LastPrintAtMs >= 500)
+            if (clientFlow == GameFlowState.InRound && ctx.ServerTimeMs - renderSim.LastPrintAtMs >= 500)
             {
-                state.LastPrintAtMs = ctx.ServerTimeMs;
+                renderSim.LastPrintAtMs = ctx.ServerTimeMs;
                 if (clientEngine.Model.Entities.TryGetValue(playerEntityId, out EntityState e))
                     Console.WriteLine($"[ClientModel] InRound Entity {playerEntityId} pos=({e.X},{e.Y})");
             }
 
             // Log flow state transitions and periodic heartbeat (like the old harness).
-            if (state.FlowStateChangedThisTick || ctx.ServerTimeMs - state.LastPrintAtMs >= 500)
+            if (renderSim.FlowStateChangedThisTick || ctx.ServerTimeMs - renderSim.LastPrintAtMs >= 500)
             {
-                state.LastPrintAtMs = ctx.ServerTimeMs;
+                renderSim.LastPrintAtMs = ctx.ServerTimeMs;
 
                 Console.WriteLine(
                     $"[ClientModel] t={ctx.ServerTimeMs:0} serverTick={clientEngine.Model.LastServerTick} Flow={clientFlow}");
@@ -173,7 +173,7 @@ namespace com.aqua.netlogic.program
 
             if (leftInRound && clientFlow != GameFlowState.MainMenu && clientFlow != GameFlowState.RunVictory)
             {
-                state.ExitingInRound = true;
+                renderSim.ExitingInRound = true;
                 List<EngineCommand<EngineCommandType>> cmds =
                 [
                     new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)
@@ -182,22 +182,22 @@ namespace com.aqua.netlogic.program
                 serverEngine.EnqueueCommands(
                     connId: playerConnId,
                     requestedClientTick: serverEngine.CurrentTick + 1,
-                    clientCmdSeq: state.ClientCmdSeq++,
+                    clientCmdSeq: renderSim.ClientCmdSeq++,
                     commands: cmds);
             }
 
-            if (state.ExitingInRound && clientFlow == GameFlowState.MainMenu)
+            if (renderSim.ExitingInRound && clientFlow == GameFlowState.MainMenu)
             {
-                if (state.ExitMenuAtMs < 0)
-                    state.ExitMenuAtMs = ctx.ServerTimeMs + 1000;
-                else if (ctx.ServerTimeMs >= state.ExitMenuAtMs)
+                if (renderSim.ExitMenuAtMs < 0)
+                    renderSim.ExitMenuAtMs = ctx.ServerTimeMs + 1000;
+                else if (ctx.ServerTimeMs >= renderSim.ExitMenuAtMs)
                     cts.Cancel();
             }
 
             if (enteredMainMenuAfterVictory)
-                state.ExitAfterVictoryAtMs = ctx.ServerTimeMs + 1000;
+                renderSim.ExitAfterVictoryAtMs = ctx.ServerTimeMs + 1000;
 
-            if (state.ExitAfterVictoryAtMs > 0 && ctx.ServerTimeMs >= state.ExitAfterVictoryAtMs)
+            if (renderSim.ExitAfterVictoryAtMs > 0 && ctx.ServerTimeMs >= renderSim.ExitAfterVictoryAtMs)
             {
                 List<EngineCommand<EngineCommandType>> cmds =
                 [
@@ -207,7 +207,7 @@ namespace com.aqua.netlogic.program
                 serverEngine.EnqueueCommands(
                     connId: playerConnId,
                     requestedClientTick: serverEngine.CurrentTick + 1,
-                    clientCmdSeq: state.ClientCmdSeq++,
+                    clientCmdSeq: renderSim.ClientCmdSeq++,
                     commands: cmds);
             }
 
@@ -216,32 +216,11 @@ namespace com.aqua.netlogic.program
                 cts.Cancel();
         }
 
-        private sealed class TickHarnessState
-        {
-            public uint ClientCmdSeq;
-            public GameFlowState LastClientFlowState;
-            public bool ExitingInRound;
-            public double ExitMenuAtMs;
-            public double ExitAfterVictoryAtMs;
-            public double LastPrintAtMs;
-
-            public bool FlowStateChangedThisTick;
-            public bool LeftInRoundThisTick;
-            public bool EnteredMainMenuAfterVictoryThisTick;
-
-            public void ResetFlowFlags()
-            {
-                FlowStateChangedThisTick = false;
-                LeftInRoundThisTick = false;
-                EnteredMainMenuAfterVictoryThisTick = false;
-            }
-        }
-
         private sealed class FlowStateTransitionHandler : IMessageHandler<GameFlowStateTransition>
         {
-            private readonly TickHarnessState _state;
+            private readonly RenderSimulator _state;
 
-            public FlowStateTransitionHandler(TickHarnessState state)
+            public FlowStateTransitionHandler(RenderSimulator state)
             {
                 _state = state;
             }
