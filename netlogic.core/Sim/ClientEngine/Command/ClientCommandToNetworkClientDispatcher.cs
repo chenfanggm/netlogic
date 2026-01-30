@@ -2,18 +2,19 @@ using System;
 using com.aqua.netlogic.command;
 using com.aqua.netlogic.command.ingress;
 using com.aqua.netlogic.sim.clientengine.protocol;
+using com.aqua.netlogic.sim.networkclient;
 using com.aqua.netlogic.sim.serverengine;
 
-namespace com.aqua.netlogic.sim.networkclient
+namespace com.aqua.netlogic.sim.clientengine.command
 {
     /// <summary>
     /// Commander that forwards engine commands over a NetworkClient.
     /// </summary>
-    public sealed class NetworkClientCommander : ICommander
+    public sealed class ClientCommandToNetworkClientDispatcher : IClientCommandDispatcher
     {
         private readonly NetworkClient _client;
 
-        public NetworkClientCommander(NetworkClient client)
+        public ClientCommandToNetworkClientDispatcher(NetworkClient client)
         {
             _client = client ?? throw new ArgumentNullException(nameof(client));
         }

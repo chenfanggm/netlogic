@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using com.aqua.netlogic.eventbus;
 using com.aqua.netlogic.sim.game.flow;
 using com.aqua.netlogic.sim.game.snapshot;
@@ -38,6 +39,13 @@ namespace com.aqua.netlogic.sim.clientengine
         /// </summary>
         private bool _hasBaseline;
 
+        // -----------------------------
+        // Pending tick buffer (bounded)
+        // -----------------------------
+        private readonly SortedDictionary<int, TickResult> _pendingTicks = new SortedDictionary<int, TickResult>();
+        private const int MaxPendingTicks = 120;
+        private int _lastAppliedTick = -1;
+
         /// <summary>
         /// Client's best guess of when a command should take effect (server tick domain).
         /// Uses only last known server tick + lead; no server clock access.
@@ -55,6 +63,7 @@ namespace com.aqua.netlogic.sim.clientengine
         public ClientEngine(IEventBus eventBus)
         {
             _eventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
+            Model.LastServerTick = -1;
         }
 
         internal void ApplyBaselineSnapshot(GameSnapshot snapshot)
@@ -77,20 +86,112 @@ namespace com.aqua.netlogic.sim.clientengine
         /// </summary>
         public void Apply(in TickResult result)
         {
-            if (_hasBaseline && result.Tick <= Model.LastServerTick)
+            if (_hasBaseline && _lastAppliedTick >= 0 && result.Tick <= _lastAppliedTick)
                 return;
 
             if (result.Snapshot != null)
             {
                 ApplyBaselineSnapshot(result.Snapshot);
-            }
-            else
-            {
-                if (!_hasBaseline)
-                    return;
+
+                _lastAppliedTick = result.Tick;
+                Model.LastServerTick = result.Tick;
+                Model.LastStateHash = result.StateHash;
+
+                ClearPendingUpTo(result.Tick);
+                FlushPendingTicks();
+                return;
             }
 
-            ApplyReplicationResult(result);
+            if (!_hasBaseline)
+            {
+                BufferTick(result);
+                return;
+            }
+
+            if (_lastAppliedTick < 0)
+                _lastAppliedTick = Model.LastServerTick;
+
+            if (result.Tick == _lastAppliedTick + 1)
+            {
+                ApplyReplicationResult(result);
+                _lastAppliedTick = result.Tick;
+                FlushPendingTicks();
+                return;
+            }
+
+            BufferTick(result);
+            FlushPendingTicks();
+        }
+
+        private void BufferTick(in TickResult result)
+        {
+            TickResult owned = result.WithOwnedOps();
+            _pendingTicks[owned.Tick] = owned;
+
+            while (_pendingTicks.Count > MaxPendingTicks)
+            {
+                int oldestTick = FirstKey(_pendingTicks);
+                if (oldestTick == int.MinValue)
+                    break;
+
+                TickResult oldest = _pendingTicks[oldestTick];
+                oldest.Dispose();
+                _pendingTicks.Remove(oldestTick);
+            }
+        }
+
+        private void FlushPendingTicks()
+        {
+            if (!_hasBaseline || _lastAppliedTick < 0)
+                return;
+
+            while (true)
+            {
+                int nextTick = _lastAppliedTick + 1;
+                if (!_pendingTicks.TryGetValue(nextTick, out TickResult next))
+                    break;
+
+                _pendingTicks.Remove(nextTick);
+                ApplyReplicationResult(next);
+                _lastAppliedTick = nextTick;
+                next.Dispose();
+            }
+        }
+
+        private void ClearPendingUpTo(int tickInclusive)
+        {
+            if (_pendingTicks.Count == 0)
+                return;
+
+            List<int>? toRemove = null;
+            foreach (KeyValuePair<int, TickResult> kv in _pendingTicks)
+            {
+                if (kv.Key <= tickInclusive)
+                {
+                    toRemove ??= new List<int>();
+                    toRemove.Add(kv.Key);
+                }
+                else
+                    break;
+            }
+
+            if (toRemove == null)
+                return;
+
+            for (int i = 0; i < toRemove.Count; i++)
+            {
+                int k = toRemove[i];
+                TickResult r = _pendingTicks[k];
+                r.Dispose();
+                _pendingTicks.Remove(k);
+            }
+        }
+
+        private static int FirstKey(SortedDictionary<int, TickResult> dict)
+        {
+            foreach (int k in dict.Keys)
+                return k;
+            return int.MinValue;
         }
 
         /// <summary>

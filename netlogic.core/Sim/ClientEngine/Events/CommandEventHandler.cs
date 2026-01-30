@@ -5,10 +5,10 @@ namespace com.aqua.netlogic.command.ingress
 {
     public sealed class CommandEventHandler : IMessageHandler<CommandEvent>
     {
-        private readonly ICommander _commander;
+        private readonly IClientCommandDispatcher _commander;
         private readonly ClientEngine _clientEngine;
 
-        public CommandEventHandler(ICommander commander, ClientEngine clientEngine)
+        public CommandEventHandler(IClientCommandDispatcher commander, ClientEngine clientEngine)
         {
             _commander = commander;
             _clientEngine = clientEngine;

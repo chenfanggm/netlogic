@@ -1,12 +1,12 @@
 using com.aqua.netlogic.command;
 using com.aqua.netlogic.sim.serverengine;
 
-namespace com.aqua.netlogic.command.ingress
+namespace com.aqua.netlogic.sim.clientengine.command
 {
     /// <summary>
     /// Abstracts how client-authored commands are delivered to the server.
     /// </summary>
-    public interface ICommander
+    public interface IClientCommandDispatcher
     {
         void EnqueueCommands(
             int connId,

@@ -1,9 +1,6 @@
-using System;
-using System.Threading;
 using MessagePipe;
 using Microsoft.Extensions.DependencyInjection;
 using com.aqua.netlogic.program.flowscript;
-using com.aqua.netlogic.command;
 using com.aqua.netlogic.eventbus;
 using com.aqua.netlogic.command.ingress;
 using com.aqua.netlogic.sim.clientengine;
@@ -65,7 +62,7 @@ namespace com.aqua.netlogic.program
             services.AddMessagePipe();
             services.AddSingleton<IEventBus, MessagePipeEventBus>();
             services.AddSingleton<IServerEngine>(serverEngine);
-            services.AddSingleton<ICommander, ServerEngineCommander>();
+            services.AddSingleton<IClientCommandDispatcher, ClientCommandToServerEngineDispatcher>();
             services.AddSingleton(renderSim);
             services.AddSingleton<ClientEngine>();
             services.AddTransient<CommandEventHandler>();
