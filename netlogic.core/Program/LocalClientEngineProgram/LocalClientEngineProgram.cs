@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using MessagePipe;
+using Microsoft.Extensions.DependencyInjection;
 using com.aqua.netlogic.program.flowscript;
 using com.aqua.netlogic.command;
+using com.aqua.netlogic.eventbus;
 using com.aqua.netlogic.sim.clientengine;
 using com.aqua.netlogic.sim.serverengine;
 using com.aqua.netlogic.sim.game;
@@ -44,36 +47,53 @@ namespace com.aqua.netlogic.program
             // Create engine + client
             // ---------------------
             ServerEngine serverEngine = new ServerEngine(world);
-            ClientEngine clientEngine = new ClientEngine();
+            ServiceCollection services = new ServiceCollection();
+            services.AddMessagePipe();
+            services.AddSingleton<IEventBus, MessagePipeEventBus>();
+            services.AddTransient<ClientEngine>();
 
-            // ---------------------
-            // Bootstrap baseline (direct snapshot, no encode/decode)
-            // ---------------------
-            TickContext bootstrapCtx = new TickContext(serverTimeMs: 0, elapsedMsSinceLastTick: 0);
-            using TickResult bootstrapResult = serverEngine.TickOnce(bootstrapCtx, includeSnapshot: true);
-            clientEngine.Apply(bootstrapResult);
-
-            // ---------------------
-            // Drive ticks
-            // ---------------------
-            TickHarnessState harnessState = new TickHarnessState
+            IServiceProvider serviceProvider = services.BuildServiceProvider();
+            GlobalMessagePipe.SetProvider(serviceProvider);
+            try
             {
-                ClientCmdSeq = 0,
-                LastClientFlowState = (GameFlowState)255,
-                ExitingInRound = false,
-                ExitMenuAtMs = -1,
-                ExitAfterVictoryAtMs = -1,
-                LastPrintAtMs = 0,
-            };
+                IEventBus eventBus = serviceProvider.GetRequiredService<IEventBus>();
+                ClientEngine clientEngine = serviceProvider.GetRequiredService<ClientEngine>();
 
-            PlayerFlowScript flowScript = new PlayerFlowScript();
-            using CancellationTokenSource cts = new CancellationTokenSource();
-            if (config.MaxRunDuration.HasValue)
-                cts.CancelAfter(config.MaxRunDuration.Value);
-            TickRunner runner = new TickRunner(config.TickRateHz);
-            runner.Run(
-                onTick: (TickContext ctx) => OnTick(ctx, serverEngine, clientEngine, playerConnId, playerEntityId, flowScript, harnessState, cts),
-                cts.Token);
+                // ---------------------
+                // Bootstrap baseline (direct snapshot, no encode/decode)
+                // ---------------------
+                TickHarnessState harnessState = new TickHarnessState
+                {
+                    ClientCmdSeq = 0,
+                    LastClientFlowState = (GameFlowState)255,
+                    ExitingInRound = false,
+                    ExitMenuAtMs = -1,
+                    ExitAfterVictoryAtMs = -1,
+                    LastPrintAtMs = 0,
+                };
+
+                using IDisposable flowTransitionSub = eventBus.Subscribe(new FlowStateTransitionHandler(harnessState));
+
+                TickContext bootstrapCtx = new TickContext(serverTimeMs: 0, elapsedMsSinceLastTick: 0);
+                using TickResult bootstrapResult = serverEngine.TickOnce(bootstrapCtx, includeSnapshot: true);
+                clientEngine.Apply(bootstrapResult);
+
+                // ---------------------
+                // Drive ticks
+                // ---------------------
+                PlayerFlowScript flowScript = new PlayerFlowScript();
+                using CancellationTokenSource cts = new CancellationTokenSource();
+                if (config.MaxRunDuration.HasValue)
+                    cts.CancelAfter(config.MaxRunDuration.Value);
+                TickRunner runner = new TickRunner(config.TickRateHz);
+                runner.Run(
+                    onTick: (TickContext ctx) => OnTick(ctx, serverEngine, clientEngine, playerConnId, playerEntityId, flowScript, harnessState, cts),
+                    cts.Token);
+            }
+            finally
+            {
+                (serviceProvider as IDisposable)?.Dispose();
+            }
         }
 
         private static void OnTick(
@@ -88,14 +108,15 @@ namespace com.aqua.netlogic.program
         {
             // Tick engine
             using TickResult result = serverEngine.TickOnce(ctx);
-
-            // Apply ServerEngine output directly.
+            
+            // Apply ServerEngine output directly to ClientEngine.
+            state.ResetFlowFlags();
             clientEngine.Apply(result);
 
             // Drive flow script using client-reconstructed model
             GameFlowState clientFlow = (GameFlowState)clientEngine.Model.Flow.FlowState;
-            bool leftInRound = (state.LastClientFlowState == GameFlowState.InRound) && (clientFlow != GameFlowState.InRound);
-            bool enteredMainMenuAfterVictory = (state.LastClientFlowState == GameFlowState.RunVictory) && (clientFlow == GameFlowState.MainMenu);
+            bool leftInRound = state.LeftInRoundThisTick;
+            bool enteredMainMenuAfterVictory = state.EnteredMainMenuAfterVictoryThisTick;
 
             flowScript.Step(
                 clientFlow,
@@ -135,10 +156,9 @@ namespace com.aqua.netlogic.program
             }
 
             // Log flow state transitions and periodic heartbeat (like the old harness).
-            if (clientFlow != state.LastClientFlowState || ctx.ServerTimeMs - state.LastPrintAtMs >= 500)
+            if (state.FlowStateChangedThisTick || ctx.ServerTimeMs - state.LastPrintAtMs >= 500)
             {
                 state.LastPrintAtMs = ctx.ServerTimeMs;
-                state.LastClientFlowState = clientFlow;
 
                 Console.WriteLine(
                     $"[ClientModel] t={ctx.ServerTimeMs:0} serverTick={clientEngine.Model.LastServerTick} Flow={clientFlow}");
@@ -197,6 +217,37 @@ namespace com.aqua.netlogic.program
             public double ExitMenuAtMs;
             public double ExitAfterVictoryAtMs;
             public double LastPrintAtMs;
+
+            public bool FlowStateChangedThisTick;
+            public bool LeftInRoundThisTick;
+            public bool EnteredMainMenuAfterVictoryThisTick;
+
+            public void ResetFlowFlags()
+            {
+                FlowStateChangedThisTick = false;
+                LeftInRoundThisTick = false;
+                EnteredMainMenuAfterVictoryThisTick = false;
+            }
+        }
+
+        private sealed class FlowStateTransitionHandler : IMessageHandler<GameFlowStateTransition>
+        {
+            private readonly TickHarnessState _state;
+
+            public FlowStateTransitionHandler(TickHarnessState state)
+            {
+                _state = state;
+            }
+
+            public void Handle(GameFlowStateTransition message)
+            {
+                _state.FlowStateChangedThisTick = true;
+                _state.LeftInRoundThisTick |= message.From == GameFlowState.InRound
+                    && message.To != GameFlowState.InRound;
+                _state.EnteredMainMenuAfterVictoryThisTick |= message.From == GameFlowState.RunVictory
+                    && message.To == GameFlowState.MainMenu;
+                _state.LastClientFlowState = message.To;
+            }
         }
     }
 }

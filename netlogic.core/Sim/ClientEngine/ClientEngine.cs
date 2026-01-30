@@ -1,4 +1,6 @@
 using System;
+using com.aqua.netlogic.eventbus;
+using com.aqua.netlogic.sim.game.flow;
 using com.aqua.netlogic.sim.game.snapshot;
 using com.aqua.netlogic.sim.replication;
 using com.aqua.netlogic.sim.serverengine;
@@ -17,7 +19,14 @@ namespace com.aqua.netlogic.sim.clientengine
     /// </summary>
     public sealed class ClientEngine
     {
+        private readonly IEventBus _eventBus;
+
         public ClientModel Model { get; } = new ClientModel();
+
+        public ClientEngine(IEventBus eventBus)
+        {
+            _eventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
+        }
 
         internal void ApplyBaselineSnapshot(GameSnapshot snapshot)
         {
@@ -121,13 +130,14 @@ namespace com.aqua.netlogic.sim.clientengine
 
                         case RepOpType.FlowSnapshot:
                             {
+                                GameFlowState previousFlowState = (GameFlowState)Model.Flow.FlowState;
                                 byte flowState = (byte)(op.A & 0xFF);
                                 byte roundState = (byte)((op.A >> 8) & 0xFF);
                                 byte lastCookMetTarget = (byte)((op.A >> 16) & 0xFF);
                                 byte cookAttemptsUsed = (byte)((op.A >> 24) & 0xFF);
 
                                 FlowSnapshot flow = new FlowSnapshot(
-                                    (com.aqua.netlogic.sim.game.flow.GameFlowState)flowState,
+                                    (GameFlowState)flowState,
                                     op.B, // levelIndex
                                     op.C, // roundIndex
                                     op.D, // selectedChefHatId
@@ -140,6 +150,13 @@ namespace com.aqua.netlogic.sim.clientengine
                                     lastCookMetTarget != 0);
 
                                 Model.Flow.ApplyFlowSnapshot(flow);
+                                if (flow.FlowState != previousFlowState)
+                                {
+                                    _eventBus.Publish(new GameFlowStateTransition(
+                                        previousFlowState,
+                                        flow.FlowState,
+                                        update.ServerTick));
+                                }
                                 break;
                             }
 

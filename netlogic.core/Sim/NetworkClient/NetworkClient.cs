@@ -38,14 +38,18 @@ namespace com.aqua.netlogic.sim.networkclient
         private readonly NetDataWriter _cmdOpsWriter = new NetDataWriter();
         private readonly ClientMessageDecoder _decoder = new ClientMessageDecoder();
 
-        public NetworkClient(com.aqua.netlogic.net.transport.IClientTransport transport, int clientTickRateHz = 60, ClientEngine? engine = null)
+        public NetworkClient(
+            com.aqua.netlogic.net.transport.IClientTransport transport,
+            int clientTickRateHz = 60,
+            ClientEngine? engine = null,
+            com.aqua.netlogic.eventbus.IEventBus? eventBus = null)
         {
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
             if (clientTickRateHz <= 0)
                 throw new ArgumentOutOfRangeException(nameof(clientTickRateHz));
 
             _clientTickRateHz = clientTickRateHz;
-            Engine = engine ?? new ClientEngine();
+            Engine = engine ?? new ClientEngine(eventBus ?? new com.aqua.netlogic.eventbus.MessagePipeEventBus());
 
             _sentHello = false;
             _wasConnected = false;
