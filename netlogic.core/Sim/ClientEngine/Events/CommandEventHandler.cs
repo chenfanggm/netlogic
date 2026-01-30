@@ -1,5 +1,6 @@
 using MessagePipe;
 using com.aqua.netlogic.sim.clientengine;
+using com.aqua.netlogic.sim.clientengine.command;
 
 namespace com.aqua.netlogic.command.ingress
 {

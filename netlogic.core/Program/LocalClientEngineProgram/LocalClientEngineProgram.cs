@@ -12,6 +12,7 @@ using com.aqua.netlogic.sim.game.flow;
 using com.aqua.netlogic.sim.systems.gameflowsystem.commands;
 using com.aqua.netlogic.sim.systems.movementsystem.commands;
 using com.aqua.netlogic.sim.timing;
+using com.aqua.netlogic.sim.clientengine.command;
 
 namespace com.aqua.netlogic.program
 {
