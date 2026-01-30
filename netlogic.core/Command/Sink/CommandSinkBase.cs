@@ -67,7 +67,7 @@ namespace com.aqua.netlogic.command.sink
         /// <summary>
         /// Called by ServerEngine in stable order each tick.
         /// </summary>
-        public void Execute(com.aqua.netlogic.sim.game.Game world)
+        public void Execute(com.aqua.netlogic.sim.game.ServerModel world)
         {
             for (int i = 0; i < _inbox.Count; i++)
             {
@@ -87,7 +87,7 @@ namespace com.aqua.netlogic.command.sink
         /// If you want per-system additional logic before/after handler execute, do it here.
         /// Most systems can simply rely on command-driven execution.
         /// </summary>
-        protected virtual void ExecuteAfterCommands(com.aqua.netlogic.sim.game.Game world) { }
+        protected virtual void ExecuteAfterCommands(com.aqua.netlogic.sim.game.ServerModel world) { }
 
         [Obsolete("Reflection-based handler discovery is disabled. Use EngineCommandHandlerRegistry and explicit registration.", error: true)]
         protected static IEngineCommandHandler<TCommandType>[] DiscoverHandlersForSystem(Type systemType)

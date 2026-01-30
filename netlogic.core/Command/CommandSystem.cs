@@ -77,7 +77,7 @@ namespace com.aqua.netlogic.command
         /// <summary>
         /// Execute sinks in stable order.
         /// </summary>
-        public void Execute(int tick, com.aqua.netlogic.sim.game.Game world)
+        public void Execute(int tick, com.aqua.netlogic.sim.game.ServerModel world)
         {
             // 1) Dispatch inputs for this tick into sink inboxes (with phases)
             Dispatch(tick);

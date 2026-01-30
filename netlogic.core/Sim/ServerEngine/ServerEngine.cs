@@ -26,7 +26,7 @@ namespace com.aqua.netlogic.sim.serverengine
     /// </summary>
     public class ServerEngine : IServerEngine
     {
-        public com.aqua.netlogic.sim.game.Game ReadOnlyWorld => _game;
+        public com.aqua.netlogic.sim.game.ServerModel ReadOnlyWorld => _game;
 
         public int CurrentTick => _currentTick;
 
@@ -35,7 +35,7 @@ namespace com.aqua.netlogic.sim.serverengine
         private int _currentTick;
         private double _lastServerTimeMs;
 
-        private readonly com.aqua.netlogic.sim.game.Game _game;
+        private readonly com.aqua.netlogic.sim.game.ServerModel _game;
         private readonly CommandSystem<EngineCommandType> _commandSystem;
         private readonly ICommandSink<EngineCommandType>[] _commandSinks;
 
@@ -45,7 +45,7 @@ namespace com.aqua.netlogic.sim.serverengine
         private FlowSnapshot _lastFlowSnap;
         private bool _hasLastFlowSnap;
 
-        public ServerEngine(com.aqua.netlogic.sim.game.Game initialGame)
+        public ServerEngine(com.aqua.netlogic.sim.game.ServerModel initialGame)
         {
             _game = initialGame ?? throw new ArgumentNullException(nameof(initialGame));
 
@@ -86,7 +86,7 @@ namespace com.aqua.netlogic.sim.serverengine
             _replication.BeginTick(tick);
 
             // Provide transient replication hook to systems for this tick.
-            _game.SetReplicator(new WorldReplicator(_replication));
+            _game.SetReplicator(new RepOpReplicator(_replication));
 
             // 1) Execute systems in stable order
             _commandSystem.Execute(tick, _game);
@@ -105,10 +105,10 @@ namespace com.aqua.netlogic.sim.serverengine
             _game.SetReplicator(null);
 
             // 5) World hash AFTER applying tick
-            uint worldHash = com.aqua.netlogic.sim.game.WorldHash.Compute(_game);
+            uint worldHash = com.aqua.netlogic.sim.game.ServerModelHash.Compute(_game);
 
             bool shouldIncludeSnapshot = includeSnapshot || tick == 1;
-            GameSnapshot? snapshot = shouldIncludeSnapshot ? _game.Snapshot(tick, worldHash) : null;
+            ServerModelSnapshot? snapshot = shouldIncludeSnapshot ? _game.Snapshot(tick, worldHash) : null;
 
             return new TickResult(
                 tick: tick,
@@ -123,7 +123,7 @@ namespace com.aqua.netlogic.sim.serverengine
         /// This is intentionally NOT part of TickResult to avoid coupling server tick output
         /// to internal snapshot structures.
         /// </summary>
-        public GameSnapshot BuildSnapshot()
+        public ServerModelSnapshot BuildSnapshot()
         {
             return _game.Snapshot();
         }
@@ -134,7 +134,7 @@ namespace com.aqua.netlogic.sim.serverengine
         /// </summary>
         public uint ComputeStateHash()
         {
-            return com.aqua.netlogic.sim.game.WorldHash.Compute(_game);
+            return com.aqua.netlogic.sim.game.ServerModelHash.Compute(_game);
         }
 
         private void EmitFlowIfChanged(in FlowSnapshot flow)

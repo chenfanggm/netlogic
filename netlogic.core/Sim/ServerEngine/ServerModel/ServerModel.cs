@@ -12,7 +12,7 @@ namespace com.aqua.netlogic.sim.game
     /// <summary>
     /// The entry for complete game state
     /// </summary>
-    public sealed class Game
+    public sealed class ServerModel
     {
         // ------------------------------------------------------------------
         // Authoritative time
@@ -27,9 +27,9 @@ namespace com.aqua.netlogic.sim.game
         // ------------------------------------------------------------------
         // Transient per-tick output hook (set by engine)
         // ------------------------------------------------------------------
-        internal IWorldReplicator? Replicator { get; private set; }
+        internal IRepOpReplicator? Replicator { get; private set; }
 
-        internal void SetReplicator(IWorldReplicator? replicator)
+        internal void SetReplicator(IRepOpReplicator? replicator)
         {
             Replicator = replicator;
         }
@@ -48,7 +48,7 @@ namespace com.aqua.netlogic.sim.game
         internal GameFlowController GameFlow { get; }
         internal RoundFlowController RoundFlow { get; }
 
-        public Game()
+        public ServerModel()
         {
             FlowManager = new GameFlowManager(this);
             GameFlow = new GameFlowController(this);
@@ -127,25 +127,25 @@ namespace com.aqua.netlogic.sim.game
                 lastCookMetTarget: Round.LastCookMetTarget);
         }
 
-        public GameSnapshot Snapshot()
+        public ServerModelSnapshot Snapshot()
         {
-            uint stateHash = WorldHash.Compute(this);
+            uint stateHash = ServerModelHash.Compute(this);
             return Snapshot(CurrentTick, stateHash);
         }
 
-        public GameSnapshot Snapshot(uint stateHash)
+        public ServerModelSnapshot Snapshot(uint stateHash)
         {
             return Snapshot(CurrentTick, stateHash);
         }
 
-        public GameSnapshot Snapshot(int serverTick, uint stateHash)
+        public ServerModelSnapshot Snapshot(int serverTick, uint stateHash)
         {
             List<SampleEntityPos> list = new List<SampleEntityPos>(128);
             foreach (Entity e in Entities)
                 list.Add(new SampleEntityPos(e.Id, e.X, e.Y, e.Hp));
 
             FlowSnapshot flow = BuildFlowSnapshot();
-            return new GameSnapshot(flow, list.ToArray(), serverTick, stateHash);
+            return new ServerModelSnapshot(flow, list.ToArray(), serverTick, stateHash);
         }
     }
 }

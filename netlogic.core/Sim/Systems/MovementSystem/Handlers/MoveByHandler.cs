@@ -13,7 +13,7 @@ namespace com.aqua.netlogic.sim.systems.movementsystem.handlers
         {
         }
 
-        public override void Handle(com.aqua.netlogic.sim.game.Game world, MoveByEngineCommand command)
+        public override void Handle(com.aqua.netlogic.sim.game.ServerModel world, MoveByEngineCommand command)
         {
             world.TryMoveEntityBy(command.EntityId, command.Dx, command.Dy);
         }

@@ -21,7 +21,7 @@ namespace com.aqua.netlogic.sim.serverengine
         public readonly RepOpBatch Ops;
 
         /// <summary>Optional snapshot captured for this tick.</summary>
-        public readonly GameSnapshot? Snapshot;
+        public readonly ServerModelSnapshot? Snapshot;
 
         public bool HasSnapshot => Snapshot != null;
 
@@ -30,7 +30,7 @@ namespace com.aqua.netlogic.sim.serverengine
             double serverTimeMs,
             uint stateHash,
             RepOpBatch ops,
-            GameSnapshot? snapshot = null)
+            ServerModelSnapshot? snapshot = null)
         {
             Tick = tick;
             ServerTimeMs = serverTimeMs;

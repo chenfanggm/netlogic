@@ -67,7 +67,7 @@ namespace com.aqua.netlogic.sim.clientengine
             Model.LastServerTick = -1;
         }
 
-        internal void ApplyBaselineSnapshot(GameSnapshot snapshot)
+        internal void ApplyBaselineSnapshot(ServerModelSnapshot snapshot)
         {
             if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
             Model.ResetFromSnapshot(snapshot);

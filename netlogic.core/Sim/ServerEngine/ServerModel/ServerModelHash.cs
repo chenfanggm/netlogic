@@ -10,13 +10,13 @@ namespace com.aqua.netlogic.sim.game
     /// Used for desync detection and replay verification.
     /// Keep stable across versions if you want backward-compatible replays.
     /// </summary>
-    public static class WorldHash
+    public static class ServerModelHash
     {
         /// <summary>
         /// Computes a deterministic hash of ALL authoritative state that matters for future simulation.
         /// This should change if and only if the authoritative state differs.
         /// </summary>
-        public static uint Compute(Game world)
+        public static uint Compute(ServerModel world)
         {
             Fnv1a32 h = Fnv1a32.Start();
 

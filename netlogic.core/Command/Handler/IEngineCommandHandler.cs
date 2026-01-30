@@ -14,13 +14,13 @@ namespace com.aqua.netlogic.command.handler
         /// Process a single command and potentially mutate the world.
         /// ConnId is available on command.ConnId.
         /// </summary>
-        void Handle(com.aqua.netlogic.sim.game.Game world, EngineCommand<TCommandType> command);
+        void Handle(com.aqua.netlogic.sim.game.ServerModel world, EngineCommand<TCommandType> command);
     }
 
     public interface IEngineCommandHandler<TCommand, TCommandType> : IEngineCommandHandler<TCommandType>
         where TCommand : EngineCommand<TCommandType>
         where TCommandType : struct, Enum
     {
-        void Handle(com.aqua.netlogic.sim.game.Game world, TCommand command);
+        void Handle(com.aqua.netlogic.sim.game.ServerModel world, TCommand command);
     }
 }

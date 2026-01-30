@@ -7,14 +7,14 @@ namespace com.aqua.netlogic.sim.game.flow
     /// </summary>
     public sealed class GameFlowManager
     {
-        private readonly Game _world;
+        private readonly ServerModel _world;
 
         // Lifecycle tracking (deterministic, internal)
         private GameFlowState _prevFlowState = (GameFlowState)255;
 
         public GameFlowState State { get; private set; } = GameFlowState.Boot;
 
-        public GameFlowManager(Game world)
+        public GameFlowManager(ServerModel world)
         {
             _world = world ?? throw new ArgumentNullException(nameof(world));
         }

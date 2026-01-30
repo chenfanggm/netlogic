@@ -4,10 +4,10 @@ namespace com.aqua.netlogic.sim.game.flow
 {
     public sealed class GameFlowController
     {
-        private readonly Game _world;
+        private readonly ServerModel _world;
         private readonly StateMachine<GameFlowState, GameFlowIntent> _sm;
 
-        public GameFlowController(Game world)
+        public GameFlowController(ServerModel world)
         {
             _world = world ?? throw new ArgumentNullException(nameof(world));
 

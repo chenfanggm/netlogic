@@ -6,9 +6,9 @@ namespace com.aqua.netlogic.sim.game.flow
     /// </summary>
     public sealed class RoundFlowController
     {
-        private readonly Game _world;
+        private readonly ServerModel _world;
 
-        public RoundFlowController(Game world)
+        public RoundFlowController(ServerModel world)
         {
             _world = world ?? throw new ArgumentNullException(nameof(world));
         }

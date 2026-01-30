@@ -32,7 +32,7 @@ namespace com.aqua.netlogic.program
             // ---------------------
             // Authoritative world
             // ---------------------
-            Game world = new Game();
+            ServerModel world = new ServerModel();
             Entity playerEntity = world.CreateEntityAt(x: 0, y: 0);
             int playerEntityId = playerEntity.Id;
 

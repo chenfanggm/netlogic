@@ -22,6 +22,6 @@ namespace com.aqua.netlogic.command.sink
         void InboxCommand(EngineCommand<TCommandType> command);
 
         /// <summary>Called by ServerEngine in stable order.</summary>
-        void Execute(com.aqua.netlogic.sim.game.Game world);
+        void Execute(com.aqua.netlogic.sim.game.ServerModel world);
     }
 }

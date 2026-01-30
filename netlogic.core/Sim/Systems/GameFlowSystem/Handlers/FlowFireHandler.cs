@@ -13,7 +13,7 @@ namespace com.aqua.netlogic.sim.systems.gameflowsystem.handlers
         {
         }
 
-        public override void Handle(com.aqua.netlogic.sim.game.Game world, FlowIntentEngineCommand command)
+        public override void Handle(com.aqua.netlogic.sim.game.ServerModel world, FlowIntentEngineCommand command)
         {
             if (command.Intent == GameFlowIntent.None)
                 return;

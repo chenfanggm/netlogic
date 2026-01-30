@@ -7,16 +7,16 @@ namespace com.aqua.netlogic.sim.game
     /// Systems can record replication ops through the world without knowing transports.
     /// This is NOT serialized as part of the game state.
     /// </summary>
-    internal interface IWorldReplicator
+    internal interface IRepOpReplicator
     {
         void Record(in RepOp op);
     }
 
-    internal sealed class WorldReplicator : IWorldReplicator
+    internal sealed class RepOpReplicator : IRepOpReplicator
     {
         private readonly IReplicationRecorder _rec;
 
-        public WorldReplicator(IReplicationRecorder recorder)
+        public RepOpReplicator(IReplicationRecorder recorder)
         {
             _rec = recorder ?? throw new ArgumentNullException(nameof(recorder));
         }

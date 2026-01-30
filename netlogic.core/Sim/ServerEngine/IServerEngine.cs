@@ -12,7 +12,7 @@ namespace com.aqua.netlogic.sim.serverengine
     /// </summary>
     public interface IServerEngine
     {
-        com.aqua.netlogic.sim.game.Game ReadOnlyWorld { get; }
+        com.aqua.netlogic.sim.game.ServerModel ReadOnlyWorld { get; }
 
         int CurrentTick { get; }
 
@@ -29,7 +29,7 @@ namespace com.aqua.netlogic.sim.serverengine
 
         TickResult TickOnce(ServerTickContext ctx, bool includeSnapshot = false);
 
-        GameSnapshot BuildSnapshot();
+        ServerModelSnapshot BuildSnapshot();
 
         uint ComputeStateHash();
     }

@@ -7,9 +7,9 @@ namespace com.aqua.netlogic.net
     public static class StateHash
     {
         // FNV-1a 32-bit
-        public static uint ComputeWorldHash(Game world)
+        public static uint ComputeWorldHash(ServerModel world)
         {
-            return WorldHash.Compute(world);
+            return ServerModelHash.Compute(world);
         }
 
         public static uint ComputeEntitiesHash(EntityState[] entities)

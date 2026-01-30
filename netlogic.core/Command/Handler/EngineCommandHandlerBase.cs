@@ -14,7 +14,7 @@ namespace com.aqua.netlogic.command.handler
     {
         public TCommandType CommandType { get; } = commandType;
 
-        public void Handle(com.aqua.netlogic.sim.game.Game world, EngineCommand<TCommandType> command)
+        public void Handle(com.aqua.netlogic.sim.game.ServerModel world, EngineCommand<TCommandType> command)
         {
             if (command is TCommand typed)
                 Handle(world, typed);
@@ -22,6 +22,6 @@ namespace com.aqua.netlogic.command.handler
                 throw new InvalidOperationException($"Command {command.Type} is not of type {typeof(TCommand).Name}");
         }
 
-        public abstract void Handle(com.aqua.netlogic.sim.game.Game world, TCommand command);
+        public abstract void Handle(com.aqua.netlogic.sim.game.ServerModel world, TCommand command);
     }
 }

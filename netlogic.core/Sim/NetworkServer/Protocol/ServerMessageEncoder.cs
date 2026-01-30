@@ -24,7 +24,7 @@ namespace com.aqua.netlogic.sim.networkserver.protocol
             Writer = writer ?? new NetDataWriter();
         }
 
-        public static BaselineMsg BuildBaseline(GameSnapshot snap)
+        public static BaselineMsg BuildBaseline(ServerModelSnapshot snap)
         {
             return BaselineBuilder.Build(snap);
         }
@@ -72,28 +72,28 @@ namespace com.aqua.netlogic.sim.networkserver.protocol
                         break;
 
                     case RepOpType.FlowSnapshot:
-                    {
-                        byte flowState = (byte)(op.A & 0xFF);
-                        byte roundState = (byte)((op.A >> 8) & 0xFF);
-                        byte lastCookMetTarget = (byte)((op.A >> 16) & 0xFF);
-                        byte cookAttemptsUsed = (byte)((op.A >> 24) & 0xFF);
+                        {
+                            byte flowState = (byte)(op.A & 0xFF);
+                            byte roundState = (byte)((op.A >> 8) & 0xFF);
+                            byte lastCookMetTarget = (byte)((op.A >> 16) & 0xFF);
+                            byte cookAttemptsUsed = (byte)((op.A >> 24) & 0xFF);
 
-                        OpsWriter.WriteFlowSnapshot(
-                            Writer,
-                            flowState,
-                            roundState,
-                            lastCookMetTarget,
-                            cookAttemptsUsed,
-                            op.B,
-                            op.C,
-                            op.D,
-                            op.E,
-                            op.F,
-                            op.G,
-                            op.H);
-                        opCount++;
-                        break;
-                    }
+                            OpsWriter.WriteFlowSnapshot(
+                                Writer,
+                                flowState,
+                                roundState,
+                                lastCookMetTarget,
+                                cookAttemptsUsed,
+                                op.B,
+                                op.C,
+                                op.D,
+                                op.E,
+                                op.F,
+                                op.G,
+                                op.H);
+                            opCount++;
+                            break;
+                        }
 
                     default:
                         break;

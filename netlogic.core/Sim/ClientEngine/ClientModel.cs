@@ -21,7 +21,7 @@ namespace com.aqua.netlogic.sim.clientengine
 
         public readonly FlowView Flow = new FlowView();
 
-        public void ResetFromSnapshot(GameSnapshot snap)
+        public void ResetFromSnapshot(ServerModelSnapshot snap)
         {
             if (snap == null) throw new ArgumentNullException(nameof(snap));
 

@@ -59,7 +59,7 @@ namespace com.aqua.netlogic.sim.networkserver
         public int CurrentServerTick => _engine.CurrentTick;
         public int TickRateHz => _tickRateHz;
 
-        public NetworkServer(com.aqua.netlogic.net.transport.IServerTransport transport, int tickRateHz, com.aqua.netlogic.sim.game.Game initialGame)
+        public NetworkServer(com.aqua.netlogic.net.transport.IServerTransport transport, int tickRateHz, com.aqua.netlogic.sim.game.ServerModel initialGame)
         {
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
             if (tickRateHz <= 0)
@@ -232,7 +232,7 @@ namespace com.aqua.netlogic.sim.networkserver
 
         private void SendBaseline(int connId)
         {
-            com.aqua.netlogic.sim.game.snapshot.GameSnapshot snap = _engine.BuildSnapshot();
+            com.aqua.netlogic.sim.game.snapshot.ServerModelSnapshot snap = _engine.BuildSnapshot();
 
             BaselineMsg msg = ServerMessageEncoder.BuildBaseline(snap);
             byte[] bytes = MsgCodec.EncodeBaseline(msg);

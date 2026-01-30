@@ -8,12 +8,12 @@ namespace com.aqua.netlogic.sim.serverengine
     /// </summary>
     public readonly struct BaselineResult
     {
-        public readonly GameSnapshot Snapshot;
+        public readonly ServerModelSnapshot Snapshot;
 
         public int ServerTick => Snapshot.ServerTick;
         public uint StateHash => Snapshot.StateHash;
 
-        public BaselineResult(GameSnapshot snapshot)
+        public BaselineResult(ServerModelSnapshot snapshot)
         {
             Snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
         }
