@@ -16,8 +16,6 @@ namespace com.aqua.netlogic.program.flowscript
     /// </summary>
     public sealed class PlayerFlowScript
     {
-        private readonly Action<GameFlowIntent, int> _fireIntent;
-        private readonly Action _move;
         private readonly ClientEngine? _clientEngine;
         private readonly RenderSimulator? _renderSim;
         private readonly int _playerEntityId;
@@ -26,6 +24,7 @@ namespace com.aqua.netlogic.program.flowscript
         private bool _selectedHat;
         private bool _wasInRound;
         private bool _completedRun;
+        private readonly IEventBus _eventBus;
 
         public PlayerFlowScript(
             IEventBus eventBus,
@@ -33,38 +32,10 @@ namespace com.aqua.netlogic.program.flowscript
             RenderSimulator? renderSim,
             int playerEntityId)
         {
-            _fireIntent = (intent, param0) =>
-            {
-                eventBus.Publish(new CommandEvent(
-                    new FlowIntentEngineCommand(intent, param0)));
-            };
-            _move = () =>
-            {
-                eventBus.Publish(new CommandEvent(
-                    new MoveByEngineCommand(entityId: playerEntityId, dx: 1, dy: 0)));
-            };
+            _eventBus = eventBus;
             _clientEngine = clientEngine;
             _renderSim = renderSim;
             _playerEntityId = playerEntityId;
-        }
-
-        public PlayerFlowScript(Action<GameFlowIntent, int> fireIntent, Action move)
-        {
-            _fireIntent = fireIntent;
-            _move = move;
-            _clientEngine = null;
-            _renderSim = null;
-            _playerEntityId = -1;
-        }
-
-        private void Move()
-        {
-            _move();
-        }
-
-        private void FireIntent(GameFlowIntent intent, int param0)
-        {
-            _fireIntent(intent, param0);
         }
 
         private void LogInRoundState(GameFlowState gameFlowState, double nowMs)
@@ -86,7 +57,8 @@ namespace com.aqua.netlogic.program.flowscript
                 return;
 
             if (_renderSim.ExitAfterVictoryAtMs > 0 && nowMs >= _renderSim.ExitAfterVictoryAtMs)
-                FireIntent(GameFlowIntent.ReturnToMenu, 0);
+                _eventBus.Publish(new CommandEvent(
+                    new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)));
         }
 
         public void Reset()
@@ -120,27 +92,32 @@ namespace com.aqua.netlogic.program.flowscript
             switch (gameFlowState)
             {
                 case GameFlowState.Boot:
-                    FireIntent(GameFlowIntent.ReturnToMenu, 0);
+                    _eventBus.Publish(new CommandEvent(
+                        new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)));
                     break;
 
                 case GameFlowState.MainMenu:
-                    FireIntent(GameFlowIntent.ClickNewGame, 0);
+                    _eventBus.Publish(new CommandEvent(
+                        new FlowIntentEngineCommand(GameFlowIntent.ClickNewGame, 0)));
                     break;
 
                 case GameFlowState.RunSetup:
                     if (!_selectedHat)
                     {
-                        FireIntent(GameFlowIntent.SelectChefHat, 1);
+                        _eventBus.Publish(new CommandEvent(
+                            new FlowIntentEngineCommand(GameFlowIntent.SelectChefHat, 1)));
                         _selectedHat = true;
                     }
                     else
                     {
-                        FireIntent(GameFlowIntent.ClickStartRun, 0);
+                        _eventBus.Publish(new CommandEvent(
+                            new FlowIntentEngineCommand(GameFlowIntent.ClickStartRun, 0)));
                     }
                     break;
 
                 case GameFlowState.LevelOverview:
-                    FireIntent(GameFlowIntent.ClickServeCustomer, 0);
+                    _eventBus.Publish(new CommandEvent(
+                        new FlowIntentEngineCommand(GameFlowIntent.ClickServeCustomer, 0)));
                     break;
 
                 case GameFlowState.InRound:
@@ -151,7 +128,8 @@ namespace com.aqua.netlogic.program.flowscript
                         if (_roundState.LastMoveAtMs < 0 || nowMs - _roundState.LastMoveAtMs >= 200)
                         {
                             _roundState.LastMoveAtMs = nowMs;
-                            Move();
+                            _eventBus.Publish(new CommandEvent(
+                                new MoveByEngineCommand(entityId: _playerEntityId, dx: 1, dy: 0)));
                         }
 
                         // After 1 second in-round, cook + continue in cycles to exit round.
@@ -160,12 +138,14 @@ namespace com.aqua.netlogic.program.flowscript
                             if (_roundState.WaitingForContinue)
                             {
                                 _roundState.WaitingForContinue = false;
-                                FireIntent(GameFlowIntent.ClickContinue, 0);
+                                _eventBus.Publish(new CommandEvent(
+                                    new FlowIntentEngineCommand(GameFlowIntent.ClickContinue, 0)));
                                 _roundState.CookCyclesCompleted++;
                             }
                             else if (_roundState.CookCyclesCompleted < 3)
                             {
-                                FireIntent(GameFlowIntent.ClickCook, 0);
+                                _eventBus.Publish(new CommandEvent(
+                                    new FlowIntentEngineCommand(GameFlowIntent.ClickCook, 0)));
                                 _roundState.WaitingForContinue = true;
                             }
                         }
@@ -175,7 +155,8 @@ namespace com.aqua.netlogic.program.flowscript
 
                 case GameFlowState.RunVictory:
                     if (!_completedRun)
-                        FireIntent(GameFlowIntent.ReturnToMenu, 0);
+                        _eventBus.Publish(new CommandEvent(
+                            new FlowIntentEngineCommand(GameFlowIntent.ReturnToMenu, 0)));
                     _completedRun = true;
                     Reset();
                     break;
