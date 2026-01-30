@@ -36,9 +36,7 @@ namespace com.aqua.netlogic.program.flowscript
         /// <summary>
         /// Call once per tick.
         /// </summary>
-        public void Step(
-            GameFlowState gameFlowState,
-            double nowMs)
+        public void Step(GameFlowState gameFlowState, double nowMs)
         {
             if (_completedRun && gameFlowState == GameFlowState.MainMenu)
                 return;
