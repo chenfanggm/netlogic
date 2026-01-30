@@ -34,7 +34,27 @@ namespace com.aqua.netlogic.program
     {
         public void Run(ProgramConfig config)
         {
-            const int playerConnId = 1;
+            // ---------------------
+            // Service Container
+            // ---------------------
+            ServiceCollection services = new ServiceCollection();
+            services.AddMessagePipe();
+            services.AddSingleton<IEventBus, MessagePipeEventBus>();
+            services.AddTransient<ClientEngine>();
+
+
+            IServiceProvider serviceProvider = services.BuildServiceProvider();
+            GlobalMessagePipe.SetProvider(serviceProvider);
+
+            // ---------------------
+            // Event Bus
+            // ---------------------
+            IEventBus eventBus = serviceProvider.GetRequiredService<IEventBus>();
+
+            // ---------------------
+            // Client Engine
+            // ---------------------
+            ClientEngine clientEngine = serviceProvider.GetRequiredService<ClientEngine>();
 
             // ---------------------
             // Create authoritative world
@@ -44,56 +64,43 @@ namespace com.aqua.netlogic.program
             int playerEntityId = playerEntity.Id;
 
             // ---------------------
-            // Create engine + client
+            // Server Engine
             // ---------------------
             ServerEngine serverEngine = new ServerEngine(world);
-            ServiceCollection services = new ServiceCollection();
-            services.AddMessagePipe();
-            services.AddSingleton<IEventBus, MessagePipeEventBus>();
-            services.AddTransient<ClientEngine>();
 
-            IServiceProvider serviceProvider = services.BuildServiceProvider();
-            GlobalMessagePipe.SetProvider(serviceProvider);
-            try
+            // ---------------------
+            // Bootstrap baseline (direct snapshot, no encode/decode)
+            // ---------------------
+            const int playerConnId = 1;
+            TickHarnessState harnessState = new TickHarnessState
             {
-                IEventBus eventBus = serviceProvider.GetRequiredService<IEventBus>();
-                ClientEngine clientEngine = serviceProvider.GetRequiredService<ClientEngine>();
+                ClientCmdSeq = 0,
+                LastClientFlowState = (GameFlowState)255,
+                ExitingInRound = false,
+                ExitMenuAtMs = -1,
+                ExitAfterVictoryAtMs = -1,
+                LastPrintAtMs = 0,
+            };
+            using IDisposable flowTransitionSub = eventBus.Subscribe(new FlowStateTransitionHandler(harnessState));
 
-                // ---------------------
-                // Bootstrap baseline (direct snapshot, no encode/decode)
-                // ---------------------
-                TickHarnessState harnessState = new TickHarnessState
-                {
-                    ClientCmdSeq = 0,
-                    LastClientFlowState = (GameFlowState)255,
-                    ExitingInRound = false,
-                    ExitMenuAtMs = -1,
-                    ExitAfterVictoryAtMs = -1,
-                    LastPrintAtMs = 0,
-                };
+            // ---------------------
+            // Bootstrap
+            // ---------------------
+            TickContext bootstrapCtx = new TickContext(serverTimeMs: 0, elapsedMsSinceLastTick: 0);
+            using TickResult bootstrapResult = serverEngine.TickOnce(bootstrapCtx, includeSnapshot: true);
+            clientEngine.Apply(bootstrapResult);
 
-                using IDisposable flowTransitionSub = eventBus.Subscribe(new FlowStateTransitionHandler(harnessState));
-
-                TickContext bootstrapCtx = new TickContext(serverTimeMs: 0, elapsedMsSinceLastTick: 0);
-                using TickResult bootstrapResult = serverEngine.TickOnce(bootstrapCtx, includeSnapshot: true);
-                clientEngine.Apply(bootstrapResult);
-
-                // ---------------------
-                // Drive ticks
-                // ---------------------
-                PlayerFlowScript flowScript = new PlayerFlowScript();
-                using CancellationTokenSource cts = new CancellationTokenSource();
-                if (config.MaxRunDuration.HasValue)
-                    cts.CancelAfter(config.MaxRunDuration.Value);
-                TickRunner runner = new TickRunner(config.TickRateHz);
-                runner.Run(
-                    onTick: (TickContext ctx) => OnTick(ctx, serverEngine, clientEngine, playerConnId, playerEntityId, flowScript, harnessState, cts),
-                    cts.Token);
-            }
-            finally
-            {
-                (serviceProvider as IDisposable)?.Dispose();
-            }
+            // ---------------------
+            // Drive ticks
+            // ---------------------
+            PlayerFlowScript flowScript = new PlayerFlowScript();
+            using CancellationTokenSource cts = new CancellationTokenSource();
+            if (config.MaxRunDuration.HasValue)
+                cts.CancelAfter(config.MaxRunDuration.Value);
+            TickRunner runner = new TickRunner(config.TickRateHz);
+            runner.Run(
+                   onTick: (TickContext ctx) => OnTick(ctx, serverEngine, clientEngine, playerConnId, playerEntityId, flowScript, harnessState, cts),
+                   cts.Token);
         }
 
         private static void OnTick(
@@ -108,7 +115,7 @@ namespace com.aqua.netlogic.program
         {
             // Tick engine
             using TickResult result = serverEngine.TickOnce(ctx);
-            
+
             // Apply ServerEngine output directly to ClientEngine.
             state.ResetFlowFlags();
             clientEngine.Apply(result);
