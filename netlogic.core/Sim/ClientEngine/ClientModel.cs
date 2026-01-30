@@ -20,7 +20,7 @@ namespace com.aqua.netlogic.sim.clientengine
 
         public readonly FlowView Flow = new FlowView();
 
-        public void ResetFromSnapshot(GameSnapshot snap, int serverTick)
+        public void ResetFromSnapshot(GameSnapshot snap)
         {
             if (snap == null) throw new ArgumentNullException(nameof(snap));
 
@@ -35,7 +35,7 @@ namespace com.aqua.netlogic.sim.clientengine
 
             Flow.ApplyFlowSnapshot(snap.Flow);
 
-            LastServerTick = serverTick;
+            LastServerTick = snap.ServerTick;
             LastStateHash = snap.StateHash;
         }
 

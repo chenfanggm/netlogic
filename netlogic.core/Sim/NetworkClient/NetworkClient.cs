@@ -92,8 +92,8 @@ namespace com.aqua.netlogic.sim.networkclient
                     if (MsgCodec.TryDecodeBaseline(packet.Payload, out BaselineMsg baseline))
                     {
                         com.aqua.netlogic.sim.game.snapshot.GameSnapshot snap =
-                            _decoder.DecodeBaselineToSnapshot(baseline, out int serverTick);
-                        Engine.ApplyBaselineSnapshot(snap, serverTick);
+                            _decoder.DecodeBaselineToSnapshot(baseline);
+                        Engine.ApplyBaselineSnapshot(snap);
                         _hasBaseline = true;
                         continue;
                     }

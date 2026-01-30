@@ -94,7 +94,7 @@ namespace com.aqua.netlogic.program
                 state.LastResyncAtMs = ctx.ServerTimeMs;
 
                 GameSnapshot resyncSnap = serverEngine.BuildSnapshot();
-                clientEngine.ApplyBaselineSnapshot(resyncSnap, serverEngine.CurrentTick);
+                clientEngine.ApplyBaselineSnapshot(resyncSnap);
             }
 
             // Tick engine

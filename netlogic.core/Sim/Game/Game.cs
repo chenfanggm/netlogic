@@ -130,17 +130,22 @@ namespace com.aqua.netlogic.sim.game
         public GameSnapshot Snapshot()
         {
             uint stateHash = WorldHash.Compute(this);
-            return Snapshot(stateHash);
+            return Snapshot(CurrentTick, stateHash);
         }
 
         public GameSnapshot Snapshot(uint stateHash)
+        {
+            return Snapshot(CurrentTick, stateHash);
+        }
+
+        public GameSnapshot Snapshot(int serverTick, uint stateHash)
         {
             List<SampleEntityPos> list = new List<SampleEntityPos>(128);
             foreach (Entity e in Entities)
                 list.Add(new SampleEntityPos(e.Id, e.X, e.Y, e.Hp));
 
             FlowSnapshot flow = BuildFlowSnapshot();
-            return new GameSnapshot(flow, list.ToArray(), stateHash);
+            return new GameSnapshot(flow, list.ToArray(), serverTick, stateHash);
         }
     }
 }

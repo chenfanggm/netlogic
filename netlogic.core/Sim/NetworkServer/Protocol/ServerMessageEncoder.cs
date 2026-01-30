@@ -24,9 +24,9 @@ namespace com.aqua.netlogic.sim.networkserver.protocol
             Writer = writer ?? new NetDataWriter();
         }
 
-        public static BaselineMsg BuildBaseline(GameSnapshot snap, int serverTick)
+        public static BaselineMsg BuildBaseline(GameSnapshot snap)
         {
-            return BaselineBuilder.Build(snap, serverTick);
+            return BaselineBuilder.Build(snap);
         }
 
         public void EncodeUnreliablePositionSnapshotsToWriter(ReadOnlySpan<RepOp> ops, out ushort opCount)

@@ -234,7 +234,7 @@ namespace com.aqua.netlogic.sim.networkserver
         {
             com.aqua.netlogic.sim.game.snapshot.GameSnapshot snap = _engine.BuildSnapshot();
 
-            BaselineMsg msg = ServerMessageEncoder.BuildBaseline(snap, _engine.CurrentTick);
+            BaselineMsg msg = ServerMessageEncoder.BuildBaseline(snap);
             byte[] bytes = MsgCodec.EncodeBaseline(msg);
 
             SendPacket(connId, Lane.Reliable, bytes);

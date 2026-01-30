@@ -18,7 +18,7 @@ namespace com.aqua.netlogic.sim.clientengine.protocol
     /// </summary>
     public sealed class ClientMessageDecoder
     {
-        public GameSnapshot DecodeBaselineToSnapshot(BaselineMsg baseline, out int serverTick)
+        public GameSnapshot DecodeBaselineToSnapshot(BaselineMsg baseline)
         {
             if (baseline == null) throw new ArgumentNullException(nameof(baseline));
 
@@ -48,8 +48,7 @@ namespace com.aqua.netlogic.sim.clientengine.protocol
                 ents[i] = new SampleEntityPos(e.Id, e.X, e.Y, e.Hp);
             }
 
-            serverTick = baseline.ServerTick;
-            return new GameSnapshot(flow, ents, baseline.StateHash);
+            return new GameSnapshot(flow, ents, baseline.ServerTick, baseline.StateHash);
         }
 
         public ReplicationUpdate DecodeServerOpsToUpdate(ServerOpsMsg msg, bool isReliableLane)
