@@ -120,8 +120,6 @@ namespace com.aqua.netlogic.sim.serverengine
 
         /// <summary>
         /// Builds an engine snapshot for baseline building / debug tools.
-        /// This is intentionally NOT part of TickResult to avoid coupling server tick output
-        /// to internal snapshot structures.
         /// </summary>
         public ServerModelSnapshot BuildSnapshot()
         {
