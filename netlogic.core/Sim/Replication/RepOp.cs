@@ -81,6 +81,79 @@ namespace com.aqua.netlogic.sim.replication
         }
 
         // -----------------------
+        // Flow + Runtime factories
+        // -----------------------
+
+        public static RepOp FlowStateSet(com.aqua.netlogic.sim.game.flow.GameFlowState state)
+            => new RepOp(RepOpType.FlowStateSet, p0: (int)state);
+
+        public static RepOp RunReset(uint seed = 1)
+            => new RepOp(RepOpType.RunReset, p0: unchecked((int)seed));
+
+        public static RepOp RunSelectedChefHatSet(int chefHatId)
+            => new RepOp(RepOpType.RunSelectedChefHatSet, p0: chefHatId);
+
+        public static RepOp RunLevelIndexSet(int levelIndex)
+            => new RepOp(RepOpType.RunLevelIndexSet, p0: levelIndex);
+
+        public static RepOp RunSeedSet(uint seed)
+            => new RepOp(RepOpType.RunSeedSet, p0: unchecked((int)seed));
+
+        public static RepOp RunRngResetFromSeed(uint seed)
+            => new RepOp(RepOpType.RunRngResetFromSeed, p0: unchecked((int)seed));
+
+        public static RepOp LevelReset()
+            => new RepOp(RepOpType.LevelReset);
+
+        public static RepOp LevelRefreshesRemainingSet(int refreshesRemaining)
+            => new RepOp(RepOpType.LevelRefreshesRemainingSet, p0: refreshesRemaining);
+
+        public static RepOp LevelPendingServeCustomerIndexSet(int index)
+            => new RepOp(RepOpType.LevelPendingServeCustomerIndexSet, p0: index);
+
+        public static RepOp LevelCustomerIdSet(int slotIndex, int customerId)
+            => new RepOp(RepOpType.LevelCustomerIdSet, p0: slotIndex, p1: customerId);
+
+        public static RepOp LevelCustomerServedSet(int slotIndex, bool served)
+            => new RepOp(RepOpType.LevelCustomerServedSet, p0: slotIndex, p1: served ? 1 : 0);
+
+        public static RepOp RoundReset()
+            => new RepOp(RepOpType.RoundReset);
+
+        public static RepOp RoundStateSet(com.aqua.netlogic.sim.game.flow.RoundState state)
+            => new RepOp(RepOpType.RoundStateSet, p0: (int)state);
+
+        public static RepOp RoundRoundIndexSet(int roundIndex)
+            => new RepOp(RepOpType.RoundRoundIndexSet, p0: roundIndex);
+
+        public static RepOp RoundCustomerIdSet(int customerId)
+            => new RepOp(RepOpType.RoundCustomerIdSet, p0: customerId);
+
+        public static RepOp RoundTargetScoreSet(int targetScore)
+            => new RepOp(RepOpType.RoundTargetScoreSet, p0: targetScore);
+
+        public static RepOp RoundCookAttemptsUsedSet(int used)
+            => new RepOp(RepOpType.RoundCookAttemptsUsedSet, p0: used);
+
+        public static RepOp RoundCumulativeScoreSet(int score)
+            => new RepOp(RepOpType.RoundCumulativeScoreSet, p0: score);
+
+        public static RepOp RoundLastCookSeqSet(int seq)
+            => new RepOp(RepOpType.RoundLastCookSeqSet, p0: seq);
+
+        public static RepOp RoundLastCookScoreDeltaSet(int delta)
+            => new RepOp(RepOpType.RoundLastCookScoreDeltaSet, p0: delta);
+
+        public static RepOp RoundLastCookMetTargetSet(bool met)
+            => new RepOp(RepOpType.RoundLastCookMetTargetSet, p0: met ? 1 : 0);
+
+        public static RepOp RoundIsRoundWonSet(bool won)
+            => new RepOp(RepOpType.RoundIsRoundWonSet, p0: won ? 1 : 0);
+
+        public static RepOp RoundIsRunLostSet(bool lost)
+            => new RepOp(RepOpType.RoundIsRunLostSet, p0: lost ? 1 : 0);
+
+        // -----------------------
         // Semantic accessors
         // -----------------------
 
@@ -107,6 +180,21 @@ namespace com.aqua.netlogic.sim.replication
         public int CumulativeScore => _p5;
         public int CookResultSeq => _p6;
         public int LastCookScoreDelta => _p7;
+
+        // -----------------------
+        // Flow + Runtime accessors
+        // -----------------------
+
+        public int IntValue0 => _p0;
+        public int IntValue1 => _p1;
+
+        public bool BoolValue0 => _p0 != 0;
+        public bool BoolValue1 => _p1 != 0;
+
+        public uint UIntValue0 => unchecked((uint)_p0);
+
+        public int SlotIndex => _p0;
+        public int CustomerIdValue => _p1;
 
         // Optional: allow codec layer to access raw ints without exposing names
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

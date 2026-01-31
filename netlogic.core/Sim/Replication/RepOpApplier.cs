@@ -1,3 +1,6 @@
+using com.aqua.netlogic.sim.game.flow;
+using com.aqua.netlogic.sim.game.runtime;
+
 namespace com.aqua.netlogic.sim.replication
 {
     /// <summary>
@@ -39,6 +42,128 @@ namespace com.aqua.netlogic.sim.replication
                         op.CumulativeScore,
                         op.CookResultSeq,
                         op.LastCookScoreDelta);
+                    return;
+            }
+
+            if (target is IRuntimeOpTarget runtimeTarget)
+                ApplyRuntime(runtimeTarget, op);
+        }
+
+        public static void ApplyRuntime(IRuntimeOpTarget t, in RepOp op)
+        {
+            switch (op.Type)
+            {
+                case RepOpType.FlowStateSet:
+                    t.FlowState = (GameFlowState)op.IntValue0;
+                    return;
+
+                // --------------------
+                // RunRuntime
+                // --------------------
+                case RepOpType.RunReset:
+                    t.Run.SelectedChefHatId = 0;
+                    t.Run.LevelIndex = 0;
+                    t.Run.RunSeed = 0;
+                    t.Run.Rng = new DeterministicRng(op.UIntValue0 == 0 ? 1u : op.UIntValue0);
+                    return;
+
+                case RepOpType.RunSelectedChefHatSet:
+                    t.Run.SelectedChefHatId = op.IntValue0;
+                    return;
+
+                case RepOpType.RunLevelIndexSet:
+                    t.Run.LevelIndex = op.IntValue0;
+                    return;
+
+                case RepOpType.RunSeedSet:
+                    t.Run.RunSeed = op.UIntValue0;
+                    return;
+
+                case RepOpType.RunRngResetFromSeed:
+                    t.Run.RunSeed = op.UIntValue0;
+                    t.Run.Rng = new DeterministicRng(t.Run.RunSeed);
+                    return;
+
+                // --------------------
+                // LevelRuntime
+                // --------------------
+                case RepOpType.LevelReset:
+                    t.Level.ResetForNewLevel();
+                    return;
+
+                case RepOpType.LevelRefreshesRemainingSet:
+                    t.Level.RefreshesRemaining = op.IntValue0;
+                    return;
+
+                case RepOpType.LevelPendingServeCustomerIndexSet:
+                    t.Level.PendingServeCustomerIndex = op.IntValue0;
+                    return;
+
+                case RepOpType.LevelCustomerIdSet:
+                    {
+                        int slot = op.SlotIndex;
+                        if ((uint)slot < (uint)t.Level.CustomerIds.Length)
+                            t.Level.CustomerIds[slot] = op.CustomerIdValue;
+                        return;
+                    }
+
+                case RepOpType.LevelCustomerServedSet:
+                    {
+                        int slot = op.SlotIndex;
+                        if ((uint)slot < (uint)t.Level.Served.Length)
+                            t.Level.Served[slot] = op.IntValue1 != 0;
+                        return;
+                    }
+
+                // --------------------
+                // RoundRuntime
+                // --------------------
+                case RepOpType.RoundReset:
+                    t.Round.ResetForNewRound();
+                    return;
+
+                case RepOpType.RoundStateSet:
+                    t.Round.State = (RoundState)op.IntValue0;
+                    return;
+
+                case RepOpType.RoundRoundIndexSet:
+                    t.Round.RoundIndex = op.IntValue0;
+                    return;
+
+                case RepOpType.RoundCustomerIdSet:
+                    t.Round.CustomerId = op.IntValue0;
+                    return;
+
+                case RepOpType.RoundTargetScoreSet:
+                    t.Round.TargetScore = op.IntValue0;
+                    return;
+
+                case RepOpType.RoundCookAttemptsUsedSet:
+                    t.Round.CookAttemptsUsed = op.IntValue0;
+                    return;
+
+                case RepOpType.RoundCumulativeScoreSet:
+                    t.Round.CumulativeScore = op.IntValue0;
+                    return;
+
+                case RepOpType.RoundLastCookSeqSet:
+                    t.Round.LastCookSeq = op.IntValue0;
+                    return;
+
+                case RepOpType.RoundLastCookScoreDeltaSet:
+                    t.Round.LastCookScoreDelta = op.IntValue0;
+                    return;
+
+                case RepOpType.RoundLastCookMetTargetSet:
+                    t.Round.LastCookMetTarget = op.BoolValue0;
+                    return;
+
+                case RepOpType.RoundIsRoundWonSet:
+                    t.Round.IsRoundWon = op.BoolValue0;
+                    return;
+
+                case RepOpType.RoundIsRunLostSet:
+                    t.Round.IsRunLost = op.BoolValue0;
                     return;
 
                 default:

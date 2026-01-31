@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
 using com.aqua.netlogic.net;
+using com.aqua.netlogic.sim.game.flow;
 using com.aqua.netlogic.sim.game.snapshot;
+using com.aqua.netlogic.sim.game.runtime;
 using com.aqua.netlogic.sim.replication;
+using com.aqua.netlogic.sim.serverengine;
 
 namespace com.aqua.netlogic.sim.clientengine
 {
@@ -10,7 +13,7 @@ namespace com.aqua.netlogic.sim.clientengine
     /// ClientModel = lightweight rebuildable state for rendering/UI.
     /// Seeds from a full snapshot, then applies RepOps (positions/lifecycle/flow).
     /// </summary>
-    public sealed class ClientModel : IRepOpTarget
+    public sealed class ClientModel : IRepOpTarget, IRuntimeOpTarget
     {
         public int LastServerTick { get; internal set; }
         public uint LastStateHash { get; internal set; }
@@ -20,6 +23,12 @@ namespace com.aqua.netlogic.sim.clientengine
         public IReadOnlyDictionary<int, EntityState> Entities => _entities;
 
         public readonly FlowView Flow = new FlowView();
+
+        public GameFlowState FlowState { get; set; } = GameFlowState.Boot;
+
+        public RunRuntime Run { get; } = new RunRuntime();
+        public LevelRuntime Level { get; } = new LevelRuntime();
+        public RoundRuntime Round { get; } = new RoundRuntime();
 
         public void ResetFromSnapshot(ServerModelSnapshot snap)
         {
@@ -85,6 +94,18 @@ namespace com.aqua.netlogic.sim.clientengine
                 lastCookMetTarget != 0);
 
             Flow.ApplyFlowSnapshot(flow);
+            FlowState = flow.FlowState;
+            Run.SelectedChefHatId = flow.SelectedChefHatId;
+            Run.LevelIndex = flow.LevelIndex;
+
+            Round.RoundIndex = flow.RoundIndex;
+            Round.TargetScore = flow.TargetScore;
+            Round.CumulativeScore = flow.CumulativeScore;
+            Round.CookAttemptsUsed = flow.CookAttemptsUsed;
+            Round.State = flow.RoundState;
+            Round.LastCookSeq = flow.CookResultSeq;
+            Round.LastCookScoreDelta = flow.LastCookScoreDelta;
+            Round.LastCookMetTarget = flow.LastCookMetTarget;
         }
 
         public void ApplyFlowFire(byte trigger, int param0)

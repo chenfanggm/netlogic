@@ -5,6 +5,7 @@ using com.aqua.netlogic.sim.game.flow;
 using com.aqua.netlogic.sim.game.snapshot;
 using com.aqua.netlogic.sim.game.entity;
 using com.aqua.netlogic.sim.replication;
+using com.aqua.netlogic.sim.serverengine;
 using com.aqua.netlogic.net;
 
 namespace com.aqua.netlogic.sim.game
@@ -12,7 +13,7 @@ namespace com.aqua.netlogic.sim.game
     /// <summary>
     /// The entry for complete game state
     /// </summary>
-    public sealed class ServerModel : IRepOpTarget
+public sealed class ServerModel : IRepOpTarget, IRuntimeOpTarget
     {
         // ------------------------------------------------------------------
         // Authoritative time
@@ -42,6 +43,12 @@ namespace com.aqua.netlogic.sim.game
             FlowManager = new GameFlowManager(this);
             GameFlow = new GameFlowController(this);
             RoundFlow = new RoundFlowController(this);
+        }
+
+        public GameFlowState FlowState
+        {
+            get => FlowManager.State;
+            set => FlowManager.SetStateInternal(value);
         }
 
         // ------------------------------------------------------------------
