@@ -8,10 +8,6 @@ namespace com.aqua.netlogic.sim.replication
     {
         None = 0,
 
-        // Flow (authoritative)
-        FlowFire = 10,
-        FlowSnapshot = 11,
-
         // Entity lifecycle (authoritative)
         EntitySpawned = 20,
         EntityDestroyed = 21,

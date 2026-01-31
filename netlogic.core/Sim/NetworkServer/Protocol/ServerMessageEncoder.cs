@@ -66,30 +66,6 @@ namespace com.aqua.netlogic.sim.networkserver.protocol
                         opCount++;
                         break;
 
-                    case RepOpType.FlowFire:
-                        OpsWriter.WriteFlowFire(Writer, op.Trigger, op.Param0);
-                        opCount++;
-                        break;
-
-                    case RepOpType.FlowSnapshot:
-                        {
-                            OpsWriter.WriteFlowSnapshot(
-                                Writer,
-                                op.FlowState,
-                                op.RoundState,
-                                op.LastCookMetTarget,
-                                op.CookAttemptsUsed,
-                                op.LevelIndex,
-                                op.RoundIndex,
-                                op.SelectedChefHatId,
-                                op.TargetScore,
-                                op.CumulativeScore,
-                                op.CookResultSeq,
-                                op.LastCookScoreDelta);
-                            opCount++;
-                            break;
-                        }
-
                     default:
                         break;
                 }

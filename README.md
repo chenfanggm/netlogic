@@ -41,7 +41,6 @@ This is the “handoff object” between server simulation and all downstream co
      - dispatches buffered commands into sink inboxes  
      - executes sinks in **stable order** (determinism)
      - handlers emit `RepOp` via `OpWriter` (emit + apply)
-   - optional view-op emission (e.g., `FlowSnapshot` if changed)
    - replication: ops are recorded as the authoritative log
    - `StateHash = ServerModelHash.Compute(world)`
 3. `TickOnce()` returns `TickResult` (ops + hash + optional snapshot)

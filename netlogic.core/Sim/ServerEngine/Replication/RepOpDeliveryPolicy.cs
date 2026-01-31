@@ -23,9 +23,7 @@ namespace com.aqua.netlogic.sim.serverengine.replication
             // Unreliable lane
             RepOpType.PositionSnapshot => Delivery.Unreliable,
 
-            // Reliable lane (flow/UI control)
-            RepOpType.FlowFire => Delivery.Reliable,
-            RepOpType.FlowSnapshot => Delivery.Reliable,
+            // Reliable lane (flow/runtime)
             RepOpType.FlowStateSet => Delivery.Reliable,
 
             // Reliable lane (run/runtime)

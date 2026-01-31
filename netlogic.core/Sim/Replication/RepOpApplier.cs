@@ -7,7 +7,6 @@ namespace com.aqua.netlogic.sim.replication
     /// <summary>
     /// The ONLY place that interprets RepOps.
     /// Authoritative ops mutate IAuthoritativeOpTarget (server + client).
-    /// View ops mutate IViewOpTarget (client only).
     /// </summary>
     public static class RepOpApplier
     {
@@ -154,31 +153,6 @@ namespace com.aqua.netlogic.sim.replication
 
                 case RepOpType.RoundIsRunLostSet:
                     t.Round.IsRunLost = op.BoolValue0;
-                    return;
-            }
-        }
-
-        public static void ApplyView(IViewOpTarget target, in RepOp op)
-        {
-            switch (op.Type)
-            {
-                case RepOpType.FlowSnapshot:
-                    target.ApplyFlowSnapshot(
-                        op.FlowState,
-                        op.RoundState,
-                        op.LastCookMetTarget,
-                        op.CookAttemptsUsed,
-                        op.LevelIndex,
-                        op.RoundIndex,
-                        op.SelectedChefHatId,
-                        op.TargetScore,
-                        op.CumulativeScore,
-                        op.CookResultSeq,
-                        op.LastCookScoreDelta);
-                    return;
-
-                case RepOpType.FlowFire:
-                    target.ApplyFlowFire(op.Trigger, op.Param0);
                     return;
             }
         }

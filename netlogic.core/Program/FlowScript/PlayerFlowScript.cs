@@ -35,7 +35,7 @@ namespace com.aqua.netlogic.program.flowscript
         /// </summary>
         public void Step()
         {
-            GameFlowState gameFlowState = (GameFlowState)_clientModel.Flow.FlowState;
+            GameFlowState gameFlowState = _clientModel.FlowState;
             double nowMs = _clientModel.NowMs;
             if (_completedRun) return;
 

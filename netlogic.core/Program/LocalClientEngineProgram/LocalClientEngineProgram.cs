@@ -126,7 +126,7 @@ namespace com.aqua.netlogic.program
                 flowScript.Step();
 
                 // Exit check (End the harness once flow reaches Exit or max run duration is reached)
-                GameFlowState clientFlowState = (GameFlowState)clientModel.Flow.FlowState;
+                GameFlowState clientFlowState = clientModel.FlowState;
                 if (clientFlowState == GameFlowState.Exit || (config.MaxRunDuration.HasValue
                     && TimeSpan.FromMilliseconds(ctx.NowMs) >= config.MaxRunDuration.Value))
                     cts.Cancel();

@@ -117,46 +117,6 @@ namespace com.aqua.netlogic.sim.clientengine.protocol
                             break;
                         }
 
-                    case OpType.FlowFire:
-                        {
-                            // Payload: [byte trigger][3 pad][int param0]
-                            byte trigger = r.GetByte();
-                            r.GetByte(); r.GetByte(); r.GetByte(); // pad
-                            int param0 = r.GetInt();
-                            rep = RepOp.FlowFire(trigger, param0);
-                            break;
-                        }
-
-                    case OpType.FlowSnapshot:
-                        {
-                            byte flowState = r.GetByte();
-                            byte roundState = r.GetByte();
-                            byte lastMetTarget = r.GetByte();
-                            byte cookAttemptsUsed = r.GetByte();
-
-                            int levelIndex = r.GetInt();
-                            int roundIndex = r.GetInt();
-                            int selectedChefHatId = r.GetInt();
-                            int targetScore = r.GetInt();
-                            int cumulativeScore = r.GetInt();
-                            int cookResultSeq = r.GetInt();
-                            int lastCookScoreDelta = r.GetInt();
-
-                            rep = RepOp.FlowSnapshot(
-                                flowState,
-                                roundState,
-                                lastMetTarget,
-                                cookAttemptsUsed,
-                                levelIndex,
-                                roundIndex,
-                                selectedChefHatId,
-                                targetScore,
-                                cumulativeScore,
-                                cookResultSeq,
-                                lastCookScoreDelta);
-                            break;
-                        }
-
                     default:
                         recognized = false;
                         break;

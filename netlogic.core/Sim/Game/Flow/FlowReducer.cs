@@ -22,7 +22,7 @@ namespace com.aqua.netlogic.sim.game.flow
             if (intent == GameFlowIntent.None)
                 return;
 
-            GameFlowState state = world.FlowManager.State; // transitional bridge until FlowState is stored directly
+            GameFlowState state = world.FlowState;
 
             // -----------------------------
             // Round-local intents (no top-level transition required)
@@ -245,7 +245,7 @@ namespace com.aqua.netlogic.sim.game.flow
 
         private static bool CanCook(ServerModel world)
         {
-            return world.FlowManager.State == GameFlowState.InRound
+            return world.FlowState == GameFlowState.InRound
                    && world.Round.State == RoundState.Prepare
                    && !world.Round.IsRunLost
                    && !world.Round.IsRoundWon;
@@ -294,7 +294,7 @@ namespace com.aqua.netlogic.sim.game.flow
 
         private static void ApplyContinue(ServerModel world, OpWriter ops)
         {
-            if (world.FlowManager.State != GameFlowState.InRound)
+            if (world.FlowState != GameFlowState.InRound)
                 return;
 
             if (world.Round.State != RoundState.OutcomeReady)

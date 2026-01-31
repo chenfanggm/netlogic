@@ -238,7 +238,6 @@ namespace com.aqua.netlogic.sim.clientengine
             {
                 RepOp op = ops[i];
                 RepOpApplier.ApplyAuthoritative(Model, op);
-                RepOpApplier.ApplyView(Model, op);
             }
 
             Model.LastServerTick = serverTick;

@@ -43,10 +43,6 @@ namespace com.aqua.netlogic.sim.serverengine
 
         private readonly IReplicationRecorder _replication;
 
-        // Flow replication (emit only on change)
-        private FlowSnapshot _lastFlowSnap;
-        private bool _hasLastFlowSnap;
-
         public ServerEngine(com.aqua.netlogic.sim.game.ServerModel initialGame)
         {
             _game = initialGame ?? throw new ArgumentNullException(nameof(initialGame));
@@ -73,8 +69,6 @@ namespace com.aqua.netlogic.sim.serverengine
             _currentTick = 0;
             _lastServerTimeMs = 0;
 
-            _lastFlowSnap = default;
-            _hasLastFlowSnap = false;
         }
 
         /// <summary>
@@ -96,10 +90,7 @@ namespace com.aqua.netlogic.sim.serverengine
             // 2) Time-based rules (cooldowns/buffs/etc.) -> ops
             RulesReducer.ApplyTick(tick, _game, opsWriter);
 
-            // 3) Optional view-op: emit FlowSnapshot if changed (presentation convenience)
-            EmitFlowSnapshotViewOpIfChanged(_game, opsWriter);
-
-            // 4) Finalize
+            // 3) Finalize
             RepOpBatch ops = _replication.EndTickAndFlush();
 
             // 5) World hash AFTER applying tick
@@ -128,32 +119,6 @@ namespace com.aqua.netlogic.sim.serverengine
         public uint ComputeStateHash()
         {
             return com.aqua.netlogic.sim.game.ServerModelHash.Compute(_game);
-        }
-
-        private void EmitFlowSnapshotViewOpIfChanged(
-            com.aqua.netlogic.sim.game.ServerModel world,
-            OpWriter ops)
-        {
-            FlowSnapshot flow = world.BuildFlowSnapshot();
-
-            if (_hasLastFlowSnap && _lastFlowSnap == flow)
-                return;
-
-            _hasLastFlowSnap = true;
-            _lastFlowSnap = flow;
-
-            ops.Emit(RepOp.FlowSnapshot(
-                flowState: (byte)flow.FlowState,
-                roundState: (byte)flow.RoundState,
-                lastCookMetTarget: (byte)(flow.LastCookMetTarget ? 1 : 0),
-                cookAttemptsUsed: (byte)flow.CookAttemptsUsed,
-                levelIndex: flow.LevelIndex,
-                roundIndex: flow.RoundIndex,
-                selectedChefHatId: flow.SelectedChefHatId,
-                targetScore: flow.TargetScore,
-                cumulativeScore: flow.CumulativeScore,
-                cookResultSeq: flow.CookResultSeq,
-                lastCookScoreDelta: flow.LastCookScoreDelta));
         }
 
         public void EnqueueCommands(

@@ -13,10 +13,7 @@ namespace com.aqua.netlogic.net
         EntityDestroyed = 11,
 
         // Server -> Client (Unreliable)
-        PositionSnapshot = 50,
-
-        // Server -> Client (Reliable)
-        FlowSnapshot = 60
+        PositionSnapshot = 50
     }
 
     public static class OpsWriter
@@ -72,41 +69,6 @@ namespace com.aqua.netlogic.net
             w.Put(entityId);
         }
 
-        // Payload (32 bytes):
-        // [byte flowState][byte roundState][byte lastMetTarget][byte attemptsUsed]
-        // [int levelIndex][int roundIndex][int selectedHatId]
-        // [int targetScore][int cumulativeScore]
-        // [int cookResultSeq][int lastCookScoreDelta]
-        public static void WriteFlowSnapshot(
-            NetDataWriter w,
-            byte flowState,
-            byte roundState,
-            byte lastMetTarget,
-            byte cookAttemptsUsed,
-            int levelIndex,
-            int roundIndex,
-            int selectedChefHatId,
-            int targetScore,
-            int cumulativeScore,
-            int cookResultSeq,
-            int lastCookScoreDelta)
-        {
-            w.Put((byte)OpType.FlowSnapshot);
-            w.Put((ushort)32);
-
-            w.Put(flowState);
-            w.Put(roundState);
-            w.Put(lastMetTarget);
-            w.Put(cookAttemptsUsed);
-
-            w.Put(levelIndex);
-            w.Put(roundIndex);
-            w.Put(selectedChefHatId);
-            w.Put(targetScore);
-            w.Put(cumulativeScore);
-            w.Put(cookResultSeq);
-            w.Put(lastCookScoreDelta);
-        }
     }
 
     public static class OpsReader

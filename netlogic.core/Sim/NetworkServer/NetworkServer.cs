@@ -108,7 +108,7 @@ namespace com.aqua.netlogic.sim.networkserver
             RunPeriodicBaselines(CurrentServerTick);
             MaybePrintNetMetrics(CurrentServerTick);
 
-            // Reliable lane: only reliable RepOps (e.g., FlowFire) are encoded here.
+            // Reliable lane: only reliable RepOps are encoded here.
             ConsumeReliableOps(result.Tick, part.Reliable);
 
             // Flush reliable streams (ack/replay lives here).

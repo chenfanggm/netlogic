@@ -42,44 +42,6 @@ namespace com.aqua.netlogic.sim.replication
         public static RepOp PositionSnapshot(int entityId, int x, int y)
             => new RepOp(RepOpType.PositionSnapshot, p0: entityId, p1: x, p2: y);
 
-        public static RepOp FlowFire(byte trigger, int param0 = 0)
-            => new RepOp(RepOpType.FlowFire, p0: trigger, p1: param0);
-
-        /// <summary>
-        /// FlowSnapshot packs 4 bytes into header int:
-        /// byte0=flowState, byte1=roundState, byte2=lastCookMetTarget, byte3=cookAttemptsUsed
-        /// </summary>
-        public static RepOp FlowSnapshot(
-            byte flowState,
-            byte roundState,
-            byte lastCookMetTarget,
-            byte cookAttemptsUsed,
-            int levelIndex,
-            int roundIndex,
-            int selectedChefHatId,
-            int targetScore,
-            int cumulativeScore,
-            int cookResultSeq,
-            int lastCookScoreDelta)
-        {
-            int header =
-                (flowState)
-                | (roundState << 8)
-                | (lastCookMetTarget << 16)
-                | (cookAttemptsUsed << 24);
-
-            return new RepOp(
-                RepOpType.FlowSnapshot,
-                p0: header,
-                p1: levelIndex,
-                p2: roundIndex,
-                p3: selectedChefHatId,
-                p4: targetScore,
-                p5: cumulativeScore,
-                p6: cookResultSeq,
-                p7: lastCookScoreDelta);
-        }
-
         // -----------------------
         // Flow + Runtime factories
         // -----------------------
@@ -171,23 +133,6 @@ namespace com.aqua.netlogic.sim.replication
         public int Y => _p2;
 
         public int Hp => _p3;
-
-        public byte Trigger => (byte)_p0;
-        public int Param0 => _p1;
-
-        // FlowSnapshot semantic fields
-        public byte FlowState => (byte)(_p0 & 0xFF);
-        public byte RoundState => (byte)((_p0 >> 8) & 0xFF);
-        public byte LastCookMetTarget => (byte)((_p0 >> 16) & 0xFF);
-        public byte CookAttemptsUsed => (byte)((_p0 >> 24) & 0xFF);
-
-        public int LevelIndex => _p1;
-        public int RoundIndex => _p2;
-        public int SelectedChefHatId => _p3;
-        public int TargetScore => _p4;
-        public int CumulativeScore => _p5;
-        public int CookResultSeq => _p6;
-        public int LastCookScoreDelta => _p7;
 
         // -----------------------
         // Flow + Runtime accessors

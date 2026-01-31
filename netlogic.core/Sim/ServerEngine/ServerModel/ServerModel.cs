@@ -12,9 +12,14 @@ using com.aqua.netlogic.net;
 namespace com.aqua.netlogic.sim.game
 {
     /// <summary>
-    /// The entry for complete game state
+    /// Authoritative game state container (FULL-OPS).
+    ///
+    /// Rules:
+    /// - Authoritative state must only change through RepOps applied via RepOpApplier.ApplyAuthoritative().
+    /// - ServerEngine will EmitAndApply ops for sequential dependencies.
+    /// - No controllers/managers should mutate state outside ops.
     /// </summary>
-public sealed class ServerModel : IAuthoritativeOpTarget
+    public sealed class ServerModel : IAuthoritativeOpTarget
     {
         // ------------------------------------------------------------------
         // Authoritative time
@@ -29,31 +34,18 @@ public sealed class ServerModel : IAuthoritativeOpTarget
         // ------------------------------------------------------------------
         // Authoritative flow state + runtime state containers
         // ------------------------------------------------------------------
+        public GameFlowState FlowState { get; set; } = GameFlowState.Boot;
 
         public RunRuntime Run { get; } = new RunRuntime();
         public LevelRuntime Level { get; } = new LevelRuntime();
         public RoundRuntime Round { get; } = new RoundRuntime();
 
-        // Controllers are rebuildable logic; not serialized
-        internal GameFlowManager FlowManager { get; }
-        internal GameFlowController GameFlow { get; }
-        internal RoundFlowController RoundFlow { get; }
-
         public ServerModel()
         {
-            FlowManager = new GameFlowManager(this);
-            GameFlow = new GameFlowController(this);
-            RoundFlow = new RoundFlowController(this);
-        }
-
-        public GameFlowState FlowState
-        {
-            get => FlowManager.State;
-            set => FlowManager.SetStateInternal(value);
         }
 
         // ------------------------------------------------------------------
-        // Entities (unchanged)
+        // Entities API
         // ------------------------------------------------------------------
 
         public IEnumerable<Entity> Entities => EntityManager.Entities;
@@ -67,27 +59,17 @@ public sealed class ServerModel : IAuthoritativeOpTarget
 
         public EntityState[] ToSnapshot() => EntityManager.ToSnapshot();
 
-        // Compatibility methods for existing ServerSim code
+        // Compatibility methods for existing code
         public bool TryGet(int id, out Entity e) => TryGetEntity(id, out e);
 
-        /// <summary>
-        /// Called once per server tick after systems have executed.
-        /// </summary>
-        public void Advance(int deltaTick)
+        // ------------------------------------------------------------------
+        // Snapshot (baseline/debug tools)
+        // ------------------------------------------------------------------
+
+        internal FlowSnapshot BuildFlowSnapshot()
         {
-            CurrentTick += deltaTick;
-
-            // Deterministic lifecycle step (enter/exit hooks, init state)
-            FlowManager.LifecycleStep();
-
-            // Put deterministic per-tick world logic here (regen, ai, projectiles, etc.)
-        }
-
-        public FlowSnapshot BuildFlowSnapshot()
-        {
-            // Keep it compact and always safe to read on client.
             return new FlowSnapshot(
-                flowState: FlowManager.State,
+                flowState: FlowState,
                 levelIndex: Run.LevelIndex,
                 roundIndex: Round.RoundIndex,
                 selectedChefHatId: Run.SelectedChefHatId,
@@ -121,6 +103,10 @@ public sealed class ServerModel : IAuthoritativeOpTarget
             return new ServerModelSnapshot(flow, list.ToArray(), serverTick, stateHash);
         }
 
+        // ------------------------------------------------------------------
+        // Authoritative op application
+        // ------------------------------------------------------------------
+
         public void ApplyEntitySpawned(int entityId, int x, int y, int hp)
         {
             EntityManager.CreateEntityWithId(entityId, x, y, hp);
@@ -135,8 +121,6 @@ public sealed class ServerModel : IAuthoritativeOpTarget
         {
             EntityManager.SetEntityPosition(entityId, x, y);
         }
-
-        
 
         public void ApplyEntityBuffSet(int entityId, BuffType buff, int remainingTicks)
         {
