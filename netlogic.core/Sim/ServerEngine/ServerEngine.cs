@@ -82,7 +82,7 @@ namespace com.aqua.netlogic.sim.serverengine
             _replication.BeginTick(tick);
 
             // Ops are now the source of truth for mutation.
-            OpWriter opsWriter = new OpWriter(_game, _replication);
+            OpWriter opsWriter = new OpWriter(_game, _replication, tick);
 
             // 1) Execute systems in stable order
             _commandSystem.Execute(tick, _game, opsWriter);
@@ -109,7 +109,8 @@ namespace com.aqua.netlogic.sim.serverengine
         /// </summary>
         public ServerModelSnapshot BuildSnapshot()
         {
-            return _game.Snapshot();
+            uint hash = com.aqua.netlogic.sim.game.ServerModelHash.Compute(_game);
+            return _game.Snapshot(CurrentTick, hash);
         }
 
         /// <summary>

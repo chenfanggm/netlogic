@@ -112,7 +112,7 @@ namespace com.aqua.netlogic.program
                 // ---------------------
                 // DETERMINISM CHECK
                 // ---------------------
-                uint serverHash = ServerModelHash.Compute(world);
+                uint serverHash = result.StateHash;
                 uint replayHash = ServerModelHash.Compute(replayWorld);
 
                 if (serverHash != replayHash)
@@ -121,6 +121,16 @@ namespace com.aqua.netlogic.program
                         $"[DeterminismViolation] Tick={result.Tick} " +
                         $"ServerHash={serverHash} ReplayHash={replayHash}");
                 }
+
+#if DEBUG
+                uint recomputed = ServerModelHash.Compute(world);
+                if (recomputed != serverHash)
+                {
+                    throw new InvalidOperationException(
+                        $"[ServerHashMismatch] Tick={result.Tick} " +
+                        $"TickResultHash={serverHash} RecomputedHash={recomputed}");
+                }
+#endif
 
                 // Simulate player movement
                 flowScript.Step();

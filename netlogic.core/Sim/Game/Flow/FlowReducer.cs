@@ -155,7 +155,7 @@ namespace com.aqua.netlogic.sim.game.flow
                 ops.EmitAndApply(RepOp.RunLevelIndexSet(1));
 
                 // Existing code uses: RunSeed = (uint)(CurrentTick + 12345)
-                uint seed = unchecked((uint)(world.CurrentTick + 12345));
+                uint seed = unchecked((uint)(ops.Tick + 12345));
                 ops.EmitAndApply(RepOp.RunRngResetFromSeed(seed)); // sets seed + rng deterministically
             }
 
