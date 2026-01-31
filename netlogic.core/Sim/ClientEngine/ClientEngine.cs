@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using com.aqua.netlogic.eventbus;
-using com.aqua.netlogic.sim.game.flow;
 using com.aqua.netlogic.sim.game.snapshot;
 using com.aqua.netlogic.sim.replication;
 using com.aqua.netlogic.sim.serverengine;
+using com.aqua.netlogic.sim.game.flow;
 
 namespace com.aqua.netlogic.sim.clientengine
 {
@@ -12,9 +12,10 @@ namespace com.aqua.netlogic.sim.clientengine
     /// ClientEngine = pure client-side state reconstruction core.
     /// Uses ClientModel (injected).
     ///
-    /// Consumes only client-facing replication primitives:
-    /// - GameSnapshot (baseline)
-    /// - ReplicationUpdate (RepOp[] + tick/hash/seq)
+    /// Consumes only typed replication primitives:
+    /// - BaselineResult (ServerModelSnapshot)
+    /// - TickResult (server tick output)
+    /// - ReplicationUpdate (decoded net update)
     ///
     /// No transport, no reliability, no wire decoding.
     /// </summary>
@@ -27,34 +28,37 @@ namespace com.aqua.netlogic.sim.clientengine
         public int PlayerConnId { get; set; } = -1;
 
         private uint _clientCmdSeq = 1;
-
-        /// <summary>
-        /// Client's lead (in ticks) when estimating requested tick for commands.
-        /// Last known server tick + InputLeadTicks = requestedClientTick hint.
-        /// </summary>
         private int _inputLeadTicks = 1;
 
-        /// <summary>
-        /// Set true after the first baseline/snapshot has been applied.
-        /// </summary>
         private bool _hasBaseline;
 
         // -----------------------------
         // Pending tick buffer (bounded)
         // -----------------------------
-        private readonly SortedDictionary<int, TickResult> _pendingTicks = new SortedDictionary<int, TickResult>();
+        private readonly SortedDictionary<int, BufferedTick> _pending = new SortedDictionary<int, BufferedTick>();
         private const int MaxPendingTicks = 120;
         private int _lastAppliedTick = -1;
 
-        /// <summary>
-        /// Client's best guess of when a command should take effect (server tick domain).
-        /// Uses only last known server tick + lead; no server clock access.
-        /// </summary>
+        private readonly struct BufferedTick
+        {
+            public readonly int Tick;
+            public readonly double ServerTimeMs;
+            public readonly uint StateHash;
+            public readonly RepOp[] Ops;
+
+            public BufferedTick(int tick, double serverTimeMs, uint stateHash, RepOp[] ops)
+            {
+                Tick = tick;
+                ServerTimeMs = serverTimeMs;
+                StateHash = stateHash;
+                Ops = ops;
+            }
+        }
+
         public int EstimateRequestedTick()
         {
             int baseTick = Model.LastServerTick;
-            if (baseTick < 0)
-                baseTick = 0;
+            if (baseTick < 0) baseTick = 0;
             return baseTick + _inputLeadTicks;
         }
 
@@ -67,26 +71,43 @@ namespace com.aqua.netlogic.sim.clientengine
             Model.LastServerTick = -1;
         }
 
+        // -----------------------------
+        // Baseline
+        // -----------------------------
+
         internal void ApplyBaselineSnapshot(ServerModelSnapshot snapshot)
         {
             if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+
+            // Baseline must explicitly set FlowState inside ResetFromSnapshot.
             Model.ResetFromSnapshot(snapshot);
-            if (Model.FlowState == default)
-                Model.FlowState = GameFlowState.Boot;
+
             _hasBaseline = true;
+
+            int tick = snapshot.ServerTick;
+            uint hash = snapshot.StateHash;
+
+            _lastAppliedTick = tick;
+            Model.LastServerTick = tick;
+            Model.LastStateHash = hash;
+
+            // Presentation bootstrap event (no fake "previous flow state").
+            _eventBus.Publish(new BaselineAppliedEvent(tick, hash));
+
+            // Any buffered ticks at/before baseline are invalid now.
+            ClearPendingUpTo(tick);
+            FlushPendingTicks();
         }
 
-        /// <summary>
-        /// Contract entrypoint: apply a baseline snapshot payload.
-        /// </summary>
         public void Apply(in BaselineResult baseline)
         {
             ApplyBaselineSnapshot(baseline.Snapshot);
         }
 
-        /// <summary>
-        /// Contract entrypoint: apply a TickResult that may include a baseline snapshot.
-        /// </summary>
+        // -----------------------------
+        // TickResult path (in-process or already-decoded)
+        // -----------------------------
+
         public void Apply(in TickResult result)
         {
             Model.NowMs = result.ServerTimeMs;
@@ -97,51 +118,66 @@ namespace com.aqua.netlogic.sim.clientengine
             if (result.Snapshot != null)
             {
                 ApplyBaselineSnapshot(result.Snapshot);
-
-                _lastAppliedTick = result.Tick;
-                Model.LastServerTick = result.Tick;
-                Model.LastStateHash = result.StateHash;
-
-                ClearPendingUpTo(result.Tick);
-                FlushPendingTicks();
                 return;
             }
 
+            ApplyOrdered(
+                tick: result.Tick,
+                serverTimeMs: result.ServerTimeMs,
+                stateHash: result.StateHash,
+                ops: result.Ops.Span);
+        }
+
+        // -----------------------------
+        // ReplicationUpdate path (decoded net)
+        // -----------------------------
+
+        internal void ApplyReplicationUpdate(ReplicationUpdate update)
+        {
+            ApplyOrdered(
+                tick: update.ServerTick,
+                serverTimeMs: Model.NowMs,
+                stateHash: update.StateHash,
+                ops: update.Ops);
+        }
+
+        // -----------------------------
+        // Unified ordering + buffering
+        // -----------------------------
+
+        private void ApplyOrdered(int tick, double serverTimeMs, uint stateHash, ReadOnlySpan<RepOp> ops)
+        {
             if (!_hasBaseline)
             {
-                BufferTick(result);
+                BufferOwned(tick, serverTimeMs, stateHash, ops);
                 return;
             }
 
             if (_lastAppliedTick < 0)
                 _lastAppliedTick = Model.LastServerTick;
 
-            if (result.Tick == _lastAppliedTick + 1)
+            if (tick == _lastAppliedTick + 1)
             {
-                ApplyReplicationResult(result);
-                _lastAppliedTick = result.Tick;
+                ApplyOps(tick, serverTimeMs, stateHash, ops);
+                _lastAppliedTick = tick;
                 FlushPendingTicks();
                 return;
             }
 
-            BufferTick(result);
+            BufferOwned(tick, serverTimeMs, stateHash, ops);
             FlushPendingTicks();
         }
 
-        private void BufferTick(in TickResult result)
+        private void BufferOwned(int tick, double serverTimeMs, uint stateHash, ReadOnlySpan<RepOp> ops)
         {
-            TickResult owned = result.WithOwnedOps();
-            _pendingTicks[owned.Tick] = owned;
+            RepOp[] ownedOps = ops.Length == 0 ? Array.Empty<RepOp>() : ops.ToArray();
+            _pending[tick] = new BufferedTick(tick, serverTimeMs, stateHash, ownedOps);
 
-            while (_pendingTicks.Count > MaxPendingTicks)
+            while (_pending.Count > MaxPendingTicks)
             {
-                int oldestTick = FirstKey(_pendingTicks);
-                if (oldestTick == int.MinValue)
-                    break;
-
-                TickResult oldest = _pendingTicks[oldestTick];
-                oldest.Dispose();
-                _pendingTicks.Remove(oldestTick);
+                int oldest = FirstKey(_pending);
+                if (oldest == int.MinValue) break;
+                _pending.Remove(oldest);
             }
         }
 
@@ -153,91 +189,56 @@ namespace com.aqua.netlogic.sim.clientengine
             while (true)
             {
                 int nextTick = _lastAppliedTick + 1;
-                if (!_pendingTicks.TryGetValue(nextTick, out TickResult next))
+                if (!_pending.TryGetValue(nextTick, out BufferedTick next))
                     break;
 
-                _pendingTicks.Remove(nextTick);
-                ApplyReplicationResult(next);
+                _pending.Remove(nextTick);
+                ApplyOps(next.Tick, next.ServerTimeMs, next.StateHash, next.Ops);
                 _lastAppliedTick = nextTick;
-                next.Dispose();
             }
         }
 
         private void ClearPendingUpTo(int tickInclusive)
         {
-            if (_pendingTicks.Count == 0)
+            if (_pending.Count == 0)
                 return;
 
             List<int>? toRemove = null;
-            foreach (KeyValuePair<int, TickResult> kv in _pendingTicks)
+            foreach (KeyValuePair<int, BufferedTick> kv in _pending)
             {
                 if (kv.Key <= tickInclusive)
                 {
                     toRemove ??= new List<int>();
                     toRemove.Add(kv.Key);
                 }
-                else
-                    break;
+                else break;
             }
 
-            if (toRemove == null)
-                return;
+            if (toRemove == null) return;
 
             for (int i = 0; i < toRemove.Count; i++)
-            {
-                int k = toRemove[i];
-                TickResult r = _pendingTicks[k];
-                r.Dispose();
-                _pendingTicks.Remove(k);
-            }
+                _pending.Remove(toRemove[i]);
         }
 
-        private static int FirstKey(SortedDictionary<int, TickResult> dict)
+        private static int FirstKey(SortedDictionary<int, BufferedTick> dict)
         {
             foreach (int k in dict.Keys)
                 return k;
             return int.MinValue;
         }
 
-        /// <summary>
-        /// Contract entrypoint: apply one authoritative replication frame (ServerEngine output) directly.
-        ///
-        /// This bypasses wire encode/decode and is ideal for:
-        /// - in-process harnesses
-        /// - deterministic tests
-        /// - replay tools (already decoded)
-        ///
-        /// Baselines remain explicit via Apply(BaselineResult).
-        /// </summary>
-        private void ApplyReplicationResult(in TickResult result)
-        {
-            Model.NowMs = result.ServerTimeMs;
-            ReadOnlySpan<RepOp> ops = result.Ops.Span;
+        // -----------------------------
+        // Apply ops + derive presentation events
+        // -----------------------------
 
-            ApplyOps(result.Tick, result.StateHash, ops);
-        }
-
-        internal void ApplyReplicationUpdate(ReplicationUpdate update)
+        private void ApplyOps(int serverTick, double serverTimeMs, uint stateHash, ReadOnlySpan<RepOp> ops)
         {
-            RepOp[] ops = update.Ops;
-            ApplyOps(update.ServerTick, update.StateHash, ops);
-        }
-
-        private void ApplyOps(int serverTick, uint stateHash, ReadOnlySpan<RepOp> ops)
-        {
+            Model.NowMs = serverTimeMs;
             GameFlowState prevFlow = Model.FlowState;
-
-            if (ops.Length == 0)
-            {
-                Model.LastServerTick = serverTick;
-                Model.LastStateHash = stateHash;
-                return;
-            }
 
             for (int i = 0; i < ops.Length; i++)
             {
-                RepOp op = ops[i];
-                RepOpApplier.ApplyAuthoritative(Model, op);
+                RepOpApplier.ApplyAuthoritative(Model, ops[i]);
             }
 
             Model.LastServerTick = serverTick;
