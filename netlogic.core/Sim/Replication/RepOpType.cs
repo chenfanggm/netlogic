@@ -46,5 +46,9 @@ namespace com.aqua.netlogic.sim.replication
         RoundLastCookMetTargetSet = 139,
         RoundIsRoundWonSet = 140,
         RoundIsRunLostSet = 141,
+
+        // Entity runtime (authoritative)
+        EntityBuffSet = 200,
+        EntityCooldownSet = 201,
     }
 }

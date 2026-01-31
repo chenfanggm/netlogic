@@ -20,5 +20,8 @@ namespace com.aqua.netlogic.sim.replication
             int lastCookScoreDelta);
 
         void ApplyFlowFire(byte trigger, int param0);
+
+        void ApplyEntityBuffSet(int entityId, com.aqua.netlogic.sim.game.rules.BuffType buff, int remainingTicks);
+        void ApplyEntityCooldownSet(int entityId, com.aqua.netlogic.sim.game.rules.CooldownType cd, int remainingTicks);
     }
 }

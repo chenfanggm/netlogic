@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using com.aqua.netlogic.command;
 using com.aqua.netlogic.command.sink;
 using com.aqua.netlogic.sim.game;
+using com.aqua.netlogic.sim.game.rules;
 using com.aqua.netlogic.sim.game.snapshot;
 using com.aqua.netlogic.sim.replication;
 using com.aqua.netlogic.sim.systems.gameflowsystem;
@@ -92,13 +93,16 @@ namespace com.aqua.netlogic.sim.serverengine
             // 1) Execute systems in stable order
             _commandSystem.Execute(tick, _game, opsWriter);
 
-            // 2) Optional view-op: emit FlowSnapshot if changed (presentation convenience)
+            // 2) Time-based rules (cooldowns/buffs/etc.) -> ops
+            RulesReducer.ApplyTick(tick, _game, opsWriter);
+
+            // 3) Optional view-op: emit FlowSnapshot if changed (presentation convenience)
             EmitFlowSnapshotViewOpIfChanged(_game, opsWriter);
 
-            // 3) Finalize
+            // 4) Finalize
             RepOpBatch ops = _replication.EndTickAndFlush();
 
-            // 4) World hash AFTER applying tick
+            // 5) World hash AFTER applying tick
             uint worldHash = com.aqua.netlogic.sim.game.ServerModelHash.Compute(_game);
 
             return new TickResult(

@@ -54,6 +54,9 @@ namespace com.aqua.netlogic.sim.serverengine.replication
             RepOpType.RoundIsRoundWonSet => Delivery.Reliable,
             RepOpType.RoundIsRunLostSet => Delivery.Reliable,
 
+            RepOpType.EntityBuffSet => Delivery.Reliable,
+            RepOpType.EntityCooldownSet => Delivery.Reliable,
+
             RepOpType.None => Delivery.Reliable, // treat as reliable/no-op; should generally not appear
             _ => throw new InvalidOperationException($"Unclassified RepOpType delivery policy: {type}")
         };

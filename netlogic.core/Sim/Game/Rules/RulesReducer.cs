@@ -15,6 +15,7 @@
 //     RulesReducer.ApplyTick(tick, world, ops);  // time rules -> ops
 //
 using com.aqua.netlogic.sim.game;
+using com.aqua.netlogic.sim.game.entity;
 using com.aqua.netlogic.sim.replication;
 
 namespace com.aqua.netlogic.sim.game.rules
@@ -67,30 +68,15 @@ namespace com.aqua.netlogic.sim.game.rules
     {
         public static void ApplyTick(int tick, ServerModel world, OpWriter ops)
         {
-            // Example patterns:
-            // - Decrement cooldown timers on abilities/items/entities.
-            // - When cooldown reaches 0, emit an op like AbilityCooldownReady(entityId, abilityId).
-            //
-            // Required ops you might add later:
-            // - RepOp.CooldownSet(entityId, abilityId, remainingTicks)
-            // - RepOp.CooldownExpired(entityId, abilityId)
-            //
-            // Implementation strategy:
-            // - Iterate deterministic entity list order.
-            // - For each cooldown field:
-            //     if remaining > 0 => remaining-1 => ops.EmitAndApply(...)
-            //
-            // Pseudocode:
-            // foreach (var e in world.Entities.IterateInStableOrder())
-            // {
-            //     for each cooldown slot:
-            //         int rem = e.Cooldowns[i];
-            //         if (rem > 0)
-            //             ops.EmitAndApply(RepOp.CooldownSet(e.Id, i, rem - 1));
-            // }
+            foreach (Entity e in world.IterateEntitiesStable())
+            {
+                if (e.DashCooldownTicksRemaining > 0)
+                {
+                    int next = e.DashCooldownTicksRemaining - 1;
+                    ops.EmitAndApply(RepOp.EntityCooldownSet(e.Id, CooldownType.Dash, next));
+                }
+            }
             _ = tick;
-            _ = world;
-            _ = ops;
         }
     }
 
@@ -98,22 +84,15 @@ namespace com.aqua.netlogic.sim.game.rules
     {
         public static void ApplyTick(int tick, ServerModel world, OpWriter ops)
         {
-            // Example patterns:
-            // - Decrement buff durations.
-            // - Expire buffs and emit ops that remove their effects.
-            //
-            // Required ops you might add later:
-            // - RepOp.BuffDurationSet(entityId, buffId, remainingTicks)
-            // - RepOp.BuffRemoved(entityId, buffId)
-            // - RepOp.StatModifierRemoved(entityId, statId, amount) (if needed)
-            //
-            // Important: if buffs modify stats, prefer modelling as:
-            // - base stats are persistent
-            // - modifiers are explicit state updated by ops
-            // so client and server stay in lockstep.
+            foreach (Entity e in world.IterateEntitiesStable())
+            {
+                if (e.HasteTicksRemaining > 0)
+                {
+                    int next = e.HasteTicksRemaining - 1;
+                    ops.EmitAndApply(RepOp.EntityBuffSet(e.Id, BuffType.Haste, next));
+                }
+            }
             _ = tick;
-            _ = world;
-            _ = ops;
         }
     }
 

@@ -153,6 +153,14 @@ namespace com.aqua.netlogic.sim.replication
         public static RepOp RoundIsRunLostSet(bool lost)
             => new RepOp(RepOpType.RoundIsRunLostSet, p0: lost ? 1 : 0);
 
+        // Buff: remainingTicks (0 means removed)
+        public static RepOp EntityBuffSet(int entityId, com.aqua.netlogic.sim.game.rules.BuffType buff, int remainingTicks)
+            => new RepOp(RepOpType.EntityBuffSet, p0: entityId, p1: (int)buff, p2: remainingTicks);
+
+        // Cooldown: remainingTicks (0 means ready)
+        public static RepOp EntityCooldownSet(int entityId, com.aqua.netlogic.sim.game.rules.CooldownType cd, int remainingTicks)
+            => new RepOp(RepOpType.EntityCooldownSet, p0: entityId, p1: (int)cd, p2: remainingTicks);
+
         // -----------------------
         // Semantic accessors
         // -----------------------
@@ -195,6 +203,8 @@ namespace com.aqua.netlogic.sim.replication
 
         public int SlotIndex => _p0;
         public int CustomerIdValue => _p1;
+        public int RemainingTicks => _p2;
+        public int KindId => _p1;
 
         // Optional: allow codec layer to access raw ints without exposing names
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

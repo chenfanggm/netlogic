@@ -31,6 +31,8 @@ namespace com.aqua.netlogic.command.sink
             return new IEngineCommandHandler<EngineCommandType>[]
             {
                 new MoveByHandler(),
+                new DashHandler(),
+                new GrantHasteHandler(),
             };
         }
 

@@ -6,6 +6,8 @@ namespace com.aqua.netlogic.sim.game.entity
         public int X { get; set; }
         public int Y { get; set; }
         public int Hp { get; private set; }
+        public int HasteTicksRemaining { get; set; }
+        public int DashCooldownTicksRemaining { get; set; }
 
         public Entity(int id, int x, int y, int hp = 100)
         {
@@ -13,6 +15,8 @@ namespace com.aqua.netlogic.sim.game.entity
             X = x;
             Y = y;
             Hp = hp;
+            HasteTicksRemaining = 0;
+            DashCooldownTicksRemaining = 0;
         }
 
         public void MoveBy(int dx, int dy) => X += dx;

@@ -20,8 +20,19 @@ namespace com.aqua.netlogic.sim.systems.movementsystem.handlers
             if (!world.TryGet(command.EntityId, out Entity entity))
                 return;
 
-            int newX = entity.X + command.Dx;
-            int newY = entity.Y + command.Dy;
+            int dx = command.Dx;
+            int dy = command.Dy;
+
+            if (entity.HasteTicksRemaining > 0)
+            {
+                if (dx != 0)
+                    dx += dx > 0 ? 1 : -1;
+                else if (dy != 0)
+                    dy += dy > 0 ? 1 : -1;
+            }
+
+            int newX = entity.X + dx;
+            int newY = entity.Y + dy;
             ops.EmitAndApply(RepOp.PositionSnapshot(command.EntityId, newX, newY));
         }
     }

@@ -4,6 +4,7 @@ using com.aqua.netlogic.sim.game.runtime;
 using com.aqua.netlogic.sim.game.flow;
 using com.aqua.netlogic.sim.game.snapshot;
 using com.aqua.netlogic.sim.game.entity;
+using com.aqua.netlogic.sim.game.rules;
 using com.aqua.netlogic.sim.replication;
 using com.aqua.netlogic.sim.serverengine;
 using com.aqua.netlogic.net;
@@ -56,6 +57,8 @@ public sealed class ServerModel : IRepOpTarget, IRuntimeOpTarget
         // ------------------------------------------------------------------
 
         public IEnumerable<Entity> Entities => EntityManager.Entities;
+
+        public IEnumerable<Entity> IterateEntitiesStable() => EntityManager.Entities;
 
         public int AllocateEntityId() => EntityManager.AllocateEntityId();
 
@@ -164,6 +167,38 @@ public sealed class ServerModel : IRepOpTarget, IRuntimeOpTarget
         {
             GameFlowIntent intent = (GameFlowIntent)trigger;
             GameFlow.ApplyPlayerIntentFromCommand(intent, param0);
+        }
+
+        public void ApplyEntityBuffSet(int entityId, BuffType buff, int remainingTicks)
+        {
+            if (!EntityManager.TryGetEntity(entityId, out Entity entity))
+                return;
+
+            switch (buff)
+            {
+                case BuffType.Haste:
+                    entity.HasteTicksRemaining = remainingTicks;
+                    return;
+
+                default:
+                    return;
+            }
+        }
+
+        public void ApplyEntityCooldownSet(int entityId, CooldownType cd, int remainingTicks)
+        {
+            if (!EntityManager.TryGetEntity(entityId, out Entity entity))
+                return;
+
+            switch (cd)
+            {
+                case CooldownType.Dash:
+                    entity.DashCooldownTicksRemaining = remainingTicks;
+                    return;
+
+                default:
+                    return;
+            }
         }
     }
 }

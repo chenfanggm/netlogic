@@ -4,6 +4,7 @@ using com.aqua.netlogic.net;
 using com.aqua.netlogic.sim.game.flow;
 using com.aqua.netlogic.sim.game.snapshot;
 using com.aqua.netlogic.sim.game.runtime;
+using com.aqua.netlogic.sim.game.rules;
 using com.aqua.netlogic.sim.replication;
 using com.aqua.netlogic.sim.serverengine;
 
@@ -30,11 +31,16 @@ namespace com.aqua.netlogic.sim.clientengine
         public LevelRuntime Level { get; } = new LevelRuntime();
         public RoundRuntime Round { get; } = new RoundRuntime();
 
+        private readonly Dictionary<int, int> _hasteTicksRemaining = new Dictionary<int, int>();
+        private readonly Dictionary<int, int> _dashCooldownTicksRemaining = new Dictionary<int, int>();
+
         public void ResetFromSnapshot(ServerModelSnapshot snap)
         {
             if (snap == null) throw new ArgumentNullException(nameof(snap));
 
             _entities.Clear();
+            _hasteTicksRemaining.Clear();
+            _dashCooldownTicksRemaining.Clear();
 
             SampleEntityPos[] ents = snap.Entities;
             for (int i = 0; i < ents.Length; i++)
@@ -65,6 +71,8 @@ namespace com.aqua.netlogic.sim.clientengine
         public void ApplyEntityDestroyed(int id)
         {
             _entities.Remove(id);
+            _hasteTicksRemaining.Remove(id);
+            _dashCooldownTicksRemaining.Remove(id);
         }
 
         public void ApplyFlowSnapshot(
@@ -112,6 +120,28 @@ namespace com.aqua.netlogic.sim.clientengine
         {
             _ = trigger;
             _ = param0;
+        }
+
+        public void ApplyEntityBuffSet(int entityId, BuffType buff, int remainingTicks)
+        {
+            if (buff != BuffType.Haste)
+                return;
+
+            if (remainingTicks <= 0)
+                _hasteTicksRemaining.Remove(entityId);
+            else
+                _hasteTicksRemaining[entityId] = remainingTicks;
+        }
+
+        public void ApplyEntityCooldownSet(int entityId, CooldownType cd, int remainingTicks)
+        {
+            if (cd != CooldownType.Dash)
+                return;
+
+            if (remainingTicks <= 0)
+                _dashCooldownTicksRemaining.Remove(entityId);
+            else
+                _dashCooldownTicksRemaining[entityId] = remainingTicks;
         }
 
         public sealed class FlowView

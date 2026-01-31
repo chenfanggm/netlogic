@@ -1,5 +1,6 @@
 using com.aqua.netlogic.sim.game.flow;
 using com.aqua.netlogic.sim.game.runtime;
+using com.aqua.netlogic.sim.game.rules;
 
 namespace com.aqua.netlogic.sim.replication
 {
@@ -42,6 +43,14 @@ namespace com.aqua.netlogic.sim.replication
                         op.CumulativeScore,
                         op.CookResultSeq,
                         op.LastCookScoreDelta);
+                    return;
+
+                case RepOpType.EntityBuffSet:
+                    target.ApplyEntityBuffSet(op.EntityId, (BuffType)op.KindId, op.RemainingTicks);
+                    return;
+
+                case RepOpType.EntityCooldownSet:
+                    target.ApplyEntityCooldownSet(op.EntityId, (CooldownType)op.KindId, op.RemainingTicks);
                     return;
             }
 
