@@ -14,7 +14,7 @@ namespace com.aqua.netlogic.sim.clientengine
     /// ClientModel = lightweight rebuildable state for rendering/UI.
     /// Seeds from a full snapshot, then applies RepOps (positions/lifecycle/flow).
     /// </summary>
-    public sealed class ClientModel : IRepOpTarget, IRuntimeOpTarget
+    public sealed class ClientModel : IAuthoritativeOpTarget, IViewOpTarget
     {
         public int LastServerTick { get; internal set; }
         public uint LastStateHash { get; internal set; }

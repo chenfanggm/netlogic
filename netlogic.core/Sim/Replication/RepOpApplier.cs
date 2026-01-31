@@ -5,12 +5,13 @@ using com.aqua.netlogic.sim.game.rules;
 namespace com.aqua.netlogic.sim.replication
 {
     /// <summary>
-    /// The ONLY place that interprets RepOps and mutates a model.
-    /// Shared by ServerModel and ClientModel via IRepOpTarget.
+    /// The ONLY place that interprets RepOps.
+    /// Authoritative ops mutate IAuthoritativeOpTarget (server + client).
+    /// View ops mutate IViewOpTarget (client only).
     /// </summary>
     public static class RepOpApplier
     {
-        public static void Apply(IRepOpTarget target, in RepOp op)
+        public static void ApplyAuthoritative(IAuthoritativeOpTarget target, in RepOp op)
         {
             switch (op.Type)
             {
@@ -26,25 +27,6 @@ namespace com.aqua.netlogic.sim.replication
                     target.ApplyPositionSnapshot(op.EntityId, op.X, op.Y);
                     return;
 
-                case RepOpType.FlowFire:
-                    target.ApplyFlowFire(op.Trigger, op.Param0);
-                    return;
-
-                case RepOpType.FlowSnapshot:
-                    target.ApplyFlowSnapshot(
-                        op.FlowState,
-                        op.RoundState,
-                        op.LastCookMetTarget,
-                        op.CookAttemptsUsed,
-                        op.LevelIndex,
-                        op.RoundIndex,
-                        op.SelectedChefHatId,
-                        op.TargetScore,
-                        op.CumulativeScore,
-                        op.CookResultSeq,
-                        op.LastCookScoreDelta);
-                    return;
-
                 case RepOpType.EntityBuffSet:
                     target.ApplyEntityBuffSet(op.EntityId, (BuffType)op.KindId, op.RemainingTicks);
                     return;
@@ -54,8 +36,7 @@ namespace com.aqua.netlogic.sim.replication
                     return;
             }
 
-            if (target is IRuntimeOpTarget runtimeTarget)
-                ApplyRuntime(runtimeTarget, op);
+            ApplyRuntime(target, op);
         }
 
         public static void ApplyRuntime(IRuntimeOpTarget t, in RepOp op)
@@ -174,8 +155,30 @@ namespace com.aqua.netlogic.sim.replication
                 case RepOpType.RoundIsRunLostSet:
                     t.Round.IsRunLost = op.BoolValue0;
                     return;
+            }
+        }
 
-                default:
+        public static void ApplyView(IViewOpTarget target, in RepOp op)
+        {
+            switch (op.Type)
+            {
+                case RepOpType.FlowSnapshot:
+                    target.ApplyFlowSnapshot(
+                        op.FlowState,
+                        op.RoundState,
+                        op.LastCookMetTarget,
+                        op.CookAttemptsUsed,
+                        op.LevelIndex,
+                        op.RoundIndex,
+                        op.SelectedChefHatId,
+                        op.TargetScore,
+                        op.CumulativeScore,
+                        op.CookResultSeq,
+                        op.LastCookScoreDelta);
+                    return;
+
+                case RepOpType.FlowFire:
+                    target.ApplyFlowFire(op.Trigger, op.Param0);
                     return;
             }
         }

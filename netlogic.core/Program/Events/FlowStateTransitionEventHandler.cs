@@ -18,9 +18,6 @@ namespace com.aqua.netlogic.program
 
         public void Handle(GameFlowStateTransitionEvent message)
         {
-            Console.WriteLine(
-                $"[ClientModel] serverTick={message.ServerTick} FlowTo={message.To}");
-
             if (message.From == GameFlowState.InRound
                 && message.To != GameFlowState.InRound
                 && message.To != GameFlowState.MainMenu

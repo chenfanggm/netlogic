@@ -34,7 +34,7 @@ namespace com.aqua.netlogic.program
             // ---------------------
             ServerModel world = new ServerModel();
             int playerEntityId = world.AllocateEntityId();
-            RepOpApplier.Apply(world, RepOp.EntitySpawned(playerEntityId, x: 0, y: 0, hp: 100));
+            RepOpApplier.ApplyAuthoritative(world, RepOp.EntitySpawned(playerEntityId, x: 0, y: 0, hp: 100));
 
             // ---------------------
             // Server Engine

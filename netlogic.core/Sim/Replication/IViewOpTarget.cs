@@ -1,11 +1,12 @@
 namespace com.aqua.netlogic.sim.replication
 {
-    public interface IRepOpTarget
+    /// <summary>
+    /// View/presentation ops only.
+    /// These must NEVER be required for authoritative decisions.
+    /// Client may use them for UI/events.
+    /// </summary>
+    public interface IViewOpTarget
     {
-        void ApplyEntitySpawned(int entityId, int x, int y, int hp);
-        void ApplyEntityDestroyed(int entityId);
-        void ApplyPositionSnapshot(int entityId, int x, int y);
-
         void ApplyFlowSnapshot(
             byte flowState,
             byte roundState,
@@ -20,8 +21,5 @@ namespace com.aqua.netlogic.sim.replication
             int lastCookScoreDelta);
 
         void ApplyFlowFire(byte trigger, int param0);
-
-        void ApplyEntityBuffSet(int entityId, com.aqua.netlogic.sim.game.rules.BuffType buff, int remainingTicks);
-        void ApplyEntityCooldownSet(int entityId, com.aqua.netlogic.sim.game.rules.CooldownType cd, int remainingTicks);
     }
 }

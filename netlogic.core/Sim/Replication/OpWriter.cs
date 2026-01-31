@@ -22,7 +22,7 @@ namespace com.aqua.netlogic.sim.replication
         public void EmitAndApply(in RepOp op)
         {
             _recorder.Record(op);
-            RepOpApplier.Apply(_serverModel, op);
+            RepOpApplier.ApplyAuthoritative(_serverModel, op);
         }
     }
 }

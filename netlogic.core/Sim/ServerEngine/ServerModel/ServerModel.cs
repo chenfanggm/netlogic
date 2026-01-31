@@ -14,7 +14,7 @@ namespace com.aqua.netlogic.sim.game
     /// <summary>
     /// The entry for complete game state
     /// </summary>
-public sealed class ServerModel : IRepOpTarget, IRuntimeOpTarget
+public sealed class ServerModel : IAuthoritativeOpTarget
     {
         // ------------------------------------------------------------------
         // Authoritative time
@@ -136,38 +136,7 @@ public sealed class ServerModel : IRepOpTarget, IRuntimeOpTarget
             EntityManager.SetEntityPosition(entityId, x, y);
         }
 
-        public void ApplyFlowSnapshot(
-            byte flowState,
-            byte roundState,
-            byte lastCookMetTarget,
-            byte cookAttemptsUsed,
-            int levelIndex,
-            int roundIndex,
-            int selectedChefHatId,
-            int targetScore,
-            int cumulativeScore,
-            int cookResultSeq,
-            int lastCookScoreDelta)
-        {
-            FlowManager.SetStateInternal((GameFlowState)flowState);
-            Run.SelectedChefHatId = selectedChefHatId;
-            Run.LevelIndex = levelIndex;
-
-            Round.RoundIndex = roundIndex;
-            Round.TargetScore = targetScore;
-            Round.CumulativeScore = cumulativeScore;
-            Round.CookAttemptsUsed = cookAttemptsUsed;
-            Round.LastCookSeq = cookResultSeq;
-            Round.LastCookScoreDelta = lastCookScoreDelta;
-            Round.LastCookMetTarget = lastCookMetTarget != 0;
-            Round.State = (com.aqua.netlogic.sim.game.flow.RoundState)roundState;
-        }
-
-        public void ApplyFlowFire(byte trigger, int param0)
-        {
-            GameFlowIntent intent = (GameFlowIntent)trigger;
-            GameFlow.ApplyPlayerIntentFromCommand(intent, param0);
-        }
+        
 
         public void ApplyEntityBuffSet(int entityId, BuffType buff, int remainingTicks)
         {
