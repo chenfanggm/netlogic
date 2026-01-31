@@ -77,9 +77,9 @@ namespace com.aqua.netlogic.sim.serverengine
         }
 
         /// <summary>
-        /// Execute exactly one authoritative tick.
+        /// Execute exactly one authoritative tick (full-ops mode).
         /// </summary>
-        public TickResult TickOnce(ServerTickContext ctx, bool includeSnapshot = false)
+        public TickResult TickOnce(ServerTickContext ctx)
         {
             int tick = ++_currentTick;
             _lastServerTimeMs = ctx.NowMs;
@@ -92,28 +92,21 @@ namespace com.aqua.netlogic.sim.serverengine
             // 1) Execute systems in stable order
             _commandSystem.Execute(tick, _game, opsWriter);
 
-            // 2) Game fixed step (lifecycle + deterministic per-tick logic)
-            _game.Advance(1);
+            // 2) Optional view-op: emit FlowSnapshot if changed (presentation convenience)
+            EmitFlowSnapshotViewOpIfChanged(_game, opsWriter);
 
-            // 3) Flow replication: reliable flow snapshot when changed
-            FlowSnapshot flowSnapshot = _game.BuildFlowSnapshot();
-            EmitFlowIfChanged(flowSnapshot);
-
-            // 4) Finalize
+            // 3) Finalize
             RepOpBatch ops = _replication.EndTickAndFlush();
 
-            // 5) World hash AFTER applying tick
+            // 4) World hash AFTER applying tick
             uint worldHash = com.aqua.netlogic.sim.game.ServerModelHash.Compute(_game);
-
-            bool shouldIncludeSnapshot = includeSnapshot || tick == 1;
-            ServerModelSnapshot? snapshot = shouldIncludeSnapshot ? _game.Snapshot(tick, worldHash) : null;
 
             return new TickResult(
                 tick: tick,
                 serverTimeMs: _lastServerTimeMs,
                 stateHash: worldHash,
                 ops: ops,
-                snapshot: snapshot);
+                snapshot: null);
         }
 
         /// <summary>
@@ -133,15 +126,19 @@ namespace com.aqua.netlogic.sim.serverengine
             return com.aqua.netlogic.sim.game.ServerModelHash.Compute(_game);
         }
 
-        private void EmitFlowIfChanged(in FlowSnapshot flow)
+        private void EmitFlowSnapshotViewOpIfChanged(
+            com.aqua.netlogic.sim.game.ServerModel world,
+            OpWriter ops)
         {
+            FlowSnapshot flow = world.BuildFlowSnapshot();
+
             if (_hasLastFlowSnap && _lastFlowSnap == flow)
                 return;
 
             _hasLastFlowSnap = true;
             _lastFlowSnap = flow;
 
-            _replication.Record(RepOp.FlowSnapshot(
+            ops.Emit(RepOp.FlowSnapshot(
                 flowState: (byte)flow.FlowState,
                 roundState: (byte)flow.RoundState,
                 lastCookMetTarget: (byte)(flow.LastCookMetTarget ? 1 : 0),

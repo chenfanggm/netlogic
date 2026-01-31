@@ -72,6 +72,8 @@ namespace com.aqua.netlogic.program
             ClientEngine clientEngine = serviceProvider.GetRequiredService<ClientEngine>();
             ClientModel clientModel = serviceProvider.GetRequiredService<ClientModel>();
             clientEngine.PlayerConnId = 1;
+            BaselineResult baseline = new BaselineResult(serverEngine.BuildSnapshot());
+            clientEngine.Apply(baseline);
 
             // ---------------------
             // Drive ticks

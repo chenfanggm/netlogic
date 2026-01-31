@@ -1,4 +1,3 @@
-using com.aqua.netlogic.sim.game;
 using com.aqua.netlogic.sim.game.flow;
 using com.aqua.netlogic.sim.systems.gameflowsystem.commands;
 using com.aqua.netlogic.command.handler;
@@ -19,7 +18,7 @@ namespace com.aqua.netlogic.sim.systems.gameflowsystem.handlers
             if (command.Intent == GameFlowIntent.None)
                 return;
 
-            ops.EmitAndApply(RepOp.FlowFire((byte)command.Intent, command.Param0));
+            FlowReducer.ApplyPlayerIntent(world, ops, command.Intent, command.Param0);
         }
     }
 }
