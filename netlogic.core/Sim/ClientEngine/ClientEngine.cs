@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using com.aqua.netlogic.eventbus;
+using com.aqua.netlogic.sim.clientengine.ops;
 using com.aqua.netlogic.sim.game.snapshot;
 using com.aqua.netlogic.sim.replication;
 using com.aqua.netlogic.sim.serverengine;
-using com.aqua.netlogic.sim.game.flow;
 
 namespace com.aqua.netlogic.sim.clientengine
 {
@@ -31,6 +31,7 @@ namespace com.aqua.netlogic.sim.clientengine
         private int _inputLeadTicks = 1;
 
         private bool _hasBaseline;
+        private readonly ClientRepOpHandlers _opHandlers;
 
         // -----------------------------
         // Pending tick buffer (bounded)
@@ -69,6 +70,7 @@ namespace com.aqua.netlogic.sim.clientengine
             _eventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
             Model = model ?? throw new ArgumentNullException(nameof(model));
             Model.LastServerTick = -1;
+            _opHandlers = ClientRepOpHandlerBootstrap.CreateDefault();
         }
 
         // -----------------------------
@@ -234,24 +236,15 @@ namespace com.aqua.netlogic.sim.clientengine
         private void ApplyOps(int serverTick, double serverTimeMs, uint stateHash, ReadOnlySpan<RepOp> ops)
         {
             Model.NowMs = serverTimeMs;
-            GameFlowState prevFlow = Model.FlowState;
-
+            ClientOpContext ctx = new ClientOpContext(_eventBus, Model, serverTick);
             for (int i = 0; i < ops.Length; i++)
             {
-                RepOpApplier.ApplyAuthoritative(Model, ops[i]);
+                RepOp op = ops[i];
+                _opHandlers.Get(op.Type).Apply(ctx, op);
             }
 
             Model.LastServerTick = serverTick;
             Model.LastStateHash = stateHash;
-
-            GameFlowState nextFlow = Model.FlowState;
-            if (nextFlow != prevFlow)
-            {
-                _eventBus.Publish(new GameFlowStateTransitionEvent(
-                    prevFlow,
-                    nextFlow,
-                    serverTick));
-            }
         }
     }
 }
