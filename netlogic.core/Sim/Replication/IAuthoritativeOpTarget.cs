@@ -7,7 +7,7 @@ namespace com.aqua.netlogic.sim.replication
     /// Authoritative state mutations only.
     /// Must be safe to apply on BOTH server and client for lockstep reconstruction.
     /// </summary>
-    public interface IAuthoritativeOpTarget : IRuntimeOpTarget
+    internal interface IAuthoritativeOpTarget : IRuntimeOpTarget
     {
         // Entities
         void ApplyEntitySpawned(int entityId, int x, int y, int hp);

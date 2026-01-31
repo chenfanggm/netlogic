@@ -23,11 +23,17 @@ namespace com.aqua.netlogic.sim.clientengine
         private readonly Dictionary<int, EntityState> _entities = new Dictionary<int, EntityState>();
         public IReadOnlyDictionary<int, EntityState> Entities => _entities;
 
-        public GameFlowState FlowState { get; set; } = GameFlowState.Boot;
+        public GameFlowState FlowState { get; internal set; } = GameFlowState.Boot;
 
         public RunRuntime Run { get; } = new RunRuntime();
         public LevelRuntime Level { get; } = new LevelRuntime();
         public RoundRuntime Round { get; } = new RoundRuntime();
+
+        GameFlowState IRuntimeOpTarget.FlowState
+        {
+            get => FlowState;
+            set => FlowState = value;
+        }
 
         private readonly Dictionary<int, int> _hasteTicksRemaining = new Dictionary<int, int>();
         private readonly Dictionary<int, int> _dashCooldownTicksRemaining = new Dictionary<int, int>();

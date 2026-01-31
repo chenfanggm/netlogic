@@ -8,7 +8,7 @@ namespace com.aqua.netlogic.sim.replication
     /// The ONLY place that interprets RepOps.
     /// Authoritative ops mutate IAuthoritativeOpTarget (server + client).
     /// </summary>
-    public static class RepOpApplier
+    internal static class RepOpApplier
     {
         public static void ApplyAuthoritative(IAuthoritativeOpTarget target, in RepOp op)
         {
@@ -91,16 +91,18 @@ namespace com.aqua.netlogic.sim.replication
                 case RepOpType.LevelCustomerIdSet:
                     {
                         int slot = op.SlotIndex;
-                        if ((uint)slot < (uint)t.Level.CustomerIds.Length)
-                            t.Level.CustomerIds[slot] = op.CustomerIdValue;
+                        int[] ids = t.Level.CustomerIdsMutable;
+                        if ((uint)slot < (uint)ids.Length)
+                            ids[slot] = op.CustomerIdValue;
                         return;
                     }
 
                 case RepOpType.LevelCustomerServedSet:
                     {
                         int slot = op.SlotIndex;
-                        if ((uint)slot < (uint)t.Level.Served.Length)
-                            t.Level.Served[slot] = op.IntValue1 != 0;
+                        bool[] served = t.Level.ServedMutable;
+                        if ((uint)slot < (uint)served.Length)
+                            served[slot] = op.IntValue1 != 0;
                         return;
                     }
 

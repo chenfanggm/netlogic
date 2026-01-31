@@ -7,37 +7,37 @@ namespace com.aqua.netlogic.sim.game.runtime
     /// </summary>
     public sealed class RoundRuntime
     {
-        public RoundState State;
+        public RoundState State { get; internal set; }
 
         /// <summary>
         /// 1..3 within the current level.
         /// </summary>
-        public int RoundIndex;
+        public int RoundIndex { get; internal set; }
 
-        public int CustomerId;
-        public int TargetScore;
+        public int CustomerId { get; internal set; }
+        public int TargetScore { get; internal set; }
 
         /// <summary>
         /// 0..5 (you described 5 cook chances).
         /// </summary>
-        public int CookAttemptsUsed;
+        public int CookAttemptsUsed { get; internal set; }
 
-        public int CumulativeScore;
+        public int CumulativeScore { get; internal set; }
 
         // Last cook result (for client presentation triggers)
-        public int LastCookSeq;
-        public int LastCookScoreDelta;
-        public bool LastCookMetTarget;
+        public int LastCookSeq { get; internal set; }
+        public int LastCookScoreDelta { get; internal set; }
+        public bool LastCookMetTarget { get; internal set; }
 
         /// <summary>
         /// True when round is won and player can exit to LevelOverview.
         /// </summary>
-        public bool IsRoundWon;
+        public bool IsRoundWon { get; internal set; }
 
         /// <summary>
         /// True when run is lost (attempts exhausted and target not met).
         /// </summary>
-        public bool IsRunLost;
+        public bool IsRunLost { get; internal set; }
 
         public void ResetForNewRound()
         {

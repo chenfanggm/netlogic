@@ -22,11 +22,6 @@ namespace com.aqua.netlogic.sim.game
     public sealed class ServerModel : IAuthoritativeOpTarget
     {
         // ------------------------------------------------------------------
-        // Authoritative time
-        // ------------------------------------------------------------------
-        public int CurrentTick { get; internal set; }
-
-        // ------------------------------------------------------------------
         // Entities
         // ------------------------------------------------------------------
         internal EntityManager EntityManager { get; } = new EntityManager();
@@ -34,11 +29,17 @@ namespace com.aqua.netlogic.sim.game
         // ------------------------------------------------------------------
         // Authoritative flow state + runtime state containers
         // ------------------------------------------------------------------
-        public GameFlowState FlowState { get; set; } = GameFlowState.Boot;
+        public GameFlowState FlowState { get; internal set; } = GameFlowState.Boot;
 
         public RunRuntime Run { get; } = new RunRuntime();
         public LevelRuntime Level { get; } = new LevelRuntime();
         public RoundRuntime Round { get; } = new RoundRuntime();
+
+        GameFlowState IRuntimeOpTarget.FlowState
+        {
+            get => FlowState;
+            set => FlowState = value;
+        }
 
         public ServerModel()
         {
@@ -85,12 +86,12 @@ namespace com.aqua.netlogic.sim.game
         public ServerModelSnapshot Snapshot()
         {
             uint stateHash = ServerModelHash.Compute(this);
-            return Snapshot(CurrentTick, stateHash);
+            return Snapshot(serverTick: 0, stateHash: stateHash);
         }
 
         public ServerModelSnapshot Snapshot(uint stateHash)
         {
-            return Snapshot(CurrentTick, stateHash);
+            return Snapshot(serverTick: 0, stateHash: stateHash);
         }
 
         public ServerModelSnapshot Snapshot(int serverTick, uint stateHash)

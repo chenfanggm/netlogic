@@ -7,7 +7,7 @@ namespace com.aqua.netlogic.sim.replication
     /// Minimal state containers that flow/runtime ops mutate.
     /// Implemented by ServerModel and ClientModel (after we add runtime containers on client).
     /// </summary>
-    public interface IRuntimeOpTarget
+    internal interface IRuntimeOpTarget
     {
         GameFlowState FlowState { get; set; }
 
