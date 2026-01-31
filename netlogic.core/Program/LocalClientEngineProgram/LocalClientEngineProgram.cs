@@ -34,7 +34,17 @@ namespace com.aqua.netlogic.program
             // ---------------------
             ServerModel world = new ServerModel();
             int playerEntityId = world.AllocateEntityId();
-            RepOpApplier.ApplyAuthoritative(world, RepOp.EntitySpawned(playerEntityId, x: 0, y: 0, hp: 100));
+            RepOpApplier.ApplyAuthoritative(
+                world,
+                RepOp.EntitySpawned(playerEntityId, x: 0, y: 0, hp: 100));
+
+            // ---------------------
+            // Replay world (OPS ONLY)
+            // ---------------------
+            ServerModel replayWorld = new ServerModel();
+            RepOpApplier.ApplyAuthoritative(
+                replayWorld,
+                RepOp.EntitySpawned(playerEntityId, x: 0, y: 0, hp: 100));
 
             // ---------------------
             // Server Engine
@@ -89,6 +99,29 @@ namespace com.aqua.netlogic.program
                 using TickResult result = serverEngine.TickOnce(ctx);
                 // Update client model
                 clientEngine.Apply(result);
+
+                // ---------------------
+                // OPS-ONLY REPLAY
+                // ---------------------
+                ReadOnlySpan<RepOp> ops = result.Ops.Span;
+                for (int i = 0; i < ops.Length; i++)
+                {
+                    RepOpApplier.ApplyAuthoritative(replayWorld, ops[i]);
+                }
+
+                // ---------------------
+                // DETERMINISM CHECK
+                // ---------------------
+                uint serverHash = ServerModelHash.Compute(world);
+                uint replayHash = ServerModelHash.Compute(replayWorld);
+
+                if (serverHash != replayHash)
+                {
+                    throw new InvalidOperationException(
+                        $"[DeterminismViolation] Tick={result.Tick} " +
+                        $"ServerHash={serverHash} ReplayHash={replayHash}");
+                }
+
                 // Simulate player movement
                 flowScript.Step();
 
