@@ -97,7 +97,7 @@ This is the “handoff object” between server simulation and all downstream co
 - `Sim/NetworkServer/*`
   - owns transport, handshake, reliability (ack/replay), baseline policy
   - converts inbound client ops → commands → feeds `ServerEngine`
-  - converts `TickResult` → wire messages (reliable + unreliable lanes)
+  - converts `TickResult` → wire messages (MustHave + NiceHave lanes)
 - `Sim/NetworkClient/*`
   - owns client transport endpoint
   - decodes wire → baseline/ops → feeds `ClientEngine`
@@ -120,14 +120,14 @@ This is the “handoff object” between server simulation and all downstream co
 
 Replication is expressed as a stream of fixed-width `RepOp` records.
 
-- **Reliable ops**: things that must not be dropped (flow state, entity lifecycle)
-- **Unreliable snapshots**: presentation-only “latest wins” data (e.g. positions)
+- **MustHave ops**: things that must not be dropped (flow state, entity lifecycle)
+- **NiceHave snapshots**: presentation-only “latest wins” data (e.g. positions)
 
 `ClientEngine` currently applies both lanes by filtering over the same ops:
-- reliable pass: apply only “reliable” types
-- unreliable pass: apply only `PositionSnapshot`
+- MustHave pass: apply only “MustHave” types
+- NiceHave pass: apply only `PositionSnapshot`
 
-This keeps simulation truth on the server, while allowing “nice-to-have” updates to be drop-safe.
+This keeps simulation truth on the server, while allowing “NiceHave” updates to be drop-safe.
 
 ---
 
@@ -145,16 +145,16 @@ This keeps simulation truth on the server, while allowing “nice-to-have” upd
 ### 1) Make “contract types” explicit and minimal
 Right now `TickResult` is already close to the ideal contract. To tighten it further:
 - Consider a `ServerTickPacket` that **always** contains:
-  - `tick`, `hash`, `opsReliable`, `opsUnreliable`, optional `baselineSnapshot`
+  - `tick`, `hash`, `opsMustHave`, `opsNiceHave`, optional `baselineSnapshot`
 - This makes lane separation explicit and removes the client’s double-pass filtering.
 
-### 2) Separate reliable vs unreliable at recording time
+### 2) Separate MustHave vs NiceHave at recording time
 Today the client filters by `RepOpType`. Instead:
 - record into two buffers (or one buffer with two spans) on the server
 - encode/decode lanes independently
 Benefits:
 - less work on client (no second pass)
-- clearer semantics (“unreliable must never affect truth” becomes structural)
+- clearer semantics (“NiceHave must never affect truth” becomes structural)
 
 ### 3) Add a deterministic test harness (hash lockstep)
 You already compute `StateHash`. Use it to enforce determinism:
