@@ -1,6 +1,7 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using com.aqua.netlogic.sim.replication;
 
 namespace com.aqua.netlogic.sim.serverengine.replication
 {

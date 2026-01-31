@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using com.aqua.netlogic.sim.game;
 using com.aqua.netlogic.sim.serverengine;
 using com.aqua.netlogic.sim.serverengine.replication;
+using com.aqua.netlogic.sim.replication;
 using com.aqua.netlogic.net;
 using com.aqua.netlogic.net.transport;
 using com.aqua.netlogic.sim.clientengine.protocol;

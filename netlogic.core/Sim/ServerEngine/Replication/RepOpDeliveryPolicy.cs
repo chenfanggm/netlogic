@@ -1,4 +1,5 @@
 using System;
+using com.aqua.netlogic.sim.replication;
 
 namespace com.aqua.netlogic.sim.serverengine.replication
 {
@@ -32,11 +33,11 @@ namespace com.aqua.netlogic.sim.serverengine.replication
 
         /// <summary>
         /// For Unreliable ops only: returns a stable replace-key for coalescing (latest-wins) within a tick.
-        /// - PositionSnapshot uses entityId stored in A.
+        /// - PositionSnapshot uses entityId.
         /// </summary>
         public static int UnreliableReplaceKey(in RepOp op) => op.Type switch
         {
-            RepOpType.PositionSnapshot => op.A, // entityId
+            RepOpType.PositionSnapshot => op.EntityId,
             _ => 0
         };
     }

@@ -37,11 +37,12 @@ This is the “handoff object” between server simulation and all downstream co
 
 1. **Commands are buffered** by tick (players, bots, scripted server input)
 2. `TickOnce()` executes a deterministic pipeline:
-   - `CommandSystem.Execute(tick, world)`  
+   - `CommandSystem.Execute(tick, world, ops)`  
      - dispatches buffered commands into sink inboxes  
      - executes sinks in **stable order** (determinism)
+     - handlers emit `RepOp` via `OpWriter` (emit + apply)
    - `ServerModel.Advance(1)` fixed-step world progression
-   - replication: systems write `RepOp` via a transient `Replicator` hook
+   - replication: ops are recorded as the authoritative log
    - `StateHash = ServerModelHash.Compute(world)`
    - optional snapshot capture for baseline/debug
 3. `TickOnce()` returns `TickResult` (ops + hash + optional snapshot)

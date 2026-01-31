@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using com.aqua.netlogic.net;
 using com.aqua.netlogic.sim.game.snapshot;
-using com.aqua.netlogic.sim.serverengine;
+using com.aqua.netlogic.sim.replication;
 
 namespace com.aqua.netlogic.sim.clientengine
 {
@@ -10,7 +10,7 @@ namespace com.aqua.netlogic.sim.clientengine
     /// ClientModel = lightweight rebuildable state for rendering/UI.
     /// Seeds from a full snapshot, then applies RepOps (positions/lifecycle/flow).
     /// </summary>
-    public sealed class ClientModel
+    public sealed class ClientModel : IRepOpTarget
     {
         public int LastServerTick { get; internal set; }
         public uint LastStateHash { get; internal set; }
@@ -56,6 +56,41 @@ namespace com.aqua.netlogic.sim.clientengine
         public void ApplyEntityDestroyed(int id)
         {
             _entities.Remove(id);
+        }
+
+        public void ApplyFlowSnapshot(
+            byte flowState,
+            byte roundState,
+            byte lastCookMetTarget,
+            byte cookAttemptsUsed,
+            int levelIndex,
+            int roundIndex,
+            int selectedChefHatId,
+            int targetScore,
+            int cumulativeScore,
+            int cookResultSeq,
+            int lastCookScoreDelta)
+        {
+            FlowSnapshot flow = new FlowSnapshot(
+                (com.aqua.netlogic.sim.game.flow.GameFlowState)flowState,
+                levelIndex,
+                roundIndex,
+                selectedChefHatId,
+                targetScore,
+                cumulativeScore,
+                cookAttemptsUsed,
+                (com.aqua.netlogic.sim.game.flow.RoundState)roundState,
+                cookResultSeq,
+                lastCookScoreDelta,
+                lastCookMetTarget != 0);
+
+            Flow.ApplyFlowSnapshot(flow);
+        }
+
+        public void ApplyFlowFire(byte trigger, int param0)
+        {
+            _ = trigger;
+            _ = param0;
         }
 
         public sealed class FlowView

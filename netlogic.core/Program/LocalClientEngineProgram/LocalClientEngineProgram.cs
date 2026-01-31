@@ -6,10 +6,10 @@ using com.aqua.netlogic.command.events;
 using com.aqua.netlogic.sim.clientengine;
 using com.aqua.netlogic.sim.serverengine;
 using com.aqua.netlogic.sim.game;
-using com.aqua.netlogic.sim.game.entity;
 using com.aqua.netlogic.sim.game.flow;
 using com.aqua.netlogic.sim.timing;
 using com.aqua.netlogic.sim.clientengine.command;
+using com.aqua.netlogic.sim.replication;
 
 namespace com.aqua.netlogic.program
 {
@@ -33,8 +33,8 @@ namespace com.aqua.netlogic.program
             // Authoritative world
             // ---------------------
             ServerModel world = new ServerModel();
-            Entity playerEntity = world.CreateEntityAt(x: 0, y: 0);
-            int playerEntityId = playerEntity.Id;
+            int playerEntityId = world.AllocateEntityId();
+            RepOpApplier.Apply(world, RepOp.EntitySpawned(playerEntityId, x: 0, y: 0, hp: 100));
 
             // ---------------------
             // Server Engine

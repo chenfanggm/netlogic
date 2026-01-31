@@ -4,7 +4,7 @@ using com.aqua.netlogic.sim.game.runtime;
 using com.aqua.netlogic.sim.game.flow;
 using com.aqua.netlogic.sim.game.snapshot;
 using com.aqua.netlogic.sim.game.entity;
-using com.aqua.netlogic.sim.serverengine;
+using com.aqua.netlogic.sim.replication;
 using com.aqua.netlogic.net;
 
 namespace com.aqua.netlogic.sim.game
@@ -12,7 +12,7 @@ namespace com.aqua.netlogic.sim.game
     /// <summary>
     /// The entry for complete game state
     /// </summary>
-    public sealed class ServerModel
+    public sealed class ServerModel : IRepOpTarget
     {
         // ------------------------------------------------------------------
         // Authoritative time
@@ -23,17 +23,6 @@ namespace com.aqua.netlogic.sim.game
         // Entities
         // ------------------------------------------------------------------
         internal EntityManager EntityManager { get; } = new EntityManager();
-
-        // ------------------------------------------------------------------
-        // Transient per-tick output hook (set by engine)
-        // ------------------------------------------------------------------
-        internal IRepOpReplicator? Replicator { get; private set; }
-
-        internal void SetReplicator(IRepOpReplicator? replicator)
-        {
-            Replicator = replicator;
-        }
-
 
         // ------------------------------------------------------------------
         // Authoritative flow state + runtime state containers
@@ -61,40 +50,14 @@ namespace com.aqua.netlogic.sim.game
 
         public IEnumerable<Entity> Entities => EntityManager.Entities;
 
-        public Entity CreateEntityAt(int x, int y)
-        {
-            Entity e = EntityManager.CreateEntityAt(x, y);
-            if (Replicator != null)
-                Replicator.Record(com.aqua.netlogic.sim.serverengine.RepOp.EntitySpawned(e.Id, e.X, e.Y, e.Hp));
-            return e;
-        }
+        public int AllocateEntityId() => EntityManager.AllocateEntityId();
 
         public bool TryGetEntity(int id, out Entity entity) =>
             EntityManager.TryGetEntity(id, out entity);
 
         public EntityState[] ToSnapshot() => EntityManager.ToSnapshot();
 
-        public bool TryMoveEntityBy(int entityId, int dx, int dy)
-        {
-            bool ok = EntityManager.TryMoveEntityBy(entityId, dx, dy, out int newX, out int newY);
-            if (ok && Replicator != null)
-                Replicator.Record(com.aqua.netlogic.sim.serverengine.RepOp.PositionSnapshot(entityId, newX, newY));
-
-            return ok;
-        }
-
-        public bool TryRemoveEntity(int entityId)
-        {
-            bool ok = EntityManager.TryRemoveEntity(entityId);
-            if (ok && Replicator != null)
-                Replicator.Record(com.aqua.netlogic.sim.serverengine.RepOp.EntityDestroyed(entityId));
-
-            return ok;
-        }
-
         // Compatibility methods for existing ServerSim code
-        public Entity Spawn(int x, int y) => CreateEntityAt(x, y);
-
         public bool TryGet(int id, out Entity e) => TryGetEntity(id, out e);
 
         /// <summary>
@@ -146,6 +109,54 @@ namespace com.aqua.netlogic.sim.game
 
             FlowSnapshot flow = BuildFlowSnapshot();
             return new ServerModelSnapshot(flow, list.ToArray(), serverTick, stateHash);
+        }
+
+        public void ApplyEntitySpawned(int entityId, int x, int y, int hp)
+        {
+            EntityManager.CreateEntityWithId(entityId, x, y, hp);
+        }
+
+        public void ApplyEntityDestroyed(int entityId)
+        {
+            EntityManager.TryRemoveEntity(entityId);
+        }
+
+        public void ApplyPositionSnapshot(int entityId, int x, int y)
+        {
+            EntityManager.SetEntityPosition(entityId, x, y);
+        }
+
+        public void ApplyFlowSnapshot(
+            byte flowState,
+            byte roundState,
+            byte lastCookMetTarget,
+            byte cookAttemptsUsed,
+            int levelIndex,
+            int roundIndex,
+            int selectedChefHatId,
+            int targetScore,
+            int cumulativeScore,
+            int cookResultSeq,
+            int lastCookScoreDelta)
+        {
+            FlowManager.SetStateInternal((GameFlowState)flowState);
+            Run.SelectedChefHatId = selectedChefHatId;
+            Run.LevelIndex = levelIndex;
+
+            Round.RoundIndex = roundIndex;
+            Round.TargetScore = targetScore;
+            Round.CumulativeScore = cumulativeScore;
+            Round.CookAttemptsUsed = cookAttemptsUsed;
+            Round.LastCookSeq = cookResultSeq;
+            Round.LastCookScoreDelta = lastCookScoreDelta;
+            Round.LastCookMetTarget = lastCookMetTarget != 0;
+            Round.State = (com.aqua.netlogic.sim.game.flow.RoundState)roundState;
+        }
+
+        public void ApplyFlowFire(byte trigger, int param0)
+        {
+            GameFlowIntent intent = (GameFlowIntent)trigger;
+            GameFlow.ApplyPlayerIntentFromCommand(intent, param0);
         }
     }
 }

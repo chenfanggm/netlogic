@@ -1,8 +1,9 @@
 // FILE: netlogic.core/Sim/Systems/MovementSystem/Handlers/MoveByHandler.cs
 using com.aqua.netlogic.sim.game;
+using com.aqua.netlogic.sim.game.entity;
 using com.aqua.netlogic.sim.systems.movementsystem.commands;
 using com.aqua.netlogic.command.handler;
-using com.aqua.netlogic.sim.serverengine;
+using com.aqua.netlogic.sim.replication;
 
 namespace com.aqua.netlogic.sim.systems.movementsystem.handlers
 {
@@ -13,9 +14,14 @@ namespace com.aqua.netlogic.sim.systems.movementsystem.handlers
         {
         }
 
-        public override void Handle(com.aqua.netlogic.sim.game.ServerModel world, MoveByEngineCommand command)
+        public override void Handle(com.aqua.netlogic.sim.game.ServerModel world, OpWriter ops, MoveByEngineCommand command)
         {
-            world.TryMoveEntityBy(command.EntityId, command.Dx, command.Dy);
+            if (!world.TryGet(command.EntityId, out Entity entity))
+                return;
+
+            int newX = entity.X + command.Dx;
+            int newY = entity.Y + command.Dy;
+            ops.EmitAndApply(RepOp.PositionSnapshot(command.EntityId, newX, newY));
         }
     }
 }

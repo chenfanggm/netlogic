@@ -211,190 +211,50 @@ namespace com.aqua.netlogic.sim.clientengine
         {
             ReadOnlySpan<RepOp> ops = result.Ops.Span;
 
-            if (ops.Length == 0)
-            {
-                Model.LastServerTick = result.Tick;
-                Model.LastStateHash = result.StateHash;
-                return;
-            }
-
-            ApplyReplicationUpdateFiltered(
-                serverTick: result.Tick,
-                stateHash: result.StateHash,
-                isReliable: true,
-                ops: ops);
-
-            ApplyReplicationUpdateFiltered(
-                serverTick: result.Tick,
-                stateHash: result.StateHash,
-                isReliable: false,
-                ops: ops);
-
-            Model.LastServerTick = result.Tick;
-            Model.LastStateHash = result.StateHash;
-        }
-
-        private void ApplyReplicationUpdateFiltered(
-            int serverTick,
-            uint stateHash,
-            bool isReliable,
-            ReadOnlySpan<RepOp> ops)
-        {
-            bool any = false;
-
-            for (int i = 0; i < ops.Length; i++)
-            {
-                RepOp op = ops[i];
-
-                if (isReliable)
-                {
-                    if (!IsReliableType(op.Type))
-                        continue;
-                }
-                else
-                {
-                    if (op.Type != RepOpType.PositionSnapshot)
-                        continue;
-                }
-
-                any = true;
-
-                switch (op.Type)
-                {
-                    case RepOpType.PositionSnapshot:
-                        Model.ApplyPositionSnapshot(op.A, op.B, op.C);
-                        break;
-
-                    case RepOpType.EntitySpawned:
-                        Model.ApplyEntitySpawned(op.A, op.B, op.C, op.D);
-                        break;
-
-                    case RepOpType.EntityDestroyed:
-                        Model.ApplyEntityDestroyed(op.A);
-                        break;
-
-                    case RepOpType.FlowSnapshot:
-                        {
-                            GameFlowState previousFlowState = (GameFlowState)Model.Flow.FlowState;
-                            byte flowState = (byte)(op.A & 0xFF);
-                            byte roundState = (byte)((op.A >> 8) & 0xFF);
-                            byte lastCookMetTarget = (byte)((op.A >> 16) & 0xFF);
-                            byte cookAttemptsUsed = (byte)((op.A >> 24) & 0xFF);
-
-                            FlowSnapshot flow = new FlowSnapshot(
-                                (GameFlowState)flowState,
-                                op.B, // levelIndex
-                                op.C, // roundIndex
-                                op.D, // selectedChefHatId
-                                op.E, // targetScore
-                                op.F, // cumulativeScore
-                                cookAttemptsUsed,
-                                (com.aqua.netlogic.sim.game.flow.RoundState)roundState,
-                                op.G, // cookResultSeq
-                                op.H, // lastCookScoreDelta
-                                lastCookMetTarget != 0);
-
-                            Model.Flow.ApplyFlowSnapshot(flow);
-                            if (flow.FlowState != previousFlowState)
-                            {
-                                _eventBus.Publish(new GameFlowStateTransitionEvent(
-                                    previousFlowState,
-                                    flow.FlowState,
-                                    serverTick));
-                            }
-                            break;
-                        }
-
-                    case RepOpType.FlowFire:
-                        break;
-
-                    default:
-                        break;
-                }
-            }
-
-            if (!any)
-                return;
-
-            Model.LastServerTick = serverTick;
-            Model.LastStateHash = stateHash;
+            ApplyOps(result.Tick, result.StateHash, ops);
         }
 
         internal void ApplyReplicationUpdate(ReplicationUpdate update)
         {
             RepOp[] ops = update.Ops;
-            if (ops != null && ops.Length > 0)
-            {
-                for (int i = 0; i < ops.Length; i++)
-                {
-                    RepOp op = ops[i];
-
-                    switch (op.Type)
-                    {
-                        case RepOpType.PositionSnapshot:
-                            Model.ApplyPositionSnapshot(op.A, op.B, op.C);
-                            break;
-
-                        case RepOpType.EntitySpawned:
-                            Model.ApplyEntitySpawned(op.A, op.B, op.C, op.D);
-                            break;
-
-                        case RepOpType.EntityDestroyed:
-                            Model.ApplyEntityDestroyed(op.A);
-                            break;
-
-                        case RepOpType.FlowSnapshot:
-                            {
-                                GameFlowState previousFlowState = (GameFlowState)Model.Flow.FlowState;
-                                byte flowState = (byte)(op.A & 0xFF);
-                                byte roundState = (byte)((op.A >> 8) & 0xFF);
-                                byte lastCookMetTarget = (byte)((op.A >> 16) & 0xFF);
-                                byte cookAttemptsUsed = (byte)((op.A >> 24) & 0xFF);
-
-                                FlowSnapshot flow = new FlowSnapshot(
-                                    (GameFlowState)flowState,
-                                    op.B, // levelIndex
-                                    op.C, // roundIndex
-                                    op.D, // selectedChefHatId
-                                    op.E, // targetScore
-                                    op.F, // cumulativeScore
-                                    cookAttemptsUsed,
-                                    (com.aqua.netlogic.sim.game.flow.RoundState)roundState,
-                                    op.G, // cookResultSeq
-                                    op.H, // lastCookScoreDelta
-                                    lastCookMetTarget != 0);
-
-                                Model.Flow.ApplyFlowSnapshot(flow);
-                                if (flow.FlowState != previousFlowState)
-                                {
-                                    _eventBus.Publish(new GameFlowStateTransitionEvent(
-                                        previousFlowState,
-                                        flow.FlowState,
-                                        update.ServerTick));
-                                }
-                                break;
-                            }
-
-                        case RepOpType.FlowFire:
-                            // Optional: hook for client-side UI/FX.
-                            break;
-
-                        default:
-                            break;
-                    }
-                }
-            }
-
-            Model.LastServerTick = update.ServerTick;
-            Model.LastStateHash = update.StateHash;
+            ApplyOps(update.ServerTick, update.StateHash, ops);
         }
 
-        private static bool IsReliableType(RepOpType t)
+        private void ApplyOps(int serverTick, uint stateHash, ReadOnlySpan<RepOp> ops)
         {
-            return t == RepOpType.EntitySpawned
-                || t == RepOpType.EntityDestroyed
-                || t == RepOpType.FlowFire
-                || t == RepOpType.FlowSnapshot;
+            if (ops.Length == 0)
+            {
+                Model.LastServerTick = serverTick;
+                Model.LastStateHash = stateHash;
+                return;
+            }
+
+            for (int i = 0; i < ops.Length; i++)
+            {
+                RepOp op = ops[i];
+
+                if (op.Type == RepOpType.FlowSnapshot)
+                {
+                    GameFlowState previousFlowState = (GameFlowState)Model.Flow.FlowState;
+                    RepOpApplier.Apply(Model, op);
+
+                    GameFlowState nextFlowState = (GameFlowState)Model.Flow.FlowState;
+                    if (nextFlowState != previousFlowState)
+                    {
+                        _eventBus.Publish(new GameFlowStateTransitionEvent(
+                            previousFlowState,
+                            nextFlowState,
+                            serverTick));
+                    }
+
+                    continue;
+                }
+
+                RepOpApplier.Apply(Model, op);
+            }
+
+            Model.LastServerTick = serverTick;
+            Model.LastStateHash = stateHash;
         }
     }
 }

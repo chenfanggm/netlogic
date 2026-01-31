@@ -4,6 +4,7 @@ using com.aqua.netlogic.command;
 using com.aqua.netlogic.command.sink;
 using com.aqua.netlogic.sim.game;
 using com.aqua.netlogic.sim.game.snapshot;
+using com.aqua.netlogic.sim.replication;
 using com.aqua.netlogic.sim.systems.gameflowsystem;
 using com.aqua.netlogic.sim.systems.movementsystem;
 using com.aqua.netlogic.sim.timing;
@@ -85,11 +86,11 @@ namespace com.aqua.netlogic.sim.serverengine
 
             _replication.BeginTick(tick);
 
-            // Provide transient replication hook to systems for this tick.
-            _game.SetReplicator(new RepOpReplicator(_replication));
+            // Ops are now the source of truth for mutation.
+            OpWriter opsWriter = new OpWriter(_game, _replication);
 
             // 1) Execute systems in stable order
-            _commandSystem.Execute(tick, _game);
+            _commandSystem.Execute(tick, _game, opsWriter);
 
             // 2) Game fixed step (lifecycle + deterministic per-tick logic)
             _game.Advance(1);
@@ -100,9 +101,6 @@ namespace com.aqua.netlogic.sim.serverengine
 
             // 4) Finalize
             RepOpBatch ops = _replication.EndTickAndFlush();
-
-            // Clear transient hook
-            _game.SetReplicator(null);
 
             // 5) World hash AFTER applying tick
             uint worldHash = com.aqua.netlogic.sim.game.ServerModelHash.Compute(_game);

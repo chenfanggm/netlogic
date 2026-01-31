@@ -2,7 +2,7 @@ using System;
 using LiteNetLib.Utils;
 using com.aqua.netlogic.net;
 using com.aqua.netlogic.sim.game.snapshot;
-using com.aqua.netlogic.sim.serverengine;
+using com.aqua.netlogic.sim.replication;
 
 namespace com.aqua.netlogic.sim.networkserver.protocol
 {
@@ -39,7 +39,7 @@ namespace com.aqua.netlogic.sim.networkserver.protocol
                 RepOp op = ops[i];
                 if (op.Type == RepOpType.PositionSnapshot)
                 {
-                    OpsWriter.WritePositionSnapshot(Writer, op.A, op.B, op.C);
+                    OpsWriter.WritePositionSnapshot(Writer, op.EntityId, op.X, op.Y);
                     opCount++;
                 }
             }
@@ -57,40 +57,35 @@ namespace com.aqua.netlogic.sim.networkserver.protocol
                 switch (op.Type)
                 {
                     case RepOpType.EntitySpawned:
-                        OpsWriter.WriteEntitySpawned(Writer, op.A, op.B, op.C, op.D);
+                        OpsWriter.WriteEntitySpawned(Writer, op.EntityId, op.X, op.Y, op.Hp);
                         opCount++;
                         break;
 
                     case RepOpType.EntityDestroyed:
-                        OpsWriter.WriteEntityDestroyed(Writer, op.A);
+                        OpsWriter.WriteEntityDestroyed(Writer, op.EntityId);
                         opCount++;
                         break;
 
                     case RepOpType.FlowFire:
-                        OpsWriter.WriteFlowFire(Writer, (byte)op.A, op.B);
+                        OpsWriter.WriteFlowFire(Writer, op.Trigger, op.Param0);
                         opCount++;
                         break;
 
                     case RepOpType.FlowSnapshot:
                         {
-                            byte flowState = (byte)(op.A & 0xFF);
-                            byte roundState = (byte)((op.A >> 8) & 0xFF);
-                            byte lastCookMetTarget = (byte)((op.A >> 16) & 0xFF);
-                            byte cookAttemptsUsed = (byte)((op.A >> 24) & 0xFF);
-
                             OpsWriter.WriteFlowSnapshot(
                                 Writer,
-                                flowState,
-                                roundState,
-                                lastCookMetTarget,
-                                cookAttemptsUsed,
-                                op.B,
-                                op.C,
-                                op.D,
-                                op.E,
-                                op.F,
-                                op.G,
-                                op.H);
+                                op.FlowState,
+                                op.RoundState,
+                                op.LastCookMetTarget,
+                                op.CookAttemptsUsed,
+                                op.LevelIndex,
+                                op.RoundIndex,
+                                op.SelectedChefHatId,
+                                op.TargetScore,
+                                op.CumulativeScore,
+                                op.CookResultSeq,
+                                op.LastCookScoreDelta);
                             opCount++;
                             break;
                         }

@@ -1,7 +1,7 @@
 using System;
 using System.Buffers;
 
-namespace com.aqua.netlogic.sim.serverengine
+namespace com.aqua.netlogic.sim.replication
 {
     public interface IReplicationRecorder
     {

@@ -2,7 +2,7 @@ using com.aqua.netlogic.sim.game;
 using com.aqua.netlogic.sim.game.flow;
 using com.aqua.netlogic.sim.systems.gameflowsystem.commands;
 using com.aqua.netlogic.command.handler;
-using com.aqua.netlogic.sim.serverengine;
+using com.aqua.netlogic.sim.replication;
 
 namespace com.aqua.netlogic.sim.systems.gameflowsystem.handlers
 {
@@ -13,13 +13,12 @@ namespace com.aqua.netlogic.sim.systems.gameflowsystem.handlers
         {
         }
 
-        public override void Handle(com.aqua.netlogic.sim.game.ServerModel world, FlowIntentEngineCommand command)
+        public override void Handle(com.aqua.netlogic.sim.game.ServerModel world, OpWriter ops, FlowIntentEngineCommand command)
         {
             if (command.Intent == GameFlowIntent.None)
                 return;
 
-            // Single entry point: the flow controller validates + applies.
-            world.GameFlow.ApplyPlayerIntentFromCommand(command.Intent, command.Param0);
+            ops.EmitAndApply(RepOp.FlowFire((byte)command.Intent, command.Param0));
         }
     }
 }

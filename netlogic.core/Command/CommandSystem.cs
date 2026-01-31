@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using com.aqua.netlogic.sim.game;
 using com.aqua.netlogic.command.buffer;
 using com.aqua.netlogic.command.sink;
+using com.aqua.netlogic.sim.replication;
 
 
 namespace com.aqua.netlogic.command
@@ -77,13 +78,13 @@ namespace com.aqua.netlogic.command
         /// <summary>
         /// Execute sinks in stable order.
         /// </summary>
-        public void Execute(int tick, com.aqua.netlogic.sim.game.ServerModel world)
+        public void Execute(int tick, com.aqua.netlogic.sim.game.ServerModel world, OpWriter ops)
         {
             // 1) Dispatch inputs for this tick into sink inboxes (with phases)
             Dispatch(tick);
             // 2) Execute sinks in stable order
             for (int i = 0; i < _sinks.Length; i++)
-                _sinks[i].Execute(world);
+                _sinks[i].Execute(world, ops);
         }
 
         private void Dispatch(int tick)

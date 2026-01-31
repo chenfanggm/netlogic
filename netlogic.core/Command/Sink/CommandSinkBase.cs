@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using com.aqua.netlogic.command;
 using com.aqua.netlogic.command.handler;
 using com.aqua.netlogic.sim.game;
+using com.aqua.netlogic.sim.replication;
 
 namespace com.aqua.netlogic.command.sink
 {
@@ -67,27 +68,27 @@ namespace com.aqua.netlogic.command.sink
         /// <summary>
         /// Called by ServerEngine in stable order each tick.
         /// </summary>
-        public void Execute(com.aqua.netlogic.sim.game.ServerModel world)
+        public void Execute(com.aqua.netlogic.sim.game.ServerModel world, OpWriter ops)
         {
             for (int i = 0; i < _inbox.Count; i++)
             {
                 EngineCommand<TCommandType> command = _inbox[i];
                 if (_handlers.TryGetValue(command.Type, out IEngineCommandHandler<TCommandType>? handler) && handler != null)
-                    handler.Handle(world, command);
+                    handler.Handle(world, ops, command);
                 else
                     throw new InvalidOperationException($"No handler found for {command.Type} in system {GetType().Name}");
             }
 
             _inbox.Clear();
 
-            ExecuteAfterCommands(world);
+            ExecuteAfterCommands(world, ops);
         }
 
         /// <summary>
         /// If you want per-system additional logic before/after handler execute, do it here.
         /// Most systems can simply rely on command-driven execution.
         /// </summary>
-        protected virtual void ExecuteAfterCommands(com.aqua.netlogic.sim.game.ServerModel world) { }
+        protected virtual void ExecuteAfterCommands(com.aqua.netlogic.sim.game.ServerModel world, OpWriter ops) { }
 
         [Obsolete("Reflection-based handler discovery is disabled. Use EngineCommandHandlerRegistry and explicit registration.", error: true)]
         protected static IEngineCommandHandler<TCommandType>[] DiscoverHandlersForSystem(Type systemType)

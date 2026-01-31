@@ -35,7 +35,12 @@ namespace com.aqua.netlogic.sim.game.entity
             return e;
         }
 
-        public Entity CreateEntityAt(int entityId, int x, int y)
+        public int AllocateEntityId()
+        {
+            return _nextEntityId++;
+        }
+
+        public Entity CreateEntityWithId(int entityId, int x, int y, int hp)
         {
             if (_entities.TryGetValue(entityId, out Entity? existing) && existing != null)
                 return existing;
@@ -43,10 +48,19 @@ namespace com.aqua.netlogic.sim.game.entity
             if (_nextEntityId <= entityId)
                 _nextEntityId = entityId + 1;
 
-            Entity e = new Entity(entityId, x, y);
+            Entity e = new Entity(entityId, x, y, hp);
             _entities.Add(entityId, e);
             InsertSortedId(entityId);
             return e;
+        }
+
+        public void SetEntityPosition(int entityId, int x, int y)
+        {
+            if (_entities.TryGetValue(entityId, out Entity? entity) && entity != null)
+            {
+                entity.X = x;
+                entity.Y = y;
+            }
         }
 
         public bool TryGetEntity(int id, out Entity entity)

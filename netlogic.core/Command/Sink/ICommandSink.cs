@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using com.aqua.netlogic.command;
 using com.aqua.netlogic.sim.game;
+using com.aqua.netlogic.sim.replication;
 
 namespace com.aqua.netlogic.command.sink
 {
@@ -22,6 +23,6 @@ namespace com.aqua.netlogic.command.sink
         void InboxCommand(EngineCommand<TCommandType> command);
 
         /// <summary>Called by ServerEngine in stable order.</summary>
-        void Execute(com.aqua.netlogic.sim.game.ServerModel world);
+        void Execute(com.aqua.netlogic.sim.game.ServerModel world, OpWriter ops);
     }
 }

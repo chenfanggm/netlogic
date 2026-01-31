@@ -4,6 +4,7 @@
 using System;
 using com.aqua.netlogic.command;
 using com.aqua.netlogic.sim.game;
+using com.aqua.netlogic.sim.replication;
 
 namespace com.aqua.netlogic.command.handler
 {
@@ -14,14 +15,14 @@ namespace com.aqua.netlogic.command.handler
     {
         public TCommandType CommandType { get; } = commandType;
 
-        public void Handle(com.aqua.netlogic.sim.game.ServerModel world, EngineCommand<TCommandType> command)
+        public void Handle(com.aqua.netlogic.sim.game.ServerModel world, OpWriter ops, EngineCommand<TCommandType> command)
         {
             if (command is TCommand typed)
-                Handle(world, typed);
+                Handle(world, ops, typed);
             else
                 throw new InvalidOperationException($"Command {command.Type} is not of type {typeof(TCommand).Name}");
         }
 
-        public abstract void Handle(com.aqua.netlogic.sim.game.ServerModel world, TCommand command);
+        public abstract void Handle(com.aqua.netlogic.sim.game.ServerModel world, OpWriter ops, TCommand command);
     }
 }
