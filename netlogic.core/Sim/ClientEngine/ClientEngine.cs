@@ -71,6 +71,8 @@ namespace com.aqua.netlogic.sim.clientengine
         {
             if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
             Model.ResetFromSnapshot(snapshot);
+            if (Model.FlowState == default)
+                Model.FlowState = GameFlowState.Boot;
             _hasBaseline = true;
         }
 
@@ -209,6 +211,7 @@ namespace com.aqua.netlogic.sim.clientengine
         /// </summary>
         private void ApplyReplicationResult(in TickResult result)
         {
+            Model.NowMs = result.ServerTimeMs;
             ReadOnlySpan<RepOp> ops = result.Ops.Span;
 
             ApplyOps(result.Tick, result.StateHash, ops);
@@ -222,6 +225,8 @@ namespace com.aqua.netlogic.sim.clientengine
 
         private void ApplyOps(int serverTick, uint stateHash, ReadOnlySpan<RepOp> ops)
         {
+            GameFlowState prevFlow = Model.FlowState;
+
             if (ops.Length == 0)
             {
                 Model.LastServerTick = serverTick;
@@ -232,29 +237,20 @@ namespace com.aqua.netlogic.sim.clientengine
             for (int i = 0; i < ops.Length; i++)
             {
                 RepOp op = ops[i];
-
-                if (op.Type == RepOpType.FlowSnapshot)
-                {
-                    GameFlowState previousFlowState = (GameFlowState)Model.Flow.FlowState;
-                    RepOpApplier.Apply(Model, op);
-
-                    GameFlowState nextFlowState = (GameFlowState)Model.Flow.FlowState;
-                    if (nextFlowState != previousFlowState)
-                    {
-                        _eventBus.Publish(new GameFlowStateTransitionEvent(
-                            previousFlowState,
-                            nextFlowState,
-                            serverTick));
-                    }
-
-                    continue;
-                }
-
                 RepOpApplier.Apply(Model, op);
             }
 
             Model.LastServerTick = serverTick;
             Model.LastStateHash = stateHash;
+
+            GameFlowState nextFlow = Model.FlowState;
+            if (nextFlow != prevFlow)
+            {
+                _eventBus.Publish(new GameFlowStateTransitionEvent(
+                    prevFlow,
+                    nextFlow,
+                    serverTick));
+            }
         }
     }
 }
